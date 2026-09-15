@@ -1,0 +1,321 @@
+Profesor: El backend que va a generar la aplicación, ese debe estar 100% en Spring Boot.
+
+Estudiante: (Murmullo) Ya pues, cabrón...
+
+Profesor: El frontend que van a construir en el examen debe estar en Flutter.
+
+Estudiante: ¿Qué?
+
+Profesor: Flutter, el frontend de la aplicación móvil.
+
+Luego, obviamente, todo lo que se debe utilizar para desplegar la aplicación en el caso de...
+
+Estudiante: (Murmullo) Pinche vieja... cobra por eso...
+
+Profesor: Base de datos: Postgres. Y para todo lo que viene a ser los modelos, debe estar hecho en la capa... como elemento de entrada al backend.
+
+(Ruido de hojas y tos en el aula)
+
+Estudiante: (Murmullo) Su amiga...
+
+Profesor: ¿Qué más? ¿Tienen alguna otra pregunta?
+
+Estudiante: O sea... ¿va a entrar documentación?
+
+Profesor: ¿Quieren documentación? Bien, entonces vamos anotando la forma de cómo se va a evaluar el día del examen.
+
+(Pausa mientras anota en la pizarra)
+
+Como ya les había repetido previamente, el examen vale 100 puntos. Eso se va a evaluar en cuatro fases o pasos. Para llegar a tener 51, por lo menos deben vencer los cuatro pasos. Cumplen el primero, pasan al segundo; si no cumplen el primero, no tienen nada que hacer en el segundo y se acabó el examen. Y así sucesivamente.
+
+Estudiante: Pasamos de largo...
+
+Profesor: Vamos entonces definiendo en qué consiste cada paso. Pueden escribir.
+
+El primer paso consiste en lo que se denomina la documentación; la presentación de la documentación del proyecto. Esta documentación deben publicarla en la plataforma de la materia en formato PDF, como máximo el día del examen hasta las 8 de la mañana. Máximo ese mismo día del examen hasta las 8 de la mañana. Después de las 8 ya no sirve. Por más que traigan en la tarde o digan lo que sea, no cuenta. Solamente los que hayan publicado la documentación hasta las 8 de la mañana entran... bueno, entonces vienen al segundo paso.
+
+Pero sigamos en el primer paso y ahora comentemos en qué consiste esta documentación. La documentación va a tener las siguientes partes:
+
+(Anota en la pizarra)
+
+Les decía, la documentación tiene las siguientes partes. Vamos con la primera:
+
+La primera parte la denominamos Fundamentación Teórica. Apague ese celular. La fundamentación teórica, fíjense en su nombre, su título: el contenido debe hacer honor a ese título. ¿Qué significa? Que todo lo que vayan a implementar no es una cosa que se hayan imaginado, se hayan soñado o haya aparecido por arte de magia. Se supone que para hacer este trabajo tienen que investigar, optimizar muchas cosas para, obviamente, luego hacer un desarrollo que se ajuste justamente a los desafíos que he nombrado para hoy día.
+
+Quiero decir que deben leer —no que lean solo temas que son constantes—, pero más que leer, comprenderlos y aplicarlos. Tienen que aparecer... todos estos temas que van a escribir como fundamentación teórica deben aparecer reflejados en la aplicación que desarrollen.
+
+Vamos con el primer tema. Yo les voy a comentar algunos temas esenciales y ustedes van a complementar con los que probablemente consideraron ustedes pertinentes de investigar y luego aplicar en el proyecto. Pero los temas que les voy a comentar obligatoriamente tienen que ir; ustedes pueden complementar con otros que crean conveniente.
+
+Primer tema: Ingeniería de Software Asistida por Computadora. Pónganlo en inglés a ese título y miren su acrónimo, qué sale.
+
+(Pausa)
+
+¿Qué sale? Eso, CASE. CASE: Computer-Aided Software Engineering, Ingeniería de Software Asistida por Computadora.
+
+Entiendo y asumo que todos, absolutamente todos, conocen la herramienta CASE, ¿o no? ¿Cuál es la que más utilizaron?
+
+Estudiante: Enterprise...
+
+Profesor: Architect, me imagino, por lo menos. Pregunta: ¿para qué lo utilizaron? Alguien dice: «Lo usé para dibujar diagramas», otro dice: «Lo utilicé para modelar». ¿Cuál de las dos opciones? Si le hubiera preguntado al otro, al diseñador, ambos pueden... Que la hayan utilizado para dibujar, tal vez se la creo; que la hubieran utilizado para modelar, ojalá sea así. ¿Cómo van a saber? Cuando le entiendan a esto. Hay libros completos sobre ese título: Ingeniería de Software Asistida por Computadora.
+
+Pongamos un ejemplo bastante ocupacional. ¿Conocen a los contadores? Me imagino que tienen una idea de lo que hacen los contadores, ¿no? Si tuviéramos que preguntarle a ellos cuál será su herramienta de software más valiosa, más útil, ¿cuál será para un contador?
+
+Estudiante: El Excel.
+
+Profesor: ¿Excel? No, el sistema contable, que llega mucho más allá de lo que es Excel. El sistema contable. A un ingeniero civil o a un arquitecto, ¿cuál podría ser su herramienta?
+
+Estudiante: AutoCAD.
+
+Profesor: AutoCAD o un software de diseño. Ahora hagamos la situación: ¿cómo creen que a los contadores si les quitan su herramienta, su sistema contable, cómo reaccionan ellos?
+
+Estudiante: ¿Les afecta?
+
+Profesor: Les afecta... ¿tampoco mucho? No. ¿Qué les afecta?
+
+Estudiante: Productividad.
+
+Profesor: Exacto, les afecta tremendamente. Es como que les cambiaron de era, ¿o no? ¿Que pueden hacer la contabilidad? Seguramente que sí, pero de una manera bastante precaria, arcaica, cavernícola. Y lo primero que va a pasar es que baja su productividad.
+
+¿Qué ocurre si a los ingenieros civiles les quitan su AutoCAD? Pasa algo similar, ¿no es cierto? Pasa algo similar. Si los sistemas contables son la herramienta favorita de los contadores, el AutoCAD la herramienta favorita de los ingenieros civiles, etcétera, y la herramienta CASE, ¿de quién es? ¿En quién está pensada? ¿Quién tendría que ser su usuario preferido para esa herramienta?
+
+Estudiantes: Nosotros.
+
+Profesor: A ustedes. Bien. Ahora, si a ustedes les quitaran una herramienta CASE para hacer un trabajo, ¿les afecta en su trabajo?
+
+Estudiantes: No.
+
+Profesor: No. ¿Les afecta en su trabajo? Para nada, siguen trabajando como si nada. ¿Dicen que no? Sin embargo, debería pasar exactamente... el impacto debería ser igual que cuando a un contador le quitan un sistema contable o cuando a un ingeniero civil le quitan el AutoCAD. A la mayoría de ustedes de repente les da o no el hecho de que tengan o no una herramienta CASE. Lo que yo les pregunto: debería ser un impacto similar. Obviamente, ¿por qué no lo es? Porque no la conocen bien, porque creen que lo que hay que hacer es dibujar cosas.
+
+Se supone que estamos buscando un reto muy importante. Hace rato: el sistema contable o un AutoCAD, ¿en qué favorece a un ingeniero civil o a un contador? Su productividad. Por lo tanto, ¿qué se espera que favorezca a un ingeniero de software? También la productividad. ¿Cuánto tiempo tienen para el proyecto? Pocos días. Si ustedes siguen trabajando de manera tradicional, de repente no les alcanza ni siquiera el tiempo. Entonces, ¿qué tienen que hacer? Buscar, como quedamos en clases, herramientas, técnicas, estrategias que les permitan mejorar su productividad. Porque si no mejoran su productividad, ella lo hace. No hay otra situación.
+
+Y algo más todavía interesante: el software que estamos desarrollando como primer parcial, si tuvieran que ponerlo en una categoría de software, un tipo de software, ¿qué le pondrían? ¿Será un juego de entretenimiento? No. ¿Será un sistema de gestión? Tampoco. ¿A dónde podría caer? Es parte de las herramientas CASE de quinta generación, ¿no es cierto? ¿Por qué? Porque el usuario de esta aplicación, ¿quién es? Los ingenieros de software. Por lo tanto, tienen por todos lados la obligación de entender, comprender y aplicar todo lo que es Ingeniería de Software Asistida por Computadora.
+
+Ese día en el examen, cuidado que les pase lo más fácil: hayan programado, no sé cómo, han hecho magia, piensen si su aplicación funciona de maravilla, se les pregunta algo de esto y no saben. ¿Qué hago con eso? Bueno, el tío programador... Por eso les digo: trabajen con su fundamentación. La IA les puede crear maravillas, pero si no saben lo que está ocurriendo, no son nada. Así de simple. Repito: en el examen voy a hacer preguntas orales. No responde, se acabó.
+
+Vamos al segundo tema.
+
+Estudiante: (Murmullo) Apenas vamos en el primer tema...
+
+Profesor: Primer tema dijimos Ingeniería de Software Asistida por Computadora. El segundo tema titula: Desarrollo de Software Basado en Componentes.
+
+(Anota en la pizarra)
+
+Desarrollo de software basado en componentes. Este es un tema que prácticamente me imagino que desde que empezaron a programar ya usaban o usan componentes, ¿no es cierto? ¿Cómo define un componente? ¿Qué es un componente dentro del ámbito del desarrollo de software? A ver... Si usan cada vez un montón de componentes, ¿o no? Desde la paleta de componentes en el framework, en entidades, servicios, etcétera, ¿o no? Sí. Entonces, ¿cómo definimos ese componente?
+
+(Silencio en el aula)
+
+No responden. Ya se fue.
+
+Deberían saberlo porque, repito, es algo con lo cual ustedes ya pisan tierra. Cuando ponen un formulario y agarran un botón, ¿qué están haciendo? Es un componente. Pero hay una palabra mágica que seguramente define todo lo que es esta parte: uno, la reusabilidad. Pero entendamos que esa característica tiene distintos niveles de, llamémoslo así, de presentación. El más alto es componente como tal, que por ejemplo viene una barra y le hago un doble clic y ya estuvo. O puede venir como parte de un framework, un servicio, una librería... puede haber muchas formas.
+
+Y si les preguntara cuál es el propósito del desarrollo de software basado en componentes, ¿qué dirían? Miren una idea bastante clara de esto; podríamos explicarlo de esta manera: supongamos que queremos armar un computador, un equipo de hardware, un desktop. ¿Qué es lo que van a hacer aquí los que quieran tener una desktop? Primero, me imagino que van a definir para qué la van a usar, ¿no es cierto? ¿Cuáles van a ser sus especificaciones, características? Luego, ¿qué van a hacer? Comprarán, me imagino, las piezas. Luego lo arman y ya está. Rápidamente, ¿o no? Pueden comprar piezas de distintos lugares, diferente marca, diferente industria, etcétera, etcétera, ¿sí o no?
+
+Y si algún día falla, por ejemplo, no sé, vamos a suponer que falla el teclado, yo lo primero que voy a hacer es cambiar el teclado, no voy a tocar ni la memoria RAM ni el disco duro, ¿sí o no? ¿Les gustaría que pase eso en el software? Tendría que pasar eso en el software. Que le digan: «Mira, hay que hacer este software», y ustedes tendrían que hacer lo siguiente: primero, definir qué es lo que el software debería hacer; luego, definir la arquitectura; y luego, empezar a buscar componentes, ensamblarlos y tener el software. ¿Podría pasar eso? Debería. Y esa es la idea del desarrollo de software basado en componentes: no tener que necesariamente desarrollarlo todo.
+
+En el caso de ustedes, para este proyecto, ¿será que a alguno de ustedes se le pasó por la cabeza desarrollar absolutamente todo de su aplicación, completita, desde cero? No. Por más capos que sean para desarrollar, no tienen tiempo. Entonces, parte de su estrategia me imagino que es esta: reusar. Tienen que buscar librerías o algún tipo de nivel de reusabilidad que les permita acelerar el proceso. Si no, no van a... Por ejemplo, se acuerdan que tenemos un editor donde vamos a colocar las clases, vamos a colocar los atributos, etcétera, etcétera, ¿a alguien se le pasó por la cabeza hacerlo todo eso solito, aparte de tener que crear el diseño del software y el modelado? No pueden. ¿Qué tienen que hacer? Importar, seguramente, una librería que hace todas esas genialidades de dibujo, utilizando conceptos de, no sé, polimorfismo, sobrecarga, herencia, y personalizarlo de acuerdo a lo que realmente ustedes pretendan.
+
+Si encontraran el Enterprise Architect con su código fuente listo, ¿les serviría o no? ¿Qué harían sobre eso? Definir la arquitectura para que la aplicación, por ejemplo, sea colaborativa, y encima agregar una capa para que permita comandos por voz; pero no tienen que hacer las cosas desde cero. Por eso mismo quiero que lean bastante sobre el desarrollo de software basado en componentes, por las siguientes dos razones: primero, lo que acabamos de decir, deben reusar componentes; pero la segunda, que es la más bonita, no solo deben reusar componentes, deben producir componentes. Cuando estén desarrollando lo que tengan que hacer, háganlo pensando en ser reusado en el futuro. ¿Se entiende la idea, no? Trabajen una vez, úsenla muchas. Solo así vale la productividad en la vida; si no, no avanza.
+
+Ahora, ¿cómo se crea?, ¿cómo se diseña?, ¿cuáles son los protocolos, las interfaces que debe tener un componente? Ojo, que también viene en el examen. Hay libros también con ese título: Desarrollo de Software Basado en Componentes.
+
+Vamos con el tercer punto de la fundamentación teórica: Arquitectura de Software.
+
+(Anota en la pizarra)
+
+Arquitectura de software. Bien. A ver, en su cuaderno, o si quieren antes de escribirlo, díganmelo si ya lo tienen claro: ¿cuál será el objetivo de la arquitectura de software? No les estoy preguntando qué es la arquitectura de software, tampoco les estoy preguntando quién diseña la arquitectura; les pregunto cuál es su objetivo cuando yo estoy, por ejemplo, diseñando la arquitectura de un software, qué es lo que busco, qué es lo que persigo, por qué lo diseño.
+
+Estudiante: (Murmullo) Para pasar la materia...
+
+Profesor: Por ejemplo, hagamos un caso: aquí la vemos a su compañera, Acosta. ¿Qué tendría que estar haciendo Acosta para que ustedes digan: «Ah, mira, ella está diseñando la arquitectura»? Ella está haciendo la arquitectura de software. ¿Qué tendría que estar haciendo? ¿Hacer un diagrama le garantiza que está haciendo la arquitectura de software? ¿Estar conversando con el cliente garantiza que está diseñando la arquitectura de software? ¿Conversar con el equipo de desarrollo garantiza que está haciendo la arquitectura de software?
+
+Si la veo escribiendo código, tampoco puedo decir que está diseñando la arquitectura de software. Pero sale, se dice, se tiene... ¡No! Si la veo escribiendo código, no está definiendo la arquitectura de software. Si la veo conversando con el cliente, no está definiendo la arquitectura de software. Si está haciendo un diagrama, no me garantiza que está haciendo la arquitectura, porque podría estar haciendo un diagrama, qué sé yo, de un caso de uso, por ejemplo. Entonces, ¿qué es la arquitectura?, ¿qué viene a ser?, ¿la idea? Igual, van a tener que leer libros de cada tema. Libros. Libros. Abro cualquier parte y les pregunto. Si no saben... porque no hay otra forma. No hay otra forma de que les quede algo.
+
+Arquitectura de software. Volviendo a la pregunta: ¿cuál es el propósito de la arquitectura de software? A ver, pónganle otro nombre: en lugar de decir arquitectura, piensen en un nombre que represente algo similar. Quítenle la palabra «arquitectura». Porque, por ejemplo, uno escucha arquitecturas, ¿no es cierto? ¿Cuáles conocen?
+
+Estudiante: Tres capas...
+
+Profesor: Tres capas, cliente-servidor, monolito, microservicios, modelo-vista-controlador, etcétera. ¿Cuál es la mejor? No creo que se animen a decir «la mejor», porque no hay una que sea la mejor. Decir que esta es la mejor, no hay. Lo que hay es la más conveniente de acuerdo a la naturaleza del proyecto que estamos trabajando. Que algunas estén de moda es otra cosa.
+
+Pero volvamos a la pregunta: ¿cuál será el propósito? O sea, cuando han definido que es arquitectura, no sé, monolito, cliente-servidor, lo que sea, ¿qué han hecho?
+
+Estudiante: El esqueleto del sistema... ver cómo van a interactuar las partes...
+
+Profesor: Entonces, sinónimo de la palabra arquitectura, ¿qué dirían? En vez de decir arquitectura, ¿qué podrían decir?
+
+Estudiante: Estructura.
+
+Profesor: Estructura, dice, está bien. Organización, dice, está bien. Es decir, la arquitectura tiene que ver con eso. Pero volvamos a la pregunta inicial: ¿para qué?, ¿por qué tengo que organizar o estructurar la arquitectura?, ¿cuál es el propósito? ¿Cuál es el propósito? El tiempo pasa más rápido. Sigan, piensen.
+
+Estudiante: Que el software viva más tiempo.
+
+Profesor: ¿Qué dijo? Hable más fuerte.
+
+Estudiante: Que el software viva más tiempo.
+
+Profesor: Que el software viva más tiempo, dice. ¿Tiene sentido o no? Es correcto. Eso es. ¿Lo escucharon o no?
+
+Estudiantes: No.
+
+Profesor: No lo sabían, ¿no ve?
+
+Estudiante: (Murmullo) Lo leyó en ChatGPT ese güey...
+
+Profesor: Ya, bien. La idea es: el propósito es lograr que el software viva el mayor tiempo posible. ¿Y de qué depende de que el software viva más o menos tiempo? Ya se logró la arquitectura, pero ¿qué hace que viva más o menos tiempo? ¿Quién tiene la idea?
+
+Estudiante: El mantenimiento...
+
+Profesor: ¿Quién dijo? A ver, ¿lo aplaudimos o lo botamos?
+
+Estudiante: (Murmullo) Está botando a todos hoy...
+
+Profesor: Ya, silencio. Bien, decíamos nosotros, por ejemplo, ¿de qué depende de que el software viva más o menos tiempo? De una sola, de una sola palabra que probablemente a ningún desarrollador le gusta, que ocurrirá en su vida mientras esté desarrollando un software y peor si su software ya está en producción y ya lo entregó. ¿Cuál es esa palabra que a nadie le gusta?
+
+Estudiantes: Cambios.
+
+Profesor: Cambios. Los cambios en el software seguramente son los que determinan si un software vive más tiempo o menos tiempo. ¿Desde qué punto de vista? ¿Que no haya cambios? ¿Esa será la idea? No. Cambio es lo que obviamente va a ocurrir en la vida del software, es normal, es natural. Hoy le pueden pedir que haga un software y más tarde le van a estar cambiando ya las especificaciones. O le entrego hoy día y mañana cámbielo.
+
+Entonces, ¿de qué punto de vista sería el cambio que incide en que viva el software más o menos tiempo? Desde el punto de vista del esfuerzo y tiempo que se demora en hacer esos cambios. Si cada vez que tengo que hacer un cambio en el software esto significa mucha inversión de tiempo, esfuerzo y por ende, obviamente, costo, ese software ya es obsoleto. ¿Por qué? Porque solamente hay una solución que es más barata y menos costosa: que rehagan nuevamente el software, porque cada vez que lo toco se cae en otro lado. Es el clásico ejemplo del dinosaurio parado sobre un pantano: cada vez que se mueve, se hunde. ¿De qué depende? Obviamente del grado de evolución, de mutaciones y de la arquitectura.
+
+Y este software, obviamente la aplicación que estamos haciendo, tiene mayores retos inclusive en la arquitectura, porque no es una arquitectura convencional, ¿o sí? No es un clásico sistema de gestión empresarial. Para empezar, tiene funcionalidades basadas en lo que se denomina el uso de software colaborativo, donde entra el concepto desde exclusión mutua hasta proceso de sincronización. Todo tiene que ver exactamente en el mismo escenario, objeto, instancia o pizarra, como se llame. ¿Ya pensaron qué van a utilizar para hacerlo colaborativo como elemento central?
+
+(Murmullos en el aula)
+
+Entonces, tenemos ya ahí la arquitectura. Vamos con otro tema, un... perdón, cuarto: UML.
+
+(Anota en la pizarra)
+
+Vamos a colocar: UML. Muy bien. ¿Y por qué? Porque es nuestro elemento esencial desde donde vamos a partir todo, ¿no es cierto? El usuario, ¿qué va a introducir al sistema o a la aplicación?, ¿de dónde va a partir?, ¿cuál es el elemento de entrada al sistema o a la aplicación que estamos desarrollando?
+
+Estudiante: El modelo...
+
+Profesor: Exacto, un modelo conceptual de una base de datos. Y el modelo conceptual generalmente lo hacemos con... primero, UML. Entonces, sé que sobre UML se dicen muchas cosas, pero quiero que coloquen un capítulo que hable exclusivamente de UML, pero no de UML en general, sino específicamente de lo que vamos a tomar como elemento de referencia, que en este caso es un diagrama de clases. UML 2.5 o superior.
+
+Para eso se van a leer un libro que titula justamente UML, escrito por los Tres Amigos. ¿Alguien sabe quiénes se llaman los Tres Amigos? Los autores originales de UML.
+
+Estudiante: Booch...
+
+Profesor: ¿Qué dijeron? Se llaman: Rumbaugh, también el otro Jacobson, y el otro Booch. Entonces, se buscan un libro que se titule UML escrito por esos tres amigos. Es un libro ya de... tiene buenos años, pero está en la fundamentación.
+
+Para saber la versión actual y todos los cambios que han habido en la evolución de UML desde ese libro hasta ahora, van a entrar a este sitio web de acá:
+
+(Anota en la pizarra)
+
+omg.org. Y ahí van a encontrar todas las actualizaciones en torno a las diferentes versiones, incluso la última que está en curso. Pero deben ser... ¿Por qué tienen que ser expertos en esto? Porque están haciendo una herramienta que en teoría va a recibir esto como entrada y a partir de eso va a generar lo demás. Entonces, si esto está mal, lo demás va a estar mal. Tienen que entender muy bien.
+
+Para empezar, vemos un detalle: hemos quedado que a la aplicación de ustedes le voy a entregar un modelo conceptual y ¿qué va a generar como resultado?
+
+Estudiantes: Un backend.
+
+Profesor: Un backend de una aplicación de gestión, vamos a suponer por ejemplo un sistema de veterinaria. ¿Y cuando ejecute el backend, qué va a pasar? Entre otras cosas va a pasar que va a aparecer la base de datos lista. Y que no la van a crear utilizando scripts ni nada, ¿no es cierto? ¿Cómo van a crear la base de datos?
+
+Estudiante: Con el ORM...
+
+Profesor: Seguramente con el ORM de Spring. ¿Cómo se llama ese ORM? Ahora ya lo van a saber seguramente.
+
+Estudiante: Hibernate / JPA.
+
+Profesor: Eso. Tiene cuatro niveles, ¿no es cierto? Ya habíamos comentado de eso en Spring. ¿Cuáles son esas cuatro capas típicamente?
+
+Estudiantes: Controlador, modelo, repositorio, servicio...
+
+Profesor: Y le pueden agregar una quinta: DTO. ¿Para qué? Para no enviarle a la red todo lo que no necesita y no enviarle cosas que no se deben.
+
+Entonces, les decía: va a generar la base de datos y la base de datos va a estar en Postgres. Ahora, yo tengo un diagrama de clases. Vengo, quiero que a partir de este modelo conceptual me genere el backend, y cuando yo le dé a correr al backend voy a tener una base de datos. Pero esa base de datos, ¿es una base de datos orientada a objetos o es una base de datos relacional? Postgres.
+
+Estudiantes: Relacional.
+
+Profesor: Es una base de datos relacional. Ahora, el diagrama de clases, este diagrama de clases que es el modelo conceptual en UML, ¿es orientado a objetos o relacional?
+
+Estudiantes: Orientado a objetos.
+
+Profesor: Es orientado a objetos. Entonces, ¿cómo hago que todos se entiendan? Porque si fuera que voy a utilizar una base de datos orientada a objetos, no tendría que hacer ningún tipo de transformación. Pero en este caso sí hay que hacerlo, porque tengo un diagrama de clases que es orientado a objetos, pero lo que necesito es una base de datos que es relacional. O sea, tengo que hacer un desvío de un modelo de objetos a un modelo relacional. ¿Cómo conseguimos eso?
+
+Ahí aparece algo que de repente ustedes no se dan cuenta, pero está ahí. Van a hacer un mapeo. ¿Saben qué es un mapeo? Sí, mapear. Por eso mismo, porque están pasando de un modelo orientado a objetos a un modelo relacional. El modelo relacional, por ejemplo, no tiene métodos; en cambio el modelo orientado a objetos sí tiene. Son cosas... ¿Cómo lo hacen? Con un conjunto de reglas. Pero para que nosotros lo oficialicemos, se van a leer otro librito en el cual va a estar descrito de manera bastante precisa cómo mapear. Porque se supone que eso va a hacer su herramienta. Si no, ¿en qué va a trabajar su herramienta si no hay ese mapeo?
+
+Estudiante: (Risas / murmullo) Quince libros...
+
+Profesor: El libro se llama TMO. TMO, o si quieren en inglés, OMT. El autor también es uno de los tres amigos: es Rumbaugh. Ahí van a encontrar una de las reglas de cómo se hace.
+
+(Murmullos en el aula)
+
+Entonces, es otro tema: UML. La anotación de su herramienta: 100% UML 2.5 o superior. No la cambien, porque UML es un estándar.
+
+Vamos con otro tema, otro subtema: La IA en el Desarrollo de Software. Inteligencia Artificial en el desarrollo de software.
+
+(Anota en la pizarra)
+
+Acá lo que tenemos que hacer es seguramente acertar un poco... utilizar la IA en el ámbito del desarrollo de software. Porque entendemos también que hoy por hoy la IA es uno de los mecanismos mucho más convenientes para acelerar la productividad, ¿o no? Es evidente, ¿no es cierto? Hacer algo sin IA te toma un día; hacer algo con IA te toma una hora, un minuto. Entonces, ¿qué está cambiando? Obviamente la productividad. Y eso también va a pasar con ustedes. Cada vez hacemos menos o, si quieren, cada vez podemos hacer más en menos tiempo, que es la idea. Si siguen trabajando con la IA en base a prompts, se van a quedar... no han evolucionado, ¿no ve? Porque si siguen trabajando con prompts, todavía están en la era de la prehistoria.
+
+Vamos a ver ese día en el examen, ahí los quiero ver si están usando prompts. Para empezar voy a ver su estructura en sus prompts, a ver... La IA que le hayan dado desde entrada, un generador de prompts... Me imagino un montón de agentes trabajando de fondo con sus pedidos específicos para cada tarea. El desarrollo dirigido por especificaciones, por ejemplo, hoy por hoy es una de las maneras más efectivas de utilizar la IA de forma correcta desde un punto de vista de mejorar la productividad.
+
+Entonces, ese es un buen tema que deberían revisar y aplicarlo en este contexto. ¿Por qué motivo? Tienen que... ustedes la IA la van a utilizar, y acá en el documento debería aparecer cómo. Fíjense cómo van a ocupar la IA: uno, lo van a ocupar ustedes para desarrollar la aplicación. O sea, la aplicación que ustedes van a desarrollar seguramente en muchas partes va a estar asistida por la IA, ¿o no? Sí. Ahí entra, por ejemplo, el tema de desarrollo de software basado en especificaciones, en vez de escribir código. Y lo otro, ¿cuál va a ser? Lo otro es que la aplicación que ustedes van a construir, la aplicación que van a desarrollar, su funcionalidad incorpora IA para el usuario final. ¿Se acuerdan? Estos son dos [aspectos]: uno, ustedes para desarrollar la aplicación; y dos, para darle poder a la aplicación que ustedes están desarrollando, de tal manera que también el usuario final vea mejorada su productividad utilizando la herramienta de ustedes.
+
+¿Por qué? Los requerimientos eran bastante obvios, ¿no? Porque hemos dicho, por ejemplo: su aplicación debería trabajar con un asistente. Eso en el caso de la aplicación final, la aplicación final que van a hacer aquí en clases el día del examen. Esa aplicación, si tuviera una interfaz tipo formulario... no le sirve. Tienen que tenerlo como una segunda opción para el cliente que de repente no se convence o no está acostumbrado, o simplemente en un lugar donde hay mucha bulla y el cliente habla y la aplicación no le entiende, entonces usa la interfaz tradicional. Pero si no, no lo vamos a mirar. Lo que sí vamos a mirar es que no hay necesidad de tener formularios ni nada, todo es por voz.
+
+Y lo más interesante: la aplicación inclusive debe poder trabajar sin internet, ¿no ve? ¿Qué hacemos ahí entonces? Obviamente la IA tiene que estar local. Ojo, yo podría ocupar una librería de Python y ya está la IA, ¿o no? Si solo quiero que me interprete la voz a texto. Pero el backend y hacer lo que tiene que hacer... Entonces, ahí también van a hablar de modelos, de transformar modelos, de personalizar modelos: cómo se cambian los modelos, cómo se personalizan, cómo se entrenan, y específicamente los modelos que ustedes vayan a ocupar.
+
+Bien, un tema más dentro de la fundamentación teórica: todo lo relacionado a Spring Boot, desde el punto de vista del backend. Porque se supone que el código que va a generar la aplicación de ustedes va a estar en Spring Boot. Y deben conocerlo, como quien dice, de todas las formas posibles, a fondo, para que generen un código donde todo lo que tenga que hacer el usuario final lo pueda usar, no simplemente instalarlo y que corra el clásico «Hola Mundo» o el backend, miren... Quiero quizás colocar algunas anotaciones o algo por el estilo.
+
+Y para probar que funciona su backend, ¿cómo lo hacen? O sea, cuando tienen un backend, ¿cómo lo prueban? Normalmente utilizamos herramientas como Postman o Swagger, que es otra alternativa, pero en este caso no lo vamos a usar. De la manera más correcta o que no deja ninguna duda, ¿cuál sería? Que tenga su propio frontend, eso lo hace creíble. El frontend es el cliente.
+
+Ese día, por ejemplo, va a ocurrir lo siguiente: yo voy a colocar un modelo de algún sistema, vamos a poner un sistema de una veterinaria, voy a colocarlo ahí, y su aplicación tendría que tener distintas formas de cómo ese modelo llevarlo a su herramienta. Uno: yo les puedo decir: «Jóvenes, agarren eso y dibújenlo en su herramienta que han desarrollado, de forma clásica, en su pizarra virtual, en su lienzo». La otra, ¿cuál sería? Que yo agarre y les diga: «Háganlo exactamente pero con puros comandos de voz». Otra, ¿cuál sería? «Jóvenes, sáquenle foto y metan la foto a su herramienta». Aparte de que ya habíamos quedado que tiene que tener también la capacidad de importar y exportar; en este caso quedamos con Enterprise Architect.
+
+Bueno, entonces mínimamente eso. Tienen ustedes contenido con todo esto. ¿Qué punto toca ahora? El dos, ¿no es cierto? Vamos con el punto dos.
+
+(Anota en la pizarra)
+
+Se supone que este primer punto, como les decía hace rato, lo tienen que publicar en un PDF hasta las 8 de la mañana de ese día. No olviden colocar el formato: me refiero al tipo de letra, espaciado, márgenes, tabla de contenido, anexos. Anexos pueden ser información adicional, tablas de control, todo lo que ya habíamos conversado. Se supone que el índice es totalmente navegable. Para eso pueden basarse en la norma APA, que es una buena referencia, y/o agarrar un libro de metodología de la investigación y también ahí están los distintos formatos para informes técnicos.
+
+Bien, vamos al punto dos. El punto dos ya es en la tarde, a las cuatro... no, 15:15, ¿no? 15:15 se cierran las puertas. Solo entran aquellos que hayan publicado la documentación a tiempo. Y lo único que van a traer ese día son dos carátulas. Del mismo documento que han publicado en PDF imprimen dos carátulas y las traen. Con esas van a entrar.
+
+¿En qué consiste esta parte dos o paso dos? Tienen que demostrar que el software hace exactamente lo que estamos acordando que debe hacer. Debe estar en calidad de producto. ¿Qué significa que es un producto? Que es un software que está completamente terminado, testeado, libre de cualquier problema, donde incluso ustedes no deberían tener ningún problema en colocar la seguridad de que ese software funciona, funciona y funciona. Si tienen dudas en la entrega, ¿cuánto es su nota? Cero. 100 o cero, ese es su... De aquí hacia adelante lo que hacemos es como contratar. Por eso les decía hace rato que en este punto número dos vamos a centrarnos en que el software sea un producto. Cuando ustedes compran un producto bien hecho, ¿qué es lo que exigen? Garantía. Si no les dan garantía, ¿lo compran? No, no compran. Cuando entregan un software es lo mismo. Si no tiene ninguna garantía, ¿qué están diciendo? Que lo que han entregado no sirve o está hecho por cualquiera, no por profesionales.
+
+Entonces, el segundo punto es ese: revisar. El software deberá estar en esa categoría. Por ejemplo, les voy a preguntar: «¿Tu software es de calidad?», ¿qué van a decir ustedes? Sí. Demuéstrenlo. No hay teoría, expliquen. ¿Está trabajado pensando en la productividad, la innovación? Ya hemos dicho: nadie les va a poner nota ni les va a felicitar porque su software funcione, por favor. Ni siquiera van a entrar si no funciona. Nadie va a decir: «¡Mira, corre!», no. Que seguramente cuando eran más jóvenes les daba mucha emoción: «Claro que sí, prendió la luz». Hoy nadie se va a poner contento porque el software funcione, el software sobra. ¿Okay? Los desafíos son cada vez más. Y eso es lo que se demuestra en este punto número dos.
+
+Vamos con el número tres: si convencieron en el paso número uno, pasan al dos; pasan el dos, pasan al tercero. Y el tercero consiste en... asegurarnos...
+
+Oigan, nos olvidamos de algo. Vuelvan al punto uno de la documentación. En la documentación pusimos solo una parte: fundamentación teórica. Falta la segunda parte. Agreguen la segunda parte en el punto uno.
+
+Segunda parte en el punto uno titula: Registro del Proceso de Desarrollo de Software. Registro del proceso de desarrollo de software. ¿Qué van a colocar ahí? Lo único que van a colocar ahí son todos los pasos que ustedes han seguido para desarrollar el software. En este caso, ¿qué vamos a utilizar? Vamos a utilizar el Proceso Unificado de Desarrollo de Software, el PUD. El PUD o Proceso Unificado de Desarrollo de Software, y eso lo vamos a utilizar como metodología para desarrollar el proyecto.
+
+Entonces, en esa parte número dos del documento van a colocar en un 100%, tal cual dice el Proceso Unificado, cuáles son los pasos que se deben realizar para desarrollar un software. No le quiten ni le aumenten otra cosa, tal cual. Y lo mismo: para hacer eso van a leer un libro que titula El Proceso Unificado de Desarrollo de Software. Y ese libro también está escrito por los tres amigos: Booch, Rumbaugh, Jacobson. Se buscan un libro que titule El Proceso Unificado de Desarrollo de Software y...
+
+En la parte tres de este punto uno... La parte uno es fundamentación teórica, la parte dos es registro del proceso de desarrollo, la parte tres del punto uno, que es la documentación, ahí lo que van a colocar es: el mecanismo que ustedes han elaborado para que el usuario aprenda a utilizar la aplicación sin problemas. Mecanismo para que el usuario aprenda y utilice la aplicación sin ningún inconveniente.
+
+Bien, ¿qué pondrían ustedes ahí? Claro, lo que queremos es que el usuario aprenda a usar la aplicación, use su software, porque de nada sirve que una aplicación por más bien que esté hecha, por más buena que sea la aplicación, pero si el usuario no logra aprender a utilizarla, ¿qué va a decir el cliente? Va a decir que la aplicación no sirve. Entonces, ¿qué usarían ahí?, ¿qué colocarían?
+
+Estudiantes: Manual de usuario, videos, tutoriales...
+
+Profesor: Manual de usuario, videos, tutoriales, etcétera, etcétera, etcétera. Pero vamos a usar un mecanismo más acorde a su condición de ustedes, a su generación. Veamos: imagínense que a ustedes les entregan un software, miren su celular, no lo quieren usar. ¿Qué les gustaría que tenga ese software para que ustedes puedan usarlo rápidamente? ¿Les entrego un manual de usuario así grandote, les serviría? No. ¿Les entregan un video tutorial de unas dos o tres horas, estaría bien? Si fuera un video de TikTok, ¿estaría bien? No sé, un video de un minuto, no sé... Un hipertexto, ¿estaría bien? Pero ¿qué les gustaría? Un agente, eso. Un agente. Un agente que esté monitoreando, viendo todo lo que ustedes están haciendo y paso a paso les dice qué tienen que hacer.
+
+Bien. Y luego ya obviamente vienen los anexos y todo. Entonces, ya están: el primer punto, que es la documentación, tiene tres partes: fundamentación teórica, registro del proceso de software, mecanismo para el usuario y sus respectivos anexos. La segunda parte es el software como producto, eso lo van a demostrar.
+
+La tercera parte es agarrar la documentación y contrastarla con el software. Todo lo que está en la documentación tiene que estar en el software; todo lo que está en el software tiene que estar en la documentación. Tiene que cuadrar como esos engranajes, a la perfección. No hay margen. Lo que han puesto en el documento está ahí; lo que está en el software tiene que estar en el documento. ¿Qué estamos haciendo? Lo único que estamos haciendo es asegurarnos de que el proceso de ingeniería sea un proceso de ingeniería de verdad. No se admitirá a algunos que hayan inventado versos para la documentación que hay de fondo.
+
+Vamos con el cuarto y el último. El cuarto paso es... ya han pasado la documentación, ya pasaron el producto, ya pasaron la contrastación del proceso... Bien, ¿el cuarto qué sería? ¿Qué faltaría?
+
+Estudiante: La defensa...
+
+Profesor: Exacto. La demostración de que quienes están trayendo el software son los autores. ¿Se imaginan gente como ustedes contratando a otra gente para que les haga la aplicación? ¿Será que alguien podría hacer eso?
+
+(Risas y murmullos en el aula)
+
+Este punto obviamente tiene ese propósito: asegurarnos de que sean los autores. Es probable y es natural, por ejemplo, que entre estos cuatro o cinco jóvenes se junten y trabajen y compartan muchas cosas, pero cada quien tiene una versión personal. Que hayan dos software que sean iguales, es imposible. Un software tiene tantos artefactos que inclusive de una persona a otra varían bastante, no hay manera. Ser diferente no significa que lo cambien de orden o le cambien de color a la pantalla.
+
+Entonces, en esa parte lo que vamos a hacer es la defensa individual. Y ahí es individual. Hay muchas formas, la más clásica, ¿cuál es? Borrarle un pedazo de código y decirle: «Vuelva a escribirlo sin que tenga ningún problema».
+
+Estudiante: (Murmullo) 70 muere...
+
+Profesor: Otro: marcarle un código y preguntarle: «¿Qué pasa si se ejecuta?». A ver, explíqueme qué pasa si se ejecuta. «Va a pasar esto...» Y si no pasa nada... O se le puede pedir que haga cambios en vivo: «Modifique esto, agregue algo».
+
+Bien. Para el último paso traigan dos versiones: uno, la versión para el paso dos y para el paso tres es en producción, en la nube, en línea. Y para este paso, por si de repente tenemos problemas de conexión y no tienen complicaciones de volver a entregar... aunque no debería haber problema porque se supone que su GitHub está sincronizado plenamente con su despliegue, pero a veces el internet es tan complicado que pueden trabajar localmente. En esta parte, local. Si no, pueden utilizar la nube.
+
+Entonces, una vez superados estos cuatro puntos, si lograron vencer los cuatro puntos con éxito, tienen 51.
+
+(Exclamaciones de sorpresa y risas en el aula)
+
+Y de ahí ya vemos, obviamente, todas las demás características que hayan logrado para verificar la nota.
+
+Bien, ¿tienen alguna pregunta? Quedamos para el día... miércoles.
+
+(Murmullos y fin de la clase)
