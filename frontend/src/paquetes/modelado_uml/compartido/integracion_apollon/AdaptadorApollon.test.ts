@@ -1,0 +1,199 @@
+import { describe, expect, it } from "vitest"
+import type { UMLModel } from "@tumaet/apollon"
+import {
+  convertirAModeloCanonico,
+  convertirAModeloCanonicoConAdvertencias,
+} from "./AdaptadorApollon"
+
+function crearModelo(
+  nodes: UMLModel["nodes"] = [],
+  edges: UMLModel["edges"] = []
+): UMLModel {
+  return {
+    version: "4.2.0",
+    id: "modelo-1",
+    title: "Modelo de prueba",
+    type: "ClassDiagram",
+    nodes,
+    edges,
+    assessments: {},
+  }
+}
+
+function crearClase(
+  id: string,
+  name: string,
+  opciones: {
+    attributes?: Array<{ id: string; name: string }>
+    position?: { x: number; y: number }
+    isAbstract?: boolean
+  } = {}
+): UMLModel["nodes"][number] {
+  return {
+    id,
+    type: "class",
+    width: 200,
+    height: 100,
+    position: opciones.position ?? { x: 0, y: 0 },
+    measured: { width: 200, height: 100 },
+    data: {
+      name,
+      attributes: opciones.attributes ?? [],
+      methods: [],
+      ...(opciones.isAbstract === undefined
+        ? {}
+        : { isAbstract: opciones.isAbstract }),
+    },
+  }
+}
+
+function crearRelacion(
+  type: UMLModel["edges"][number]["type"],
+  data: Record<string, unknown> = {}
+): UMLModel["edges"][number] {
+  return {
+    id: "relacion-1",
+    type,
+    source: "cliente",
+    target: "pedido",
+    sourceHandle: "source",
+    targetHandle: "target",
+    data: { points: [], ...data },
+  }
+}
+
+describe("AdaptadorApollon", () => {
+  it("convierte un diagrama de clases vacío", () => {
+    const canonico = convertirAModeloCanonico(crearModelo())
+
+    expect(canonico).toMatchObject({
+      id: "modelo-1",
+      nombre: "Modelo de prueba",
+      version: "4.2.0",
+      clases: [],
+      relaciones: [],
+    })
+  })
+
+  it("preserva id, nombre, posición y abstracción de una clase", () => {
+    const canonico = convertirAModeloCanonico(
+      crearModelo([
+        crearClase("cliente", "Cliente", {
+          position: { x: 125, y: 240 },
+          isAbstract: true,
+        }),
+      ])
+    )
+
+    expect(canonico.clases).toEqual([
+      {
+        id: "cliente",
+        nombre: "Cliente",
+        atributos: [],
+        posicion: { x: 125, y: 240 },
+        abstracta: true,
+      },
+    ])
+  })
+
+  it("interpreta atributos y conserva sus ids estables", () => {
+    const canonico = convertirAModeloCanonico(
+      crearModelo([
+        crearClase("cliente", "Cliente", {
+          attributes: [
+            { id: "atributo-nombre", name: "+ nombre: String" },
+            { id: "atributo-email", name: "- email : String" },
+          ],
+        }),
+      ])
+    )
+
+    expect(canonico.clases[0].atributos).toEqual([
+      {
+        id: "atributo-nombre",
+        nombre: "nombre",
+        tipo: "String",
+        visibilidad: "publica",
+      },
+      {
+        id: "atributo-email",
+        nombre: "email",
+        tipo: "String",
+        visibilidad: "privada",
+      },
+    ])
+  })
+
+  it.each([
+    ["ClassBidirectional", "asociacion"],
+    ["ClassUnidirectional", "asociacion"],
+    ["ClassAggregation", "agregacion"],
+    ["ClassComposition", "composicion"],
+    ["ClassInheritance", "generalizacion"],
+  ] as const)("convierte %s en %s", (tipoApollon, tipoCanonico) => {
+    const canonico = convertirAModeloCanonico(
+      crearModelo(
+        [crearClase("cliente", "Cliente"), crearClase("pedido", "Pedido")],
+        [crearRelacion(tipoApollon)]
+      )
+    )
+
+    expect(canonico.relaciones[0]).toMatchObject({
+      id: "relacion-1",
+      tipo: tipoCanonico,
+      claseOrigenId: "cliente",
+      claseDestinoId: "pedido",
+    })
+  })
+
+  it("normaliza multiplicidades y conserva roles verificados", () => {
+    const canonico = convertirAModeloCanonico(
+      crearModelo(
+        [crearClase("cliente", "Cliente"), crearClase("pedido", "Pedido")],
+        [
+          crearRelacion("ClassBidirectional", {
+            sourceMultiplicity: "1",
+            targetMultiplicity: "*",
+            sourceRole: "cliente",
+            targetRole: "pedidos",
+          }),
+        ]
+      )
+    )
+
+    expect(canonico.relaciones[0]).toMatchObject({
+      multiplicidadOrigen: "1",
+      multiplicidadDestino: "0..*",
+      rolOrigen: "cliente",
+      rolDestino: "pedidos",
+    })
+  })
+
+  it("omite una relación no soportada y entrega una advertencia", () => {
+    const resultado = convertirAModeloCanonicoConAdvertencias(
+      crearModelo(
+        [crearClase("cliente", "Cliente"), crearClase("pedido", "Pedido")],
+        [crearRelacion("ClassDependency")]
+      )
+    )
+
+    expect(resultado.modelo.relaciones).toEqual([])
+    expect(resultado.advertencias).toContain(
+      "Tipo de relación de Apollon no soportado por el modelo canónico: ClassDependency."
+    )
+  })
+
+  it("no inventa un tipo para una multiplicidad desconocida", () => {
+    const resultado = convertirAModeloCanonicoConAdvertencias(
+      crearModelo(
+        [crearClase("cliente", "Cliente"), crearClase("pedido", "Pedido")],
+        [crearRelacion("ClassBidirectional", { sourceMultiplicity: "2..5" })]
+      )
+    )
+
+    expect(resultado.modelo.relaciones[0].multiplicidadOrigen).toBeNull()
+    expect(resultado.advertencias[0]).toContain(
+      "Multiplicidad de origen no soportada"
+    )
+  })
+})

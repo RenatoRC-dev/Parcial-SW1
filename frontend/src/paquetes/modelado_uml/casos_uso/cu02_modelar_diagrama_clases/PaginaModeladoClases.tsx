@@ -1,5 +1,6 @@
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import type { UMLModel } from "@tumaet/apollon"
+import { convertirAModeloCanonicoConAdvertencias } from "../../compartido/integracion_apollon/AdaptadorApollon"
 import { AnfitrionEditorApollon } from "./componentes/AnfitrionEditorApollon"
 import { InspectorModeloDesarrollo } from "./componentes/InspectorModeloDesarrollo"
 import { LimiteErrorEditor } from "./componentes/LimiteErrorEditor"
@@ -17,16 +18,21 @@ export function PaginaModeladoClases() {
     establecerErrorEditor(error.message)
   }, [])
 
+  const resultadoCanonico = useMemo(
+    () =>
+      modelo ? convertirAModeloCanonicoConAdvertencias(modelo) : null,
+    [modelo]
+  )
+
   return (
     <main className="app-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">SW1 · Iteración 01 · Modelado UML · CU02</p>
+          <p className="eyebrow">SW1 · Iteración 02 · Modelado UML · CU02</p>
           <h1>Modelado manual de diagramas de clases</h1>
         </div>
         <p className="iteration-goal">
-          Edición manual en Apollon con acceso al modelo UML estructurado desde
-          nuestra aplicación.
+          Edición manual en Apollon y proyección a nuestro modelo UML canónico.
         </p>
       </header>
 
@@ -46,9 +52,12 @@ export function PaginaModeladoClases() {
           </LimiteErrorEditor>
         </div>
 
-        <InspectorModeloDesarrollo modelo={modelo} error={errorEditor} />
+        <InspectorModeloDesarrollo
+          modeloApollon={modelo}
+          resultadoCanonico={resultadoCanonico}
+          error={errorEditor}
+        />
       </section>
     </main>
   )
 }
-

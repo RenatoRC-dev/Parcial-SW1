@@ -103,6 +103,14 @@ summary {
   font-size: 1.15rem;
 }
 
+.model-inspector h3 {
+  margin: 0;
+  color: #314d8a;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .inspector-heading {
   padding-bottom: 16px;
   border-bottom: 1px solid #e6e9f0;
@@ -117,6 +125,15 @@ summary {
 .error-banner {
   color: #8f1d20;
   background: #fff1f1;
+}
+
+.inspector-section {
+  padding-top: 18px;
+}
+
+.inspector-section + .inspector-section {
+  margin-top: 20px;
+  border-top: 1px solid #d8deea;
 }
 
 .error-banner {
@@ -174,6 +191,22 @@ summary {
   line-height: 1.5;
 }
 
+.mapping-warnings {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #ead8a2;
+  border-radius: 8px;
+  color: #684f0a;
+  background: #fff9e8;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.mapping-warnings ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
 .editor-failure {
   display: grid;
   min-height: 680px;
@@ -219,4 +252,3 @@ summary {
     height: 600px;
   }
 }
-

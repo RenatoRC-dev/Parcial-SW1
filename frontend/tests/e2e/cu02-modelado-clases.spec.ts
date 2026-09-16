@@ -12,7 +12,7 @@ test("el diseñador crea una clase y CU02 recibe el modelo estructurado", async 
   await expect(
     page.getByRole("heading", { name: "Inspector de Modelo — Desarrollo" })
   ).toBeVisible()
-  await expect(page.locator(".model-facts")).toContainText("ClassDiagram")
+  await expect(page.getByTestId("resumen-apollon")).toContainText("ClassDiagram")
 
   const herramientaClase = page.getByText("Class", { exact: true }).first()
   const lienzo = page.locator(".react-flow__pane")
@@ -30,10 +30,19 @@ test("el diseñador crea una clase y CU02 recibe el modelo estructurado", async 
     },
   })
 
-  const filaClases = page.locator(".model-facts div").filter({ hasText: "Clases" })
-  await expect(filaClases).toContainText("1")
+  const clasesApollon = page
+    .getByTestId("resumen-apollon")
+    .locator("div")
+    .filter({ hasText: "Clases" })
+  const clasesCanonicas = page
+    .getByTestId("resumen-canonico")
+    .locator("div")
+    .filter({ hasText: "Clases" })
+  await expect(clasesApollon).toContainText("1")
+  await expect(clasesCanonicas).toContainText("1")
 
-  await page.getByText("Modelo UML estructurado (JSON)").click()
-  await expect(page.locator(".model-json pre")).toContainText('"type": "class"')
+  await page.getByText("Modelo UML canónico (JSON)").click()
+  await expect(page.locator(".canonical-json pre")).toContainText(
+    '"nombre": "Class"'
+  )
 })
-
