@@ -36,6 +36,7 @@ public class <%= entidad.nombreClase %>ServiceImpl implements <%= entidad.nombre
     public <%= entidad.nombreClase %> actualizar(Long id, <%= entidad.nombreClase %> <%= entidad.nombreVariable %>) {
         <%= entidad.nombreClase %> existente = obtenerPorId(id);
 <% for (const campo of entidad.campos) { %>        existente.set<%= campo.nombreCampo.charAt(0).toUpperCase() + campo.nombreCampo.slice(1) %>(<%= entidad.nombreVariable %>.get<%= campo.nombreCampo.charAt(0).toUpperCase() + campo.nombreCampo.slice(1) %>());
+<% } %><% for (const relacion of entidad.relacionesMuchosAUno) { %>        existente.set<%= relacion.nombreCampo.charAt(0).toUpperCase() + relacion.nombreCampo.slice(1) %>(<%= entidad.nombreVariable %>.get<%= relacion.nombreCampo.charAt(0).toUpperCase() + relacion.nombreCampo.slice(1) %>());
 <% } %>        return repositorio.save(existente);
     }
 

@@ -172,7 +172,7 @@ describe("ValidadorModeloUML", () => {
     expect(codigos(resultado)).toContain("RELACION_EXTREMO_INEXISTENTE")
   })
 
-  it("mantiene válido el modelo con relación estructural y advierte que su generación está diferida", () => {
+  it("mantiene válido el modelo y solo advierte por multiplicidad incompleta", () => {
     const resultado = validarModelo(
       modelo([clase("cliente", "Cliente"), clase("pedido", "Pedido")], [
         {
@@ -187,10 +187,24 @@ describe("ValidadorModeloUML", () => {
     )
 
     expect(resultado.valido).toBe(true)
-    expect(codigos(resultado)).toEqual([
-      "RELACION_MULTIPLICIDAD_INCOMPLETA",
-      "RELACION_GENERACION_DIFERIDA",
-    ])
+    expect(codigos(resultado)).toEqual(["RELACION_MULTIPLICIDAD_INCOMPLETA"])
     expect(resultado.diagnosticos.every((d) => d.severidad === "advertencia")).toBe(true)
+  })
+
+  it("no emite advertencias de capacidad de generación para una relación estructural completa", () => {
+    const resultado = validarModelo(
+      modelo([clase("cliente", "Cliente"), clase("pedido", "Pedido")], [
+        {
+          id: "r1",
+          tipo: "asociacion",
+          claseOrigenId: "cliente",
+          claseDestinoId: "pedido",
+          multiplicidadOrigen: "1",
+          multiplicidadDestino: "0..*",
+        },
+      ])
+    )
+
+    expect(resultado).toEqual({ valido: true, diagnosticos: [] })
   })
 })

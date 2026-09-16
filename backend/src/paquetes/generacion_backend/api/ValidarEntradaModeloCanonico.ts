@@ -6,6 +6,15 @@ const tiposRelacion = new Set([
   "composicion",
   "generalizacion",
 ])
+const multiplicidades = new Set(["0..1", "1", "0..*", "1..*"])
+
+function esMultiplicidad(valor: unknown): boolean {
+  return valor === null || (typeof valor === "string" && multiplicidades.has(valor))
+}
+
+function esRolOpcional(valor: unknown): boolean {
+  return valor === undefined || typeof valor === "string"
+}
 
 function esAtributoEntrada(valor: unknown): boolean {
   if (!valor || typeof valor !== "object") return false
@@ -22,7 +31,11 @@ function esRelacionEntrada(valor: unknown): boolean {
     typeof relacion.tipo === "string" &&
     tiposRelacion.has(relacion.tipo) &&
     typeof relacion.claseOrigenId === "string" &&
-    typeof relacion.claseDestinoId === "string"
+    typeof relacion.claseDestinoId === "string" &&
+    esMultiplicidad(relacion.multiplicidadOrigen) &&
+    esMultiplicidad(relacion.multiplicidadDestino) &&
+    esRolOpcional(relacion.rolOrigen) &&
+    esRolOpcional(relacion.rolDestino)
 }
 
 export function esModeloUMLCanonicoEntrada(valor: unknown): valor is ModeloUMLCanonicoEntrada {

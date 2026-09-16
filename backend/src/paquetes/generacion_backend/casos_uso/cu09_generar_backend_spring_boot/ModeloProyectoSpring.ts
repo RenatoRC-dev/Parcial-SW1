@@ -4,11 +4,25 @@ export interface CampoSpring {
   tipoJava: string
 }
 
+export interface RelacionMuchosAUnoSpring {
+  nombreCampo: string
+  entidadObjetivo: string
+  nombreColumna: string
+}
+
+export interface RelacionUnoAMuchosSpring {
+  nombreCampo: string
+  entidadObjetivo: string
+  mappedBy: string
+}
+
 export interface EntidadSpring {
   nombreClase: string
   nombreVariable: string
   nombreTabla: string
   campos: CampoSpring[]
+  relacionesMuchosAUno: RelacionMuchosAUnoSpring[]
+  relacionesUnoAMuchos: RelacionUnoAMuchosSpring[]
   importaciones: string[]
 }
 

@@ -3,6 +3,8 @@ import type {
   CampoSpring,
   EntidadSpring,
   ModeloProyectoSpring,
+  RelacionMuchosAUnoSpring,
+  RelacionUnoAMuchosSpring,
 } from "./ModeloProyectoSpring.js"
 
 export const VERSION_SPRING_BOOT = "3.5.16"
@@ -68,12 +70,9 @@ export function mapearTipoJava(tipoCanonico: string): string {
   return tipo
 }
 
-function validarEntrada(modelo: ModeloUMLCanonicoEntrada): string[] {
+function validarEntradaBasica(modelo: ModeloUMLCanonicoEntrada): string[] {
   const errores: string[] = []
   if (modelo.clases.length === 0) errores.push("El modelo no contiene clases.")
-  if (modelo.relaciones.length > 0) {
-    errores.push("La generación de relaciones está diferida en Iteración 04.")
-  }
 
   const clasesVistas = new Set<string>()
   for (const clase of modelo.clases) {
@@ -131,6 +130,113 @@ function prepararCampo(nombre: string, tipoCanonico: string): CampoSpring {
   }
 }
 
+interface RelacionUnoAMuchosPreparada {
+  claseUnoId: string
+  claseMuchosId: string
+  muchosAUno: RelacionMuchosAUnoSpring
+  unoAMuchos: RelacionUnoAMuchosSpring
+}
+
+function nombreDeRol(rol: string | undefined, nombrePredeterminado: string): string {
+  return rol === undefined ? nombrePredeterminado : rol.trim()
+}
+
+export function prepararRelacionUnoAMuchos(
+  relacion: ModeloUMLCanonicoEntrada["relaciones"][number],
+  clasesPorId: ReadonlyMap<string, ModeloUMLCanonicoEntrada["clases"][number]>
+): RelacionUnoAMuchosPreparada {
+  if (relacion.tipo !== "asociacion") {
+    throw new Error(`La relación ${relacion.id} de tipo ${relacion.tipo} no está soportada.`)
+  }
+  if (relacion.claseOrigenId === relacion.claseDestinoId) {
+    throw new Error(`La relación ${relacion.id} es autorreferente y todavía no está soportada.`)
+  }
+
+  const claseOrigen = clasesPorId.get(relacion.claseOrigenId)
+  const claseDestino = clasesPorId.get(relacion.claseDestinoId)
+  if (!claseOrigen || !claseDestino) {
+    throw new Error(`La relación ${relacion.id} referencia una clase inexistente.`)
+  }
+
+  const origenEsUno = relacion.multiplicidadOrigen === "1" && relacion.multiplicidadDestino === "0..*"
+  const destinoEsUno = relacion.multiplicidadOrigen === "0..*" && relacion.multiplicidadDestino === "1"
+  if (!origenEsUno && !destinoEsUno) {
+    throw new Error(`La relación ${relacion.id} debe ser una asociación con multiplicidades 1 y 0..*.`)
+  }
+
+  const claseUno = origenEsUno ? claseOrigen : claseDestino
+  const claseMuchos = origenEsUno ? claseDestino : claseOrigen
+  const rolEnExtremoUno = origenEsUno ? relacion.rolOrigen : relacion.rolDestino
+  const rolEnExtremoMuchos = origenEsUno ? relacion.rolDestino : relacion.rolOrigen
+  const campoMuchosAUno = nombreDeRol(rolEnExtremoUno, convertirAVariable(claseUno.nombre))
+  const campoUnoAMuchos = nombreDeRol(
+    rolEnExtremoMuchos,
+    `${convertirAVariable(claseMuchos.nombre)}s`
+  )
+
+  for (const [campo, descripcion] of [
+    [campoMuchosAUno, "muchos-a-uno"],
+    [campoUnoAMuchos, "uno-a-muchos"],
+  ] as const) {
+    if (!identificadorCampo.test(campo) || palabrasReservadasJava.has(campo) || campo === "id") {
+      throw new Error(`El campo de relación ${descripcion} "${campo}" no es un identificador Java soportado.`)
+    }
+  }
+
+  return {
+    claseUnoId: claseUno.id,
+    claseMuchosId: claseMuchos.id,
+    muchosAUno: {
+      nombreCampo: campoMuchosAUno,
+      entidadObjetivo: claseUno.nombre,
+      nombreColumna: `${convertirASnakeCase(campoMuchosAUno)}_id`,
+    },
+    unoAMuchos: {
+      nombreCampo: campoUnoAMuchos,
+      entidadObjetivo: claseMuchos.nombre,
+      mappedBy: campoMuchosAUno,
+    },
+  }
+}
+
+function prepararRelaciones(
+  modelo: ModeloUMLCanonicoEntrada,
+  errores: string[]
+): RelacionUnoAMuchosPreparada[] {
+  const clasesPorId = new Map(modelo.clases.map((clase) => [clase.id, clase]))
+  const camposPorClase = new Map(
+    modelo.clases.map((clase) => [
+      clase.id,
+      new Set(["id", ...clase.atributos.map((atributo) => atributo.nombre.toLowerCase())]),
+    ])
+  )
+  const preparadas: RelacionUnoAMuchosPreparada[] = []
+
+  for (const relacion of modelo.relaciones) {
+    try {
+      const preparada = prepararRelacionUnoAMuchos(relacion, clasesPorId)
+      const camposMuchos = camposPorClase.get(preparada.claseMuchosId)!
+      const camposUno = camposPorClase.get(preparada.claseUnoId)!
+      const campoMuchos = preparada.muchosAUno.nombreCampo.toLowerCase()
+      const campoUno = preparada.unoAMuchos.nombreCampo.toLowerCase()
+      if (camposMuchos.has(campoMuchos)) {
+        errores.push(`El campo de relación ${preparada.muchosAUno.nombreCampo} colisiona en ${clasesPorId.get(preparada.claseMuchosId)!.nombre}.`)
+      }
+      if (camposUno.has(campoUno)) {
+        errores.push(`El campo de relación ${preparada.unoAMuchos.nombreCampo} colisiona en ${clasesPorId.get(preparada.claseUnoId)!.nombre}.`)
+      }
+      if (!camposMuchos.has(campoMuchos) && !camposUno.has(campoUno)) {
+        camposMuchos.add(campoMuchos)
+        camposUno.add(campoUno)
+        preparadas.push(preparada)
+      }
+    } catch (error) {
+      errores.push(error instanceof Error ? error.message : `Relación ${relacion.id} no soportada.`)
+    }
+  }
+  return preparadas
+}
+
 function prepararEntidad(
   clase: ModeloUMLCanonicoEntrada["clases"][number]
 ): EntidadSpring {
@@ -150,6 +256,8 @@ function prepararEntidad(
     nombreVariable: convertirAVariable(clase.nombre),
     nombreTabla: convertirASnakeCase(clase.nombre),
     campos,
+    relacionesMuchosAUno: [],
+    relacionesUnoAMuchos: [],
     importaciones,
   }
 }
@@ -157,9 +265,35 @@ function prepararEntidad(
 export function prepararProyectoSpring(
   modelo: ModeloUMLCanonicoEntrada
 ): ModeloProyectoSpring {
-  const errores = validarEntrada(modelo)
+  const errores = validarEntradaBasica(modelo)
+  const relaciones = prepararRelaciones(modelo, errores)
   if (errores.length > 0) {
     throw new ErrorModeloNoGenerable(errores)
+  }
+
+  const entidades = modelo.clases.map(prepararEntidad)
+  const entidadesPorId = new Map(
+    modelo.clases.map((clase, indice) => [clase.id, entidades[indice]])
+  )
+  for (const relacion of relaciones) {
+    const entidadUno = entidadesPorId.get(relacion.claseUnoId)!
+    const entidadMuchos = entidadesPorId.get(relacion.claseMuchosId)!
+    entidadMuchos.relacionesMuchosAUno.push(relacion.muchosAUno)
+    entidadUno.relacionesUnoAMuchos.push(relacion.unoAMuchos)
+  }
+  for (const entidad of entidades) {
+    if (entidad.relacionesMuchosAUno.length > 0) {
+      entidad.importaciones.push("jakarta.persistence.JoinColumn", "jakarta.persistence.ManyToOne")
+    }
+    if (entidad.relacionesUnoAMuchos.length > 0) {
+      entidad.importaciones.push(
+        "com.fasterxml.jackson.annotation.JsonIgnore",
+        "jakarta.persistence.OneToMany",
+        "java.util.ArrayList",
+        "java.util.List"
+      )
+    }
+    entidad.importaciones = Array.from(new Set(entidad.importaciones)).sort()
   }
 
   return {
@@ -168,6 +302,6 @@ export function prepararProyectoSpring(
     packageName: "com.sw1.generated",
     javaVersion: 21,
     springBootVersion: VERSION_SPRING_BOOT,
-    entidades: modelo.clases.map(prepararEntidad),
+    entidades,
   }
 }

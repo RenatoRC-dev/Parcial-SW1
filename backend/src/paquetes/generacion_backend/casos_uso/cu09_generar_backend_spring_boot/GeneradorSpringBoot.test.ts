@@ -4,6 +4,7 @@ import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 import { generarProyectoSpring } from "./GeneradorSpringBoot.js"
 import { fixtureCliente } from "./fixtureCliente.js"
+import { fixtureClientePedido } from "./fixtureClientePedido.js"
 import {
   convertirASnakeCase,
   mapearTipoJava,
@@ -137,19 +138,21 @@ describe("GeneradorSpringBoot", () => {
     ).toThrow("Tipo no soportado")
   })
 
-  it("rechaza relaciones para no ignorarlas silenciosamente", () => {
+  it("rechaza relaciones 1 a 1 para no reinterpretarlas silenciosamente", () => {
     expect(() =>
       prepararProyectoSpring({
-        ...fixtureCliente,
+        ...fixtureClientePedido,
         relaciones: [
           {
             id: "r1",
             tipo: "asociacion",
             claseOrigenId: "cliente",
             claseDestinoId: "pedido",
+            multiplicidadOrigen: "1",
+            multiplicidadDestino: "1",
           },
         ],
       })
-    ).toThrow("generación de relaciones está diferida")
+    ).toThrow("multiplicidades 1 y 0..*")
   })
 })

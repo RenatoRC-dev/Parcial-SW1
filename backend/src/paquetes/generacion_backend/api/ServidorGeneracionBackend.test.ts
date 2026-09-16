@@ -2,6 +2,7 @@ import JSZip from "jszip"
 import request from "supertest"
 import { describe, expect, it } from "vitest"
 import { fixtureCliente } from "../casos_uso/cu09_generar_backend_spring_boot/fixtureCliente.js"
+import { fixtureClientePedido } from "../casos_uso/cu09_generar_backend_spring_boot/fixtureClientePedido.js"
 import { crearAplicacionGeneracionBackend } from "./ServidorGeneracionBackend.js"
 
 function leerBinario(respuesta: NodeJS.ReadableStream, callback: (error: Error | null, body?: Buffer) => void) {
@@ -40,13 +41,51 @@ describe("API de generación", () => {
       relaciones: [{ id: "r", tipo: "dependencia", claseOrigenId: "cliente", claseDestinoId: "cliente" }],
     }
     await request(aplicacion).post("/api/generacion/spring").send(tipoDesconocido).expect(400)
+
+    const multiplicidadMalformada = {
+      ...fixtureClientePedido,
+      relaciones: [{ ...fixtureClientePedido.relaciones[0], multiplicidadDestino: "*" }],
+    }
+    const rolMalformado = {
+      ...fixtureClientePedido,
+      relaciones: [{ ...fixtureClientePedido.relaciones[0], rolOrigen: 42 }],
+    }
+    await request(aplicacion).post("/api/generacion/spring").send(multiplicidadMalformada).expect(400)
+    await request(aplicacion).post("/api/generacion/spring").send(rolMalformado).expect(400)
   })
 
   it("rechaza relaciones y clases abstractas con 400", async () => {
-    const relacion = { ...fixtureCliente, relaciones: [{ id: "r", tipo: "asociacion", claseOrigenId: "cliente", claseDestinoId: "cliente" }] }
+    const relacion = { ...fixtureCliente, relaciones: [{ id: "r", tipo: "asociacion", claseOrigenId: "cliente", claseDestinoId: "cliente", multiplicidadOrigen: "1", multiplicidadDestino: "1" }] }
     const abstracta = { ...fixtureCliente, clases: [{ ...fixtureCliente.clases[0], abstracta: true }] }
     await request(aplicacion).post("/api/generacion/spring").send(relacion).expect(400)
     await request(aplicacion).post("/api/generacion/spring").send(abstracta).expect(400)
+  })
+
+  it("genera por HTTP una asociación 1 a 0..* y entrega las dos entidades JPA", async () => {
+    const respuesta = await request(aplicacion)
+      .post("/api/generacion/spring")
+      .send(fixtureClientePedido)
+      .buffer(true)
+      .parse(leerBinario)
+      .expect(200)
+    const zip = await JSZip.loadAsync(respuesta.body as Buffer)
+    const cliente = await zip.file("backend-generado/src/main/java/com/sw1/generated/modelo/Cliente.java")!.async("string")
+    const pedido = await zip.file("backend-generado/src/main/java/com/sw1/generated/modelo/Pedido.java")!.async("string")
+    expect(cliente).toContain('@OneToMany(mappedBy = "cliente")')
+    expect(cliente).toContain("private List<Pedido> pedidos")
+    expect(cliente).toContain("@JsonIgnore")
+    expect(pedido).toContain("@ManyToOne(optional = false)")
+    expect(pedido).toContain('@JoinColumn(name = "cliente_id", nullable = false)')
+    expect(pedido).toContain("private Cliente cliente")
+  })
+
+  it("rechaza por dominio una agregación bien formada con 400", async () => {
+    const agregacion = {
+      ...fixtureClientePedido,
+      relaciones: [{ ...fixtureClientePedido.relaciones[0], tipo: "agregacion" }],
+    }
+    const respuesta = await request(aplicacion).post("/api/generacion/spring").send(agregacion).expect(400)
+    expect(respuesta.body.error).toBe("Modelo no apto para generación.")
   })
 
   it("devuelve un ZIP descargable con el proyecto Spring", async () => {

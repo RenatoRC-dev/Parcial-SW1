@@ -18,6 +18,14 @@ public class <%= entidad.nombreClase %> {
 <% for (const campo of entidad.campos) { %>
     @Column(name = "<%= campo.nombreColumna %>")
     private <%= campo.tipoJava %> <%= campo.nombreCampo %>;
+<% } %><% for (const relacion of entidad.relacionesMuchosAUno) { %>
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "<%= relacion.nombreColumna %>", nullable = false)
+    private <%= relacion.entidadObjetivo %> <%= relacion.nombreCampo %>;
+<% } %><% for (const relacion of entidad.relacionesUnoAMuchos) { %>
+    @JsonIgnore
+    @OneToMany(mappedBy = "<%= relacion.mappedBy %>")
+    private List<<%= relacion.entidadObjetivo %>> <%= relacion.nombreCampo %> = new ArrayList<>();
 <% } %>
     public <%= entidad.nombreClase %>() {
     }
@@ -36,5 +44,17 @@ public class <%= entidad.nombreClase %> {
 
     public void set<%= campo.nombreCampo.charAt(0).toUpperCase() + campo.nombreCampo.slice(1) %>(<%= campo.tipoJava %> <%= campo.nombreCampo %>) {
         this.<%= campo.nombreCampo %> = <%= campo.nombreCampo %>;
+    }
+<% } %><% for (const relacion of entidad.relacionesMuchosAUno) { %>
+    public <%= relacion.entidadObjetivo %> get<%= relacion.nombreCampo.charAt(0).toUpperCase() + relacion.nombreCampo.slice(1) %>() {
+        return <%= relacion.nombreCampo %>;
+    }
+
+    public void set<%= relacion.nombreCampo.charAt(0).toUpperCase() + relacion.nombreCampo.slice(1) %>(<%= relacion.entidadObjetivo %> <%= relacion.nombreCampo %>) {
+        this.<%= relacion.nombreCampo %> = <%= relacion.nombreCampo %>;
+    }
+<% } %><% for (const relacion of entidad.relacionesUnoAMuchos) { %>
+    public List<<%= relacion.entidadObjetivo %>> get<%= relacion.nombreCampo.charAt(0).toUpperCase() + relacion.nombreCampo.slice(1) %>() {
+        return <%= relacion.nombreCampo %>;
     }
 <% } %>}

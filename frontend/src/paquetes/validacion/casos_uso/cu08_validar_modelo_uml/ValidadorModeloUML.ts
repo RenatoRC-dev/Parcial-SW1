@@ -245,22 +245,13 @@ export function validarModelo(
         crearDiagnostico(
           "RELACION_MULTIPLICIDAD_INCOMPLETA",
           "advertencia",
-          "La relación no tiene multiplicidades completas para una futura generación JPA.",
+          "La relación no tiene multiplicidades completas en ambos extremos.",
           "relacion",
           relacion.id
         )
       )
     }
 
-    diagnosticos.push(
-      crearDiagnostico(
-        "RELACION_GENERACION_DIFERIDA",
-        "advertencia",
-        `La generación de relaciones ${relacion.tipo} está diferida; el primer generador admite entidades independientes.`,
-        "relacion",
-        relacion.id
-      )
-    )
   }
 
   return {
