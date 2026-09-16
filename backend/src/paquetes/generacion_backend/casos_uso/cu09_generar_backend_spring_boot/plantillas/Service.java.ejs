@@ -1,0 +1,17 @@
+package <%= proyecto.packageName %>.servicio;
+
+import <%= proyecto.packageName %>.modelo.<%= entidad.nombreClase %>;
+import java.util.List;
+
+public interface <%= entidad.nombreClase %>Service {
+
+    List<<%= entidad.nombreClase %>> listar();
+
+    <%= entidad.nombreClase %> obtenerPorId(Long id);
+
+    <%= entidad.nombreClase %> crear(<%= entidad.nombreClase %> <%= entidad.nombreVariable %>);
+
+    <%= entidad.nombreClase %> actualizar(Long id, <%= entidad.nombreClase %> <%= entidad.nombreVariable %>);
+
+    void eliminar(Long id);
+}

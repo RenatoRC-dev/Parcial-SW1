@@ -5,6 +5,11 @@ frontend/.vite/
 frontend/test-results/
 frontend/playwright-report/
 frontend/*.tsbuildinfo
+backend/node_modules/
+backend/dist/
+backend/coverage/
+backend/generated-test-output/
+backend/*.tsbuildinfo
 *.log
 
 # Archivos temporales de auditoria local

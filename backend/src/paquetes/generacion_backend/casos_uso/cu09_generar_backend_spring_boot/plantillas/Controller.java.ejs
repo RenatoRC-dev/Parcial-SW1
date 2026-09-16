@@ -1,0 +1,56 @@
+package <%= proyecto.packageName %>.controlador;
+
+import <%= proyecto.packageName %>.modelo.<%= entidad.nombreClase %>;
+import <%= proyecto.packageName %>.servicio.<%= entidad.nombreClase %>Service;
+import java.util.List;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/<%= entidad.nombreVariable %>")
+public class <%= entidad.nombreClase %>Controller {
+
+    private final <%= entidad.nombreClase %>Service servicio;
+
+    public <%= entidad.nombreClase %>Controller(<%= entidad.nombreClase %>Service servicio) {
+        this.servicio = servicio;
+    }
+
+    @GetMapping
+    public List<<%= entidad.nombreClase %>> listar() {
+        return servicio.listar();
+    }
+
+    @GetMapping("/{id}")
+    public <%= entidad.nombreClase %> obtenerPorId(@PathVariable Long id) {
+        return servicio.obtenerPorId(id);
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public <%= entidad.nombreClase %> crear(@RequestBody <%= entidad.nombreClase %> <%= entidad.nombreVariable %>) {
+        return servicio.crear(<%= entidad.nombreVariable %>);
+    }
+
+    @PutMapping("/{id}")
+    public <%= entidad.nombreClase %> actualizar(
+        @PathVariable Long id,
+        @RequestBody <%= entidad.nombreClase %> <%= entidad.nombreVariable %>
+    ) {
+        return servicio.actualizar(id, <%= entidad.nombreVariable %>);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void eliminar(@PathVariable Long id) {
+        servicio.eliminar(id);
+    }
+}

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react"
 import type { UMLModel } from "@tumaet/apollon"
 import { convertirAModeloCanonicoConAdvertencias } from "../../compartido/integracion_apollon/AdaptadorApollon"
+import { validarModelo } from "../../../validacion/casos_uso/cu08_validar_modelo_uml/ValidadorModeloUML"
 import { AnfitrionEditorApollon } from "./componentes/AnfitrionEditorApollon"
 import { InspectorModeloDesarrollo } from "./componentes/InspectorModeloDesarrollo"
 import { LimiteErrorEditor } from "./componentes/LimiteErrorEditor"
@@ -23,12 +24,17 @@ export function PaginaModeladoClases() {
       modelo ? convertirAModeloCanonicoConAdvertencias(modelo) : null,
     [modelo]
   )
+  const resultadoValidacion = useMemo(
+    () =>
+      resultadoCanonico ? validarModelo(resultadoCanonico.modelo) : null,
+    [resultadoCanonico]
+  )
 
   return (
     <main className="app-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">SW1 · Iteración 02 · Modelado UML · CU02</p>
+          <p className="eyebrow">SW1 · Modelado UML · CU02 / CU08</p>
           <h1>Modelado manual de diagramas de clases</h1>
         </div>
         <p className="iteration-goal">
@@ -55,6 +61,7 @@ export function PaginaModeladoClases() {
         <InspectorModeloDesarrollo
           modeloApollon={modelo}
           resultadoCanonico={resultadoCanonico}
+          resultadoValidacion={resultadoValidacion}
           error={errorEditor}
         />
       </section>

@@ -40,6 +40,11 @@ test("el diseñador crea una clase y CU02 recibe el modelo estructurado", async 
     .filter({ hasText: "Clases" })
   await expect(clasesApollon).toContainText("1")
   await expect(clasesCanonicas).toContainText("1")
+  await expect(page.getByTestId("resumen-validacion")).toBeVisible()
+  await expect(page.getByTestId("resumen-validacion")).toContainText("Inválido")
+  await expect(page.getByTestId("resumen-validacion")).toContainText(
+    "ATRIBUTO_TIPO_NO_SOPORTADO"
+  )
 
   await page.getByText("Modelo UML canónico (JSON)").click()
   await expect(page.locator(".canonical-json pre")).toContainText(

@@ -207,6 +207,39 @@ summary {
   padding-left: 18px;
 }
 
+.validation-valid {
+  color: #1e6b3a;
+  font-weight: 700;
+}
+
+.validation-invalid {
+  color: #9a2528;
+  font-weight: 700;
+}
+
+.validation-diagnostics summary {
+  color: #314d8a;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.validation-diagnostics ul {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.diagnostic-error {
+  color: #8f1d20;
+}
+
+.diagnostic-advertencia {
+  color: #684f0a;
+}
+
 .editor-failure {
   display: grid;
   min-height: 680px;

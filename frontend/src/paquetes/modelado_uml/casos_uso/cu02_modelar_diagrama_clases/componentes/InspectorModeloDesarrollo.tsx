@@ -1,16 +1,19 @@
 import type { UMLModel } from "@tumaet/apollon"
 import type { ResultadoAdaptacionApollon } from "../../../compartido/integracion_apollon/AdaptadorApollon"
+import type { ResultadoValidacion } from "../../../../validacion/casos_uso/cu08_validar_modelo_uml/ValidadorModeloUML"
 import { resumirModelo } from "../resumenModeloApollon"
 
 interface PropiedadesInspectorModeloDesarrollo {
   modeloApollon: UMLModel | null
   resultadoCanonico: ResultadoAdaptacionApollon | null
+  resultadoValidacion: ResultadoValidacion | null
   error: string | null
 }
 
 export function InspectorModeloDesarrollo({
   modeloApollon,
   resultadoCanonico,
+  resultadoValidacion,
   error,
 }: PropiedadesInspectorModeloDesarrollo) {
   const resumen = modeloApollon ? resumirModelo(modeloApollon) : null
@@ -21,6 +24,14 @@ export function InspectorModeloDesarrollo({
       (total, clase) => total + clase.atributos.length,
       0
     ) ?? 0
+  const cantidadErrores =
+    resultadoValidacion?.diagnosticos.filter(
+      (diagnostico) => diagnostico.severidad === "error"
+    ).length ?? 0
+  const cantidadAdvertencias =
+    resultadoValidacion?.diagnosticos.filter(
+      (diagnostico) => diagnostico.severidad === "advertencia"
+    ).length ?? 0
 
   return (
     <aside className="model-inspector" aria-labelledby="titulo-inspector-modelo">
@@ -121,6 +132,56 @@ export function InspectorModeloDesarrollo({
                 <summary>Modelo UML canónico (JSON)</summary>
                 <pre>{JSON.stringify(modeloCanonico, null, 2)}</pre>
               </details>
+            </section>
+          ) : null}
+
+          {resultadoValidacion ? (
+            <section
+              className="inspector-section validation-section"
+              aria-labelledby="titulo-validacion"
+              data-testid="resumen-validacion"
+            >
+              <h3 id="titulo-validacion">Validación</h3>
+              <dl className="model-facts validation-facts">
+                <div>
+                  <dt>Estado</dt>
+                  <dd
+                    className={
+                      resultadoValidacion.valido
+                        ? "validation-valid"
+                        : "validation-invalid"
+                    }
+                  >
+                    {resultadoValidacion.valido ? "Válido" : "Inválido"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Errores</dt>
+                  <dd>{cantidadErrores}</dd>
+                </div>
+                <div>
+                  <dt>Advertencias</dt>
+                  <dd>{cantidadAdvertencias}</dd>
+                </div>
+              </dl>
+
+              {resultadoValidacion.diagnosticos.length > 0 ? (
+                <details className="validation-diagnostics">
+                  <summary>Diagnósticos</summary>
+                  <ul>
+                    {resultadoValidacion.diagnosticos.map(
+                      (diagnostico, indice) => (
+                        <li
+                          key={`${diagnostico.codigo}-${diagnostico.elementoId ?? indice}`}
+                          className={`diagnostic-${diagnostico.severidad}`}
+                        >
+                          <code>{diagnostico.codigo}</code>: {diagnostico.mensaje}
+                        </li>
+                      )
+                    )}
+                  </ul>
+                </details>
+              ) : null}
             </section>
           ) : null}
         </>

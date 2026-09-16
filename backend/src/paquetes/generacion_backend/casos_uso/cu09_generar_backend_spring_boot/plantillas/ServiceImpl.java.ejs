@@ -1,0 +1,46 @@
+package <%= proyecto.packageName %>.servicio.impl;
+
+import <%= proyecto.packageName %>.modelo.<%= entidad.nombreClase %>;
+import <%= proyecto.packageName %>.repositorio.<%= entidad.nombreClase %>Repository;
+import <%= proyecto.packageName %>.servicio.<%= entidad.nombreClase %>Service;
+import java.util.List;
+import org.springframework.stereotype.Service;
+
+@Service
+public class <%= entidad.nombreClase %>ServiceImpl implements <%= entidad.nombreClase %>Service {
+
+    private final <%= entidad.nombreClase %>Repository repositorio;
+
+    public <%= entidad.nombreClase %>ServiceImpl(<%= entidad.nombreClase %>Repository repositorio) {
+        this.repositorio = repositorio;
+    }
+
+    @Override
+    public List<<%= entidad.nombreClase %>> listar() {
+        return repositorio.findAll();
+    }
+
+    @Override
+    public <%= entidad.nombreClase %> obtenerPorId(Long id) {
+        return repositorio.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("<%= entidad.nombreClase %> no encontrado: " + id));
+    }
+
+    @Override
+    public <%= entidad.nombreClase %> crear(<%= entidad.nombreClase %> <%= entidad.nombreVariable %>) {
+        <%= entidad.nombreVariable %>.setId(null);
+        return repositorio.save(<%= entidad.nombreVariable %>);
+    }
+
+    @Override
+    public <%= entidad.nombreClase %> actualizar(Long id, <%= entidad.nombreClase %> <%= entidad.nombreVariable %>) {
+        <%= entidad.nombreClase %> existente = obtenerPorId(id);
+<% for (const campo of entidad.campos) { %>        existente.set<%= campo.nombreCampo.charAt(0).toUpperCase() + campo.nombreCampo.slice(1) %>(<%= entidad.nombreVariable %>.get<%= campo.nombreCampo.charAt(0).toUpperCase() + campo.nombreCampo.slice(1) %>());
+<% } %>        return repositorio.save(existente);
+    }
+
+    @Override
+    public void eliminar(Long id) {
+        repositorio.delete(obtenerPorId(id));
+    }
+}
