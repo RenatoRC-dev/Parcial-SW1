@@ -191,6 +191,18 @@ export function validarModelo(
 ): ResultadoValidacion {
   const diagnosticos: DiagnosticoValidacion[] = []
 
+  if (modelo.id.trim() === "") {
+    diagnosticos.push(
+      crearDiagnostico(
+        "MODELO_ID_REQUERIDO",
+        "error",
+        "El modelo debe tener un identificador estable no vacío.",
+        "modelo",
+        modelo.id
+      )
+    )
+  }
+
   if (modelo.clases.length === 0) {
     diagnosticos.push(
       crearDiagnostico(
@@ -204,7 +216,59 @@ export function validarModelo(
   }
 
   const nombresClases = new Set<string>()
+  const idsClasesVistos = new Set<string>()
+  const idsAtributosVistos = new Set<string>()
   for (const clase of modelo.clases) {
+    if (clase.id.trim() === "") {
+      diagnosticos.push(
+        crearDiagnostico(
+          "CLASE_ID_REQUERIDO",
+          "error",
+          `La clase "${clase.nombre}" debe tener un identificador estable no vacío.`,
+          "clase",
+          clase.id
+        )
+      )
+    } else if (idsClasesVistos.has(clase.id)) {
+      diagnosticos.push(
+        crearDiagnostico(
+          "CLASE_ID_DUPLICADO",
+          "error",
+          `El identificador de clase "${clase.id}" está duplicado.`,
+          "clase",
+          clase.id
+        )
+      )
+    } else {
+      idsClasesVistos.add(clase.id)
+    }
+
+    for (const atributo of clase.atributos) {
+      if (atributo.id.trim() === "") {
+        diagnosticos.push(
+          crearDiagnostico(
+            "ATRIBUTO_ID_REQUERIDO",
+            "error",
+            `El atributo "${atributo.nombre}" debe tener un identificador estable no vacío.`,
+            "atributo",
+            atributo.id
+          )
+        )
+      } else if (idsAtributosVistos.has(atributo.id)) {
+        diagnosticos.push(
+          crearDiagnostico(
+            "ATRIBUTO_ID_DUPLICADO",
+            "error",
+            `El identificador de atributo "${atributo.id}" está duplicado en el modelo.`,
+            "atributo",
+            atributo.id
+          )
+        )
+      } else {
+        idsAtributosVistos.add(atributo.id)
+      }
+    }
+
     validarClase(clase, diagnosticos)
     const clave = claveNombre(clase.nombre)
     if (clave !== "" && nombresClases.has(clave)) {
@@ -222,7 +286,32 @@ export function validarModelo(
   }
 
   const idsClases = new Set(modelo.clases.map((clase) => clase.id))
+  const idsRelacionesVistos = new Set<string>()
   for (const relacion of modelo.relaciones) {
+    if (relacion.id.trim() === "") {
+      diagnosticos.push(
+        crearDiagnostico(
+          "RELACION_ID_REQUERIDO",
+          "error",
+          "La relación debe tener un identificador estable no vacío.",
+          "relacion",
+          relacion.id
+        )
+      )
+    } else if (idsRelacionesVistos.has(relacion.id)) {
+      diagnosticos.push(
+        crearDiagnostico(
+          "RELACION_ID_DUPLICADO",
+          "error",
+          `El identificador de relación "${relacion.id}" está duplicado.`,
+          "relacion",
+          relacion.id
+        )
+      )
+    } else {
+      idsRelacionesVistos.add(relacion.id)
+    }
+
     const origenExiste = idsClases.has(relacion.claseOrigenId)
     const destinoExiste = idsClases.has(relacion.claseDestinoId)
     if (!origenExiste || !destinoExiste) {

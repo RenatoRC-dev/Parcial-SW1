@@ -47,6 +47,54 @@ function codigos(resultado: ReturnType<typeof validarModelo>): string[] {
 }
 
 describe("ValidadorModeloUML", () => {
+  it("rechaza un id de modelo vacío", () => {
+    const entrada = modelo([clase("cliente", "Cliente")])
+    entrada.id = "   "
+    expect(codigos(validarModelo(entrada))).toContain("MODELO_ID_REQUERIDO")
+  })
+
+  it("rechaza un id de clase vacío", () => {
+    expect(codigos(validarModelo(modelo([clase(" ", "Cliente")])))).toContain("CLASE_ID_REQUERIDO")
+  })
+
+  it("rechaza ids de clase duplicados", () => {
+    const resultado = validarModelo(modelo([clase("misma", "Cliente"), clase("misma", "Pedido")]))
+    expect(codigos(resultado)).toContain("CLASE_ID_DUPLICADO")
+  })
+
+  it("rechaza un id de atributo vacío", () => {
+    const resultado = validarModelo(modelo([clase("cliente", "Cliente", [atributo(" ", "nombre", "String")])]))
+    expect(codigos(resultado)).toContain("ATRIBUTO_ID_REQUERIDO")
+  })
+
+  it("rechaza ids de atributo duplicados en clases diferentes", () => {
+    const resultado = validarModelo(modelo([
+      clase("cliente", "Cliente", [atributo("campo", "nombre", "String")]),
+      clase("pedido", "Pedido", [atributo("campo", "fecha", "LocalDate")]),
+    ]))
+    expect(codigos(resultado)).toContain("ATRIBUTO_ID_DUPLICADO")
+  })
+
+  it("rechaza un id de relación vacío", () => {
+    const resultado = validarModelo(modelo([clase("cliente", "Cliente"), clase("pedido", "Pedido")], [{
+      id: " ", tipo: "asociacion", claseOrigenId: "cliente", claseDestinoId: "pedido",
+      multiplicidadOrigen: "1", multiplicidadDestino: "0..*",
+    }]))
+    expect(codigos(resultado)).toContain("RELACION_ID_REQUERIDO")
+  })
+
+  it("rechaza ids de relación duplicados", () => {
+    const relacion: RelacionUML = {
+      id: "relacion", tipo: "asociacion", claseOrigenId: "cliente", claseDestinoId: "pedido",
+      multiplicidadOrigen: "1", multiplicidadDestino: "0..*",
+    }
+    const resultado = validarModelo(modelo(
+      [clase("cliente", "Cliente"), clase("pedido", "Pedido")],
+      [relacion, { ...relacion }]
+    ))
+    expect(codigos(resultado)).toContain("RELACION_ID_DUPLICADO")
+  })
+
   it("considera inválido un modelo vacío", () => {
     const resultado = validarModelo(modelo([]))
 

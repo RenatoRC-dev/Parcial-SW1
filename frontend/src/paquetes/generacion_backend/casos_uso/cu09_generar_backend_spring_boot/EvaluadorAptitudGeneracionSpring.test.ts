@@ -57,6 +57,14 @@ describe("evaluarAptitudGeneracionSpring", () => {
     expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).motivos[0]).toContain("multiplicidades 1 y 0..*")
   })
 
+  it("rechaza asociación muchos a muchos 0..* a 0..*", () => {
+    const modelo = crearModeloRelacionado({
+      multiplicidadOrigen: "0..*",
+      multiplicidadDestino: "0..*",
+    })
+    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).apto).toBe(false)
+  })
+
   it.each(["agregacion", "composicion", "generalizacion"] as const)(
     "rechaza relaciones %s",
     (tipo) => {
@@ -94,5 +102,11 @@ describe("evaluarAptitudGeneracionSpring", () => {
   it("rechaza nombres que colisionan con tipos Java", () => {
     const modelo = crearModelo({ clases: [{ ...crearModelo().clases[0], nombre: "String" }] })
     expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).motivos).toContain("El nombre de entidad String entra en conflicto con un tipo Java.")
+  })
+
+  it("rechaza ids canónicos duplicados mediante CU08", () => {
+    const modelo = crearModeloRelacionado()
+    modelo.clases[1].id = modelo.clases[0].id
+    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).apto).toBe(false)
   })
 })

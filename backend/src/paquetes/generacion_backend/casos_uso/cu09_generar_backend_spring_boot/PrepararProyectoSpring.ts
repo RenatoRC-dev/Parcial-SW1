@@ -70,6 +70,45 @@ export function mapearTipoJava(tipoCanonico: string): string {
   return tipo
 }
 
+function validarIdentidades(modelo: ModeloUMLCanonicoEntrada): string[] {
+  const errores: string[] = []
+  if (modelo.id.trim() === "") errores.push("El id del modelo es obligatorio.")
+
+  const idsClases = new Set<string>()
+  const idsAtributos = new Set<string>()
+  for (const clase of modelo.clases) {
+    if (clase.id.trim() === "") {
+      errores.push(`La clase ${clase.nombre || "(sin nombre)"} no tiene id.`)
+    } else if (idsClases.has(clase.id)) {
+      errores.push(`Id de clase duplicado: ${clase.id}.`)
+    } else {
+      idsClases.add(clase.id)
+    }
+
+    for (const atributo of clase.atributos) {
+      if (atributo.id.trim() === "") {
+        errores.push(`El atributo ${clase.nombre}.${atributo.nombre || "(sin nombre)"} no tiene id.`)
+      } else if (idsAtributos.has(atributo.id)) {
+        errores.push(`Id de atributo duplicado: ${atributo.id}.`)
+      } else {
+        idsAtributos.add(atributo.id)
+      }
+    }
+  }
+
+  const idsRelaciones = new Set<string>()
+  for (const relacion of modelo.relaciones) {
+    if (relacion.id.trim() === "") {
+      errores.push("Una relación no tiene id.")
+    } else if (idsRelaciones.has(relacion.id)) {
+      errores.push(`Id de relación duplicado: ${relacion.id}.`)
+    } else {
+      idsRelaciones.add(relacion.id)
+    }
+  }
+  return errores
+}
+
 function validarEntradaBasica(modelo: ModeloUMLCanonicoEntrada): string[] {
   const errores: string[] = []
   if (modelo.clases.length === 0) errores.push("El modelo no contiene clases.")
@@ -265,6 +304,11 @@ function prepararEntidad(
 export function prepararProyectoSpring(
   modelo: ModeloUMLCanonicoEntrada
 ): ModeloProyectoSpring {
+  const erroresIdentidad = validarIdentidades(modelo)
+  if (erroresIdentidad.length > 0) {
+    throw new ErrorModeloNoGenerable(erroresIdentidad)
+  }
+
   const errores = validarEntradaBasica(modelo)
   const relaciones = prepararRelaciones(modelo, errores)
   if (errores.length > 0) {

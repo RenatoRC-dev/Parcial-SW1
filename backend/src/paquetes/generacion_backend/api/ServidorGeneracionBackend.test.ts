@@ -61,6 +61,21 @@ describe("API de generación", () => {
     await request(aplicacion).post("/api/generacion/spring").send(abstracta).expect(400)
   })
 
+  it("rechaza ids canónicos duplicados con 400 y no con 500", async () => {
+    const idsDuplicados = {
+      ...fixtureClientePedido,
+      clases: fixtureClientePedido.clases.map((clase, indice) =>
+        indice === 1 ? { ...clase, id: "cliente" } : clase
+      ),
+    }
+    const respuesta = await request(aplicacion)
+      .post("/api/generacion/spring")
+      .send(idsDuplicados)
+      .expect(400)
+    expect(respuesta.body.error).toBe("Modelo no apto para generación.")
+    expect(respuesta.body.errores).toContain("Id de clase duplicado: cliente.")
+  })
+
   it("genera por HTTP una asociación 1 a 0..* y entrega las dos entidades JPA", async () => {
     const respuesta = await request(aplicacion)
       .post("/api/generacion/spring")

@@ -12,6 +12,7 @@ Current completed iterations:
 - Iteration 04: first deterministic Spring Boot generation slice (`Generación de Backend` / CU09).
 - Iteration 05: end-to-end Spring generation and ZIP delivery (`Generación de Backend` / CU09 and CU10).
 - Iteration 06: deterministic one-to-many JPA association generation (`Generación de Backend` / CU09).
+- Iteration 07: PostgreSQL runtime CRUD and canonical ID integrity (`Generación de Backend` / CU09).
 
 Important boundaries:
 
@@ -28,6 +29,8 @@ Current generation profile:
 
 - Supported: independent entities, scalar fields, and UML association `1 ↔ 0..*`.
 - Deferred: one-to-one, many-to-many, aggregation, composition, and inheritance.
+
+The concise frontend/backend capability contract is documented in [`docs/generation/SPRING_GENERATION_PROFILE.md`](docs/generation/SPRING_GENERATION_PROFILE.md).
 
 ## Prerequisites
 
@@ -101,6 +104,15 @@ npm run proof:relation
 cd .\generated-test-output\relationship-proof\extraido\backend-generado
 .\mvnw.cmd clean test
 ```
+
+Iteration 07 successfully completed the real acceptance proof against PostgreSQL 16.6 using the dedicated `sw1_iteracion07` database. To rerun it, configure the required local PostgreSQL credentials in the process environment and execute:
+
+```powershell
+cd D:\2-2026\SW1\Proyecto-Parcial\backend
+npm run proof:postgres
+```
+
+The command defaults to the dedicated database `sw1_iteracion07`; it never stores credentials in source or generated evidence. Host, port, admin database, and test database can be overridden through the documented process environment configuration.
 
 The generated Maven Wrapper downloads its pinned Maven distribution, so a global Maven installation is not required.
 
