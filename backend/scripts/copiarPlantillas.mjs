@@ -10,3 +10,14 @@ const destino = new URL(
 )
 
 await cp(origen, destino, { recursive: true })
+
+const puenteXmi = new URL(
+  "../src/paquetes/interoperabilidad/compartido/crunch_uml/bridge_crunch_uml.py",
+  import.meta.url
+)
+const destinoPuenteXmi = new URL(
+  "../dist/paquetes/interoperabilidad/compartido/crunch_uml/bridge_crunch_uml.py",
+  import.meta.url
+)
+
+await cp(puenteXmi, destinoPuenteXmi)

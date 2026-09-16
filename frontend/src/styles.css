@@ -79,7 +79,8 @@ summary {
 
 .editor-panel,
 .model-inspector,
-.generation-panel {
+.generation-panel,
+.interoperability-panel {
   overflow: hidden;
   border: 1px solid #d8deea;
   border-radius: 12px;
@@ -94,6 +95,37 @@ summary {
 
 .generation-panel {
   padding: 20px;
+}
+
+.interoperability-panel {
+  padding: 20px;
+}
+
+.interoperability-panel h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.interoperability-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.interoperability-actions button {
+  padding: 9px;
+  border: 0;
+  border-radius: 7px;
+  color: #fff;
+  background: #304e96;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.interoperability-actions button:disabled {
+  background: #a7afc1;
+  cursor: wait;
 }
 
 .generation-panel h2 {

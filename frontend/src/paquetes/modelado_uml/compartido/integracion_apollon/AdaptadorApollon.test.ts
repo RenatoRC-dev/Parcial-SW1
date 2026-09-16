@@ -3,6 +3,7 @@ import type { UMLModel } from "@tumaet/apollon"
 import {
   convertirAModeloCanonico,
   convertirAModeloCanonicoConAdvertencias,
+  convertirDesdeModeloCanonico,
 } from "./AdaptadorApollon"
 
 function crearModelo(
@@ -195,5 +196,76 @@ describe("AdaptadorApollon", () => {
     expect(resultado.advertencias[0]).toContain(
       "Multiplicidad de origen no soportada"
     )
+  })
+
+  it("recrea una clase canónica con id, atributos, posición y abstracción", () => {
+    const apollon = convertirDesdeModeloCanonico({
+      id: "modelo-importado",
+      nombre: "Importado",
+      version: "xmi",
+      clases: [{
+        id: "cliente",
+        nombre: "Cliente",
+        abstracta: false,
+        posicion: { x: 100, y: 200 },
+        atributos: [{ id: "nombre", nombre: "nombre", tipo: "String" }],
+      }],
+      relaciones: [],
+    })
+
+    expect(apollon).toMatchObject({ id: "modelo-importado", title: "Importado", type: "ClassDiagram" })
+    expect(apollon.nodes[0]).toMatchObject({
+      id: "cliente",
+      position: { x: 100, y: 200 },
+      data: { name: "Cliente", attributes: [{ id: "nombre", name: "nombre: String" }] },
+    })
+  })
+
+  it("no inventa String al recrear un atributo canónico sin tipo", () => {
+    const modelo = {
+      id: "modelo-sin-tipo",
+      nombre: "Sin tipo",
+      version: "4.2.0",
+      clases: [{
+        id: "cliente",
+        nombre: "Cliente",
+        abstracta: false,
+        posicion: { x: 100, y: 100 },
+        atributos: [{ id: "dato", nombre: "dato", tipo: null }],
+      }],
+      relaciones: [],
+    }
+
+    const vuelta = convertirAModeloCanonico(convertirDesdeModeloCanonico(modelo))
+
+    expect(vuelta.clases[0].atributos[0]).toMatchObject({
+      id: "dato",
+      nombre: "dato",
+      tipo: null,
+    })
+  })
+
+  it("preserva la asociación soportada en canonical → Apollon → canonical", () => {
+    const modelo = {
+      id: "modelo-importado",
+      nombre: "Importado",
+      version: "4.2.0",
+      clases: [
+        { id: "cliente", nombre: "Cliente", abstracta: false, posicion: { x: 100, y: 100 }, atributos: [] },
+        { id: "pedido", nombre: "Pedido", abstracta: false, posicion: { x: 450, y: 100 }, atributos: [] },
+      ],
+      relaciones: [{
+        id: "relacion",
+        tipo: "asociacion" as const,
+        claseOrigenId: "cliente",
+        claseDestinoId: "pedido",
+        multiplicidadOrigen: "1" as const,
+        multiplicidadDestino: "0..*" as const,
+        rolOrigen: "cliente",
+        rolDestino: "pedidos",
+      }],
+    }
+    const vuelta = convertirAModeloCanonico(convertirDesdeModeloCanonico(modelo))
+    expect(vuelta.relaciones).toEqual([expect.objectContaining(modelo.relaciones[0])])
   })
 })

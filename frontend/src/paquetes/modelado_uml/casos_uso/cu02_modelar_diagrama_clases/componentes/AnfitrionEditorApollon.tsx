@@ -1,4 +1,4 @@
-import { useCallback } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import {
   Apollon,
   UMLDiagramType,
@@ -11,12 +11,15 @@ import { convertirAError, esUMLModel } from "../resumenModeloApollon"
 export interface PropiedadesAnfitrionEditorApollon {
   alCambiarModelo: (modelo: UMLModel) => void
   alOcurrirError: (error: Error) => void
+  modeloParaReemplazar?: UMLModel
 }
 
 export function AnfitrionEditorApollon({
   alCambiarModelo,
   alOcurrirError,
+  modeloParaReemplazar,
 }: PropiedadesAnfitrionEditorApollon) {
+  const editorActual = useRef<ApollonEditor | null>(null)
   const publicarModelo = useCallback(
     (candidato: unknown) => {
       if (!esUMLModel(candidato)) {
@@ -34,6 +37,7 @@ export function AnfitrionEditorApollon({
   const alMontarEditor = useCallback(
     (editor: ApollonEditor) => {
       try {
+        editorActual.current = editor
         publicarModelo(editor.model)
 
         const idSuscripcion = editor.subscribeToModelChange((modeloActualizado) => {
@@ -49,7 +53,10 @@ export function AnfitrionEditorApollon({
           }
         })
 
-        return () => editor.unsubscribe(idSuscripcion)
+        return () => {
+          editorActual.current = null
+          editor.unsubscribe(idSuscripcion)
+        }
       } catch (error) {
         alOcurrirError(
           convertirAError(error, "No se pudo inicializar el editor Apollon")
@@ -60,6 +67,16 @@ export function AnfitrionEditorApollon({
     [alOcurrirError, publicarModelo]
   )
 
+  useEffect(() => {
+    if (!modeloParaReemplazar || !editorActual.current) return
+    try {
+      editorActual.current.updateDiagramTitle(modeloParaReemplazar.title)
+      editorActual.current.model = modeloParaReemplazar
+    } catch (error) {
+      alOcurrirError(convertirAError(error, "No se pudo reemplazar el modelo de Apollon"))
+    }
+  }, [alOcurrirError, modeloParaReemplazar])
+
   return (
     <Apollon
       className="apollon-host"
@@ -68,4 +85,3 @@ export function AnfitrionEditorApollon({
     />
   )
 }
-

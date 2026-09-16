@@ -22,6 +22,17 @@ describe("API de generación", () => {
     await request(aplicacion).post("/api/generacion/spring").send({ clases: "no" }).expect(400)
   })
 
+  it("responde con un mensaje genérico ante JSON sobredimensionado", async () => {
+    const respuesta = await request(aplicacion)
+      .post("/api/generacion/spring")
+      .send({ contenido: "x".repeat(1024 * 1024) })
+      .expect(413)
+
+    expect(respuesta.body).toEqual({
+      error: "El contenido de la solicitud supera el límite permitido.",
+    })
+  })
+
   it("rechaza atributos anidados malformados con 400", async () => {
     const atributoNulo = {
       ...fixtureCliente,

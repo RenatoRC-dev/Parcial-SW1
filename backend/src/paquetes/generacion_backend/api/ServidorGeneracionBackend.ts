@@ -6,6 +6,10 @@ import { generarProyectoSpring } from "../casos_uso/cu09_generar_backend_spring_
 import { ErrorModeloNoGenerable } from "../casos_uso/cu09_generar_backend_spring_boot/PrepararProyectoSpring.js"
 import { empaquetarBackendGenerado } from "../casos_uso/cu10_obtener_backend_generado/EmpaquetadorBackendGenerado.js"
 import { esModeloUMLCanonicoEntrada } from "./ValidarEntradaModeloCanonico.js"
+import type { ModeloUMLCanonicoIntercambio } from "../../interoperabilidad/compartido/crunch_uml/ContratoInteroperabilidadXmi.js"
+import { ErrorInteroperabilidadXmi } from "../../interoperabilidad/compartido/crunch_uml/AdaptadorCrunchUML.js"
+import { importarModeloXmi } from "../../interoperabilidad/casos_uso/cu06_importar_modelo_xmi/importarModeloXmi.js"
+import { exportarModeloXmi } from "../../interoperabilidad/casos_uso/cu07_exportar_modelo_xmi/exportarModeloXmi.js"
 
 export function crearAplicacionGeneracionBackend() {
   const aplicacion = express()
@@ -13,6 +17,35 @@ export function crearAplicacionGeneracionBackend() {
 
   aplicacion.get("/api/health", (_solicitud, respuesta) => {
     respuesta.json({ estado: "ok" })
+  })
+
+  aplicacion.post(
+    "/api/interoperabilidad/xmi/importar",
+    express.text({ type: ["application/xml", "text/xml"], limit: "5mb" }),
+    async (solicitud, respuesta) => {
+      if (typeof solicitud.body !== "string") {
+        respuesta.status(400).json({ error: "Se requiere contenido XMI/XML." })
+        return
+      }
+      try {
+        respuesta.status(200).json(await importarModeloXmi(solicitud.body))
+      } catch (error) {
+        responderErrorXmi(error, respuesta)
+      }
+    },
+  )
+
+  aplicacion.post("/api/interoperabilidad/xmi/exportar", async (solicitud, respuesta) => {
+    if (!esModeloUMLCanonicoEntrada(solicitud.body)) {
+      respuesta.status(400).json({ error: "El cuerpo no contiene un ModeloUMLCanonico válido." })
+      return
+    }
+    try {
+      const xmi = await exportarModeloXmi(solicitud.body as ModeloUMLCanonicoIntercambio)
+      respuesta.status(200).attachment("modelo.xmi").type("application/xml").send(xmi)
+    } catch (error) {
+      responderErrorXmi(error, respuesta)
+    }
   })
 
   aplicacion.post("/api/generacion/spring", async (solicitud, respuesta) => {
@@ -38,5 +71,23 @@ export function crearAplicacionGeneracionBackend() {
     }
   })
 
+  aplicacion.use((error: unknown, _solicitud: express.Request, respuesta: express.Response, siguiente: express.NextFunction) => {
+    if (typeof error === "object" && error !== null && "type" in error && error.type === "entity.too.large") {
+      respuesta.status(413).json({ error: "El contenido de la solicitud supera el límite permitido." })
+      return
+    }
+    siguiente(error)
+  })
+
   return aplicacion
+}
+
+function responderErrorXmi(error: unknown, respuesta: express.Response): void {
+  if (error instanceof ErrorInteroperabilidadXmi) {
+    const estado = error.tipo === "configuracion" ? 503 : error.tipo === "entrada" ? 400 : 500
+    respuesta.status(estado).json({ error: error.message })
+    return
+  }
+  console.error(error)
+  respuesta.status(500).json({ error: "No se pudo completar la operación XMI." })
 }

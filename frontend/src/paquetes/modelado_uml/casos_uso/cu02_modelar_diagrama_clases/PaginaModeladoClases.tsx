@@ -1,16 +1,21 @@
 import { useCallback, useMemo, useState } from "react"
 import type { UMLModel } from "@tumaet/apollon"
-import { convertirAModeloCanonicoConAdvertencias } from "../../compartido/integracion_apollon/AdaptadorApollon"
+import {
+  convertirAModeloCanonicoConAdvertencias,
+  convertirDesdeModeloCanonico,
+} from "../../compartido/integracion_apollon/AdaptadorApollon"
 import { validarModelo } from "../../../validacion/casos_uso/cu08_validar_modelo_uml/ValidadorModeloUML"
 import { evaluarAptitudGeneracionSpring } from "../../../generacion_backend/casos_uso/cu09_generar_backend_spring_boot/EvaluadorAptitudGeneracionSpring"
 import { PanelGeneracionSpring } from "../../../generacion_backend/casos_uso/cu09_generar_backend_spring_boot/PanelGeneracionSpring"
 import { AnfitrionEditorApollon } from "./componentes/AnfitrionEditorApollon"
 import { InspectorModeloDesarrollo } from "./componentes/InspectorModeloDesarrollo"
 import { LimiteErrorEditor } from "./componentes/LimiteErrorEditor"
+import { PanelInteroperabilidadXmi } from "../../../interoperabilidad/compartido/PanelInteroperabilidadXmi"
 
 export function PaginaModeladoClases() {
   const [modelo, establecerModelo] = useState<UMLModel | null>(null)
   const [errorEditor, establecerErrorEditor] = useState<string | null>(null)
+  const [modeloImportado, establecerModeloImportado] = useState<UMLModel | undefined>()
 
   const recibirCambioModelo = useCallback((modeloActualizado: UMLModel) => {
     establecerModelo(modeloActualizado)
@@ -66,6 +71,7 @@ export function PaginaModeladoClases() {
             <AnfitrionEditorApollon
               alCambiarModelo={recibirCambioModelo}
               alOcurrirError={registrarErrorEditor}
+              modeloParaReemplazar={modeloImportado}
             />
           </LimiteErrorEditor>
         </div>
@@ -78,11 +84,17 @@ export function PaginaModeladoClases() {
             error={errorEditor}
           />
           {resultadoCanonico && resultadoValidacion && aptitudGeneracion ? (
-            <PanelGeneracionSpring
-              modelo={resultadoCanonico.modelo}
-              validacion={resultadoValidacion}
-              aptitud={aptitudGeneracion}
-            />
+            <>
+              <PanelInteroperabilidadXmi
+                modelo={resultadoCanonico.modelo}
+                alImportar={(modeloCanonico) => establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico))}
+              />
+              <PanelGeneracionSpring
+                modelo={resultadoCanonico.modelo}
+                validacion={resultadoValidacion}
+                aptitud={aptitudGeneracion}
+              />
+            </>
           ) : null}
         </div>
       </section>

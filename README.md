@@ -14,6 +14,8 @@ Current completed iterations:
 - Iteration 06: deterministic one-to-many JPA association generation (`Generación de Backend` / CU09).
 - Iteration 07: PostgreSQL runtime CRUD and canonical ID integrity (`Generación de Backend` / CU09).
 
+Iteration 08 has a verified internal XMI import/export round-trip and browser flow. Its final status is **PARTIAL** until both directions are executed with a real Sparx Enterprise Architect installation.
+
 Important boundaries:
 
 - Canonical contract: `frontend/src/nucleo/modelo_uml/`
@@ -32,10 +34,24 @@ Current generation profile:
 
 The concise frontend/backend capability contract is documented in [`docs/generation/SPRING_GENERATION_PROFILE.md`](docs/generation/SPRING_GENERATION_PROFILE.md).
 
+Current interoperability profile:
+
+- XMI 2.1 import/export through the isolated local `crunch_uml` bridge.
+- Supported: independent classes, scalar attributes, stable element IDs, positions when available, and association `1 ↔ 0..*` in both orientations with endpoint roles.
+- Explicitly deferred: attribute visibility, abstract classes, enumerations, generalization, aggregation, composition, 1:1, N:M, methods, and nested-package semantics.
+- Real Enterprise Architect acceptance: pending because EA is not available in the current environment.
+
+## Open acceptance gates
+
+- [`EA-XMI-001`](docs/quality/PENDING_ACCEPTANCE_GATES.md) — Real Enterprise Architect bidirectional XMI acceptance. Status: **OPEN**.
+
+Iteration 08 remains **PARTIAL — REAL ENTERPRISE ARCHITECT ROUND-TRIP PENDING**.
+
 ## Prerequisites
 
 - Node.js 22 or newer
 - npm 10 or newer
+- Python 3.10–3.13 for the local XMI bridge
 - Google Chrome for `npm run test:e2e`
 - Java 21 for compiling a generated Spring project
 
@@ -115,6 +131,17 @@ npm run proof:postgres
 The command defaults to the dedicated database `sw1_iteracion07`; it never stores credentials in source or generated evidence. Host, port, admin database, and test database can be overridden through the documented process environment configuration.
 
 The generated Maven Wrapper downloads its pinned Maven distribution, so a global Maven installation is not required.
+
+For XMI interoperability, create the ignored backend-local Python environment once and install the local `crunch_uml` requirements:
+
+```powershell
+cd D:\2-2026\SW1\Proyecto-Parcial\backend
+python -m venv .venv-crunch
+.\.venv-crunch\Scripts\python.exe -m pip install -r ..\..\crunch_uml\requirements.txt
+npm run proof:xmi
+```
+
+The bridge discovers `crunch_uml` as a sibling repository by default. Set `SW1_CRUNCH_UML_PATH` only when the reference repository is elsewhere; do not copy it into this project.
 
 ## Project context
 

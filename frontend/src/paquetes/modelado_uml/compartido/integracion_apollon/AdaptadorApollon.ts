@@ -261,3 +261,61 @@ export function convertirAModeloCanonico(
 ): ModeloUMLCanonico {
   return convertirAModeloCanonicoConAdvertencias(modeloApollon).modelo
 }
+
+function notacionAtributo(atributo: AtributoUML): string {
+  const visibilidad = atributo.visibilidad === "privada" ? "- " : atributo.visibilidad === "publica" ? "+ " : ""
+  const tipo = atributo.tipo?.trim()
+  return tipo ? `${visibilidad}${atributo.nombre}: ${tipo}` : `${visibilidad}${atributo.nombre}`
+}
+
+function multiplicidadApollon(multiplicidad: Multiplicidad | null): string {
+  return multiplicidad === "0..*" ? "*" : (multiplicidad ?? "")
+}
+
+export function convertirDesdeModeloCanonico(modelo: ModeloUMLCanonico): UMLModel {
+  const tiposRelacion: Record<TipoRelacionUML, UMLModel["edges"][number]["type"]> = {
+    asociacion: "ClassBidirectional",
+    agregacion: "ClassAggregation",
+    composicion: "ClassComposition",
+    generalizacion: "ClassInheritance",
+  }
+
+  return {
+    version: "4.2.0",
+    id: modelo.id,
+    title: modelo.nombre,
+    type: "ClassDiagram",
+    assessments: {},
+    nodes: modelo.clases.map((clase, indice) => ({
+      id: clase.id,
+      type: "class",
+      width: 220,
+      height: Math.max(100, 70 + clase.atributos.length * 24),
+      measured: { width: 220, height: Math.max(100, 70 + clase.atributos.length * 24) },
+      position: Number.isFinite(clase.posicion?.x) && Number.isFinite(clase.posicion?.y)
+        ? clase.posicion
+        : { x: 100 + (indice % 3) * 350, y: 100 + Math.floor(indice / 3) * 250 },
+      data: {
+        name: clase.nombre,
+        attributes: clase.atributos.map((atributo) => ({ id: atributo.id, name: notacionAtributo(atributo) })),
+        methods: [],
+        isAbstract: clase.abstracta,
+      },
+    })),
+    edges: modelo.relaciones.map((relacion) => ({
+      id: relacion.id,
+      type: tiposRelacion[relacion.tipo],
+      source: relacion.claseOrigenId,
+      target: relacion.claseDestinoId,
+      sourceHandle: "source",
+      targetHandle: "target",
+      data: {
+        points: [],
+        sourceMultiplicity: multiplicidadApollon(relacion.multiplicidadOrigen),
+        targetMultiplicity: multiplicidadApollon(relacion.multiplicidadDestino),
+        sourceRole: relacion.rolOrigen ?? "",
+        targetRole: relacion.rolDestino ?? "",
+      },
+    })),
+  }
+}

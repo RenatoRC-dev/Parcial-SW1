@@ -9,6 +9,7 @@ backend/node_modules/
 backend/dist/
 backend/coverage/
 backend/generated-test-output/
+backend/.venv-crunch/
 backend/*.tsbuildinfo
 *.log
 
