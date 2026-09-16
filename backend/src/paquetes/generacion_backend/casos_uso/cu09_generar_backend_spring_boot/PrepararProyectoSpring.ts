@@ -37,6 +37,10 @@ const importacionesPorTipo: Readonly<Record<string, string>> = {
 
 const identificadorClase = /^[A-Z][A-Za-z0-9]*$/
 const identificadorCampo = /^[a-z][A-Za-z0-9]*$/
+const nombresEntidadEnConflicto = new Set([
+  "String", "Integer", "Long", "Double", "Float", "Boolean",
+  "BigDecimal", "LocalDate", "LocalDateTime", "UUID",
+])
 const palabrasReservadasJava = new Set([
   "abstract", "assert", "boolean", "break", "byte", "case", "catch",
   "char", "class", "const", "continue", "default", "do", "double",
@@ -76,6 +80,9 @@ function validarEntrada(modelo: ModeloUMLCanonicoEntrada): string[] {
     if (!identificadorClase.test(clase.nombre)) {
       errores.push(`Nombre de clase no soportado: ${clase.nombre || "(vacío)"}.`)
     }
+    if (nombresEntidadEnConflicto.has(clase.nombre)) {
+      errores.push(`Nombre de clase en conflicto con un tipo Java: ${clase.nombre}.`)
+    }
     const claveClase = clase.nombre.toLowerCase()
     if (clasesVistas.has(claveClase)) {
       errores.push(`Nombre de clase duplicado: ${clase.nombre}.`)
@@ -107,6 +114,13 @@ function validarEntrada(modelo: ModeloUMLCanonicoEntrada): string[] {
     }
   }
   return errores
+}
+
+export class ErrorModeloNoGenerable extends Error {
+  constructor(public readonly errores: string[]) {
+    super(`Modelo no apto para generación:\n- ${errores.join("\n- ")}`)
+    this.name = "ErrorModeloNoGenerable"
+  }
 }
 
 function prepararCampo(nombre: string, tipoCanonico: string): CampoSpring {
@@ -145,7 +159,7 @@ export function prepararProyectoSpring(
 ): ModeloProyectoSpring {
   const errores = validarEntrada(modelo)
   if (errores.length > 0) {
-    throw new Error(`Modelo no apto para generación:\n- ${errores.join("\n- ")}`)
+    throw new ErrorModeloNoGenerable(errores)
   }
 
   return {

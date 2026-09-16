@@ -78,13 +78,70 @@ summary {
 }
 
 .editor-panel,
-.model-inspector {
+.model-inspector,
+.generation-panel {
   overflow: hidden;
   border: 1px solid #d8deea;
   border-radius: 12px;
   background: #fff;
   box-shadow: 0 12px 35px rgb(27 39 68 / 8%);
 }
+
+.workspace-sidebar {
+  display: grid;
+  gap: 18px;
+}
+
+.generation-panel {
+  padding: 20px;
+}
+
+.generation-panel h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.generation-status {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.generation-status div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.generation-status dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.generation-reasons {
+  padding-left: 20px;
+  color: #8f1d20;
+  font-size: 0.84rem;
+}
+
+.generation-panel button {
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 7px;
+  color: #fff;
+  background: #304e96;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.generation-panel button:disabled {
+  color: #747b89;
+  background: #e0e4eb;
+  cursor: not-allowed;
+}
+
+.generation-success { color: #1e6b3a; }
+.generation-error { color: #8f1d20; }
 
 .editor-panel {
   min-width: 0;

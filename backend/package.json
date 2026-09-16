@@ -4,18 +4,25 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "tsx watch src/paquetes/generacion_backend/api/iniciarServidorGeneracionBackend.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit --pretty false",
     "prebuild": "node scripts/limpiarDist.mjs",
     "build": "tsc --pretty false && node scripts/copiarPlantillas.mjs",
-    "generate:fixture": "tsx src/paquetes/generacion_backend/casos_uso/cu09_generar_backend_spring_boot/generarFixtureCliente.ts"
+    "generate:fixture": "tsx src/paquetes/generacion_backend/casos_uso/cu09_generar_backend_spring_boot/generarFixtureCliente.ts",
+    "proof:http": "tsx src/paquetes/generacion_backend/api/probarFlujoHttp.ts"
   },
   "dependencies": {
-    "ejs": "3.1.10"
+    "ejs": "3.1.10",
+    "express": "5.2.1",
+    "jszip": "3.10.2"
   },
   "devDependencies": {
     "@types/ejs": "3.1.5",
+    "@types/express": "5.0.6",
     "@types/node": "24.3.1",
+    "@types/supertest": "7.2.1",
+    "supertest": "7.2.2",
     "tsx": "4.20.5",
     "typescript": "5.9.2",
     "vitest": "5.0.1"

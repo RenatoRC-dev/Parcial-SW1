@@ -11,11 +11,19 @@ export default defineConfig({
     headless: true,
     screenshot: "only-on-failure",
   },
-  webServer: {
-    command: "npm run dev -- --host 127.0.0.1 --port 4173",
-    url: "http://127.0.0.1:4173",
-    reuseExistingServer: false,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: "npm run dev",
+      cwd: "../backend",
+      url: "http://127.0.0.1:3001/api/health",
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
+      command: "npm run dev -- --host 127.0.0.1 --port 4173",
+      url: "http://127.0.0.1:4173",
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+  ],
 })
-

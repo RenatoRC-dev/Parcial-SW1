@@ -14,3 +14,4 @@ backend/*.tsbuildinfo
 
 # Archivos temporales de auditoria local
 AUDITORIA_*.txt
+ARBOL_*.txt
