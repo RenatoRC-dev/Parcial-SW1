@@ -12,12 +12,14 @@ export interface PropiedadesAnfitrionEditorApollon {
   alCambiarModelo: (modelo: UMLModel) => void
   alOcurrirError: (error: Error) => void
   modeloParaReemplazar?: UMLModel
+  alCambiarEditor?: (editor: ApollonEditor | null) => void
 }
 
 export function AnfitrionEditorApollon({
   alCambiarModelo,
   alOcurrirError,
   modeloParaReemplazar,
+  alCambiarEditor,
 }: PropiedadesAnfitrionEditorApollon) {
   const editorActual = useRef<ApollonEditor | null>(null)
   const publicarModelo = useCallback(
@@ -38,6 +40,7 @@ export function AnfitrionEditorApollon({
     (editor: ApollonEditor) => {
       try {
         editorActual.current = editor
+        alCambiarEditor?.(editor)
         publicarModelo(editor.model)
 
         const idSuscripcion = editor.subscribeToModelChange((modeloActualizado) => {
@@ -54,6 +57,7 @@ export function AnfitrionEditorApollon({
         })
 
         return () => {
+          alCambiarEditor?.(null)
           editorActual.current = null
           editor.unsubscribe(idSuscripcion)
         }
@@ -64,7 +68,7 @@ export function AnfitrionEditorApollon({
         return undefined
       }
     },
-    [alOcurrirError, publicarModelo]
+    [alCambiarEditor, alOcurrirError, publicarModelo]
   )
 
   useEffect(() => {
@@ -81,6 +85,13 @@ export function AnfitrionEditorApollon({
     <Apollon
       className="apollon-host"
       defaultType={UMLDiagramType.ClassDiagram}
+      collaborationEnabled
+      collaboration={{
+        enabled: true,
+        showPresence: true,
+        showCursors: true,
+        showSelectionHighlights: true,
+      }}
       onMount={alMontarEditor}
     />
   )

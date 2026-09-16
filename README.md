@@ -13,6 +13,7 @@ Current completed iterations:
 - Iteration 05: end-to-end Spring generation and ZIP delivery (`Generación de Backend` / CU09 and CU10).
 - Iteration 06: deterministic one-to-many JPA association generation (`Generación de Backend` / CU09).
 - Iteration 07: PostgreSQL runtime CRUD and canonical ID integrity (`Generación de Backend` / CU09).
+- Iteration 09: real-time collaborative UML editing with Apollon/Yjs (`Colaboración` / CU03).
 
 Iteration 08 has a verified internal XMI import/export round-trip and browser flow. Its final status is **PARTIAL** until both directions are executed with a real Sparx Enterprise Architect installation.
 
@@ -46,6 +47,22 @@ Current interoperability profile:
 - [`EA-XMI-001`](docs/quality/PENDING_ACCEPTANCE_GATES.md) — Real Enterprise Architect bidirectional XMI acceptance. Status: **OPEN**.
 
 Iteration 08 remains **PARTIAL — REAL ENTERPRISE ARCHITECT ROUND-TRIP PENDING**.
+
+## Collaboration profile
+
+Supported:
+
+- Ephemeral rooms shared by two or more active browser clients.
+- Real-time synchronization of the actual Apollon/Yjs UML model.
+- Participant awareness/presence through the CASE backend WebSocket relay.
+- Room isolation and late-join synchronization while another peer remains connected.
+
+Deferred:
+
+- Authentication, authorization, durable room persistence and recovery.
+- History/versioning and offline remote collaboration.
+
+This is an academic live-session relay, not a claim of internet-scale collaboration.
 
 ## Prerequisites
 

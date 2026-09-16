@@ -306,6 +306,75 @@ summary {
   font-weight: 700;
 }
 
+.collaboration-panel {
+  padding: 20px;
+  border: 1px solid #d8deea;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.collaboration-panel h2 {
+  margin: 0 0 14px;
+  font-size: 1rem;
+  text-transform: uppercase;
+}
+
+.collaboration-panel label {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+  color: #4d586d;
+  font-size: 0.82rem;
+}
+
+.collaboration-panel input,
+.collaboration-panel button {
+  padding: 8px 10px;
+  border: 1px solid #c9d1df;
+  border-radius: 7px;
+  font: inherit;
+}
+
+.collaboration-panel button {
+  width: 100%;
+  margin-top: 12px;
+  color: #fff;
+  background: #304e96;
+  cursor: pointer;
+}
+
+.collaboration-panel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.collaboration-panel ul {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.participant-color {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 7px;
+  border-radius: 50%;
+}
+
+.collaboration-error {
+  color: #8f1d20;
+}
+
+.collaboration-note {
+  margin-bottom: 0;
+  color: #6a7282;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
 .validation-diagnostics summary {
   color: #314d8a;
   cursor: pointer;

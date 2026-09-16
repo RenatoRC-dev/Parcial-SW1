@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react"
-import type { UMLModel } from "@tumaet/apollon"
+import type { ApollonEditor, UMLModel } from "@tumaet/apollon"
 import {
   convertirAModeloCanonicoConAdvertencias,
   convertirDesdeModeloCanonico,
@@ -11,11 +11,13 @@ import { AnfitrionEditorApollon } from "./componentes/AnfitrionEditorApollon"
 import { InspectorModeloDesarrollo } from "./componentes/InspectorModeloDesarrollo"
 import { LimiteErrorEditor } from "./componentes/LimiteErrorEditor"
 import { PanelInteroperabilidadXmi } from "../../../interoperabilidad/compartido/PanelInteroperabilidadXmi"
+import { PanelColaboracion } from "../../../colaboracion/casos_uso/cu03_colaborar_modelo/PanelColaboracion"
 
 export function PaginaModeladoClases() {
   const [modelo, establecerModelo] = useState<UMLModel | null>(null)
   const [errorEditor, establecerErrorEditor] = useState<string | null>(null)
   const [modeloImportado, establecerModeloImportado] = useState<UMLModel | undefined>()
+  const [editor, establecerEditor] = useState<ApollonEditor | null>(null)
 
   const recibirCambioModelo = useCallback((modeloActualizado: UMLModel) => {
     establecerModelo(modeloActualizado)
@@ -51,11 +53,11 @@ export function PaginaModeladoClases() {
     <main className="app-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">SW1 · Modelado UML · CU02 / CU08</p>
+          <p className="eyebrow">SW1 · Modelado UML · CU02 / CU03 / CU08</p>
           <h1>Modelado manual de diagramas de clases</h1>
         </div>
         <p className="iteration-goal">
-          Edición manual en Apollon y proyección a nuestro modelo UML canónico.
+          Edición manual y colaborativa en Apollon con proyección al modelo UML canónico.
         </p>
       </header>
 
@@ -72,11 +74,13 @@ export function PaginaModeladoClases() {
               alCambiarModelo={recibirCambioModelo}
               alOcurrirError={registrarErrorEditor}
               modeloParaReemplazar={modeloImportado}
+              alCambiarEditor={establecerEditor}
             />
           </LimiteErrorEditor>
         </div>
 
         <div className="workspace-sidebar">
+          <PanelColaboracion editor={editor} />
           <InspectorModeloDesarrollo
             modeloApollon={modelo}
             resultadoCanonico={resultadoCanonico}

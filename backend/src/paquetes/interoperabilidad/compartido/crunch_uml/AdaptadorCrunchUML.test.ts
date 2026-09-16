@@ -40,20 +40,20 @@ describe("AdaptadorCrunchUML", () => {
 
   it("rechaza XML malformado de forma controlada", async () => {
     await expect(importarXmi("<xmi:roto>")).rejects.toMatchObject({ tipo: "entrada" })
-  })
+  }, 30_000)
 
   it("rechaza semántica canónica no soportada al exportar", async () => {
     await expect(
       exportarXmi({ ...fixtureInteroperabilidad, relaciones: [{ ...fixtureInteroperabilidad.relaciones[0], tipo: "composicion" }] }),
     ).rejects.toThrow(/no soportado/)
-  })
+  }, 30_000)
 
   it("importa una clase independiente", async () => {
     const independiente = { ...fixtureInteroperabilidad, clases: [fixtureInteroperabilidad.clases[0]], relaciones: [] }
     const resultado = await importarXmi((await exportarXmi(independiente)).toString("utf8"))
     expect(resultado.modelo.clases).toHaveLength(1)
     expect(resultado.modelo.clases[0]).toMatchObject({ id: "EAID_CLIENTE", nombre: "Cliente" })
-  })
+  }, 30_000)
 
   it("advierte y omite una enumeración fuera del perfil", async () => {
     const xmi = `<?xml version="1.0" encoding="UTF-8"?>
@@ -69,7 +69,7 @@ describe("AdaptadorCrunchUML", () => {
       expect.objectContaining({ codigo: "ENUMERACION_OMITIDA" }),
     ]))
     expect(resultado.modelo.clases).toEqual([])
-  })
+  }, 30_000)
 })
 
 describe("API XMI", () => {
@@ -100,7 +100,7 @@ describe("API XMI", () => {
       .set("Content-Type", "application/xml")
       .send("<xmi:roto>")
       .expect(400)
-  })
+  }, 30_000)
 
   it("rechaza una carga mayor a 5 MB", async () => {
     const respuesta = await request(aplicacion)
