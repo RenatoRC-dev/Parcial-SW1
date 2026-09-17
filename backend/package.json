@@ -16,7 +16,8 @@
     "proof:postgres": "tsx src/paquetes/generacion_backend/pruebas_runtime/probarFlujoPostgreSQL.ts",
     "proof:xmi": "tsx src/paquetes/interoperabilidad/pruebas_runtime/probarFlujoXmi.ts",
     "proof:ia:groq": "tsx src/paquetes/asistencia_ia/pruebas/probarGroqReal.ts",
-    "proof:voz:groq": "tsx src/paquetes/asistencia_ia/pruebas/probarVozGroqReal.ts"
+    "proof:voz:groq": "tsx src/paquetes/asistencia_ia/pruebas/probarVozGroqReal.ts",
+    "proof:imagen:groq": "tsx src/paquetes/asistencia_ia/pruebas/probarVisionGroqReal.ts"
   },
   "dependencies": {
     "ejs": "3.1.10",

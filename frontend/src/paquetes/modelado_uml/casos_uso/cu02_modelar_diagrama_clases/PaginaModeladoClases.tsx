@@ -13,6 +13,7 @@ import { LimiteErrorEditor } from "./componentes/LimiteErrorEditor"
 import { PanelInteroperabilidadXmi } from "../../../interoperabilidad/compartido/PanelInteroperabilidadXmi"
 import { PanelColaboracion } from "../../../colaboracion/casos_uso/cu03_colaborar_modelo/PanelColaboracion"
 import { PanelAsistenteModelado } from "../../../asistencia_ia/casos_uso/cu04_modelar_con_ia/PanelAsistenteModelado"
+import { PanelModeladoDesdeImagen } from "../../../asistencia_ia/casos_uso/cu05_modelar_desde_imagen/PanelModeladoDesdeImagen"
 
 export function PaginaModeladoClases() {
   const [modelo, establecerModelo] = useState<UMLModel | null>(null)
@@ -58,7 +59,7 @@ export function PaginaModeladoClases() {
     <main className="app-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">SW1 · CU02 / CU03 / CU04 / CU08</p>
+          <p className="eyebrow">SW1 · CU02 / CU03 / CU04 / CU05 / CU08</p>
           <h1>Modelado manual de diagramas de clases</h1>
         </div>
         <p className="iteration-goal">
@@ -87,11 +88,17 @@ export function PaginaModeladoClases() {
         <div className="workspace-sidebar">
           <PanelColaboracion editor={editor} />
           {resultadoCanonico ? (
-            <PanelAsistenteModelado
-              modelo={resultadoCanonico.modelo}
-              revision={revisionModelo}
-              alAplicarModelo={(modeloCanonico) => establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico))}
-            />
+            <>
+              <PanelAsistenteModelado
+                modelo={resultadoCanonico.modelo}
+                revision={revisionModelo}
+                alAplicarModelo={(modeloCanonico) => establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico))}
+              />
+              <PanelModeladoDesdeImagen
+                modelo={resultadoCanonico.modelo}
+                alAplicarModelo={(modeloCanonico) => establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico))}
+              />
+            </>
           ) : null}
           <InspectorModeloDesarrollo
             modeloApollon={modelo}

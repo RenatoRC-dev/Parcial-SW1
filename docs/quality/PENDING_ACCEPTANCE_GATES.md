@@ -104,3 +104,28 @@ No API key, secret value or local fixture path is recorded.
 ### PASS condition
 
 Satisfied. The real command completed successfully against Groq Whisper using real audio and passed the semantic transcription condition.
+
+## GROQ-VISION-001 — Real Groq vision acceptance
+
+- **Related package:** Asistencia Inteligente
+- **Related use case:** CU05 — Obtener modelo UML a partir de imagen
+- **Origin:** Iteration 12
+- **Current status:** **OPEN — REAL GROQ VISION ACCEPTANCE PENDING**
+
+### Internal evidence already completed
+
+- Image analysis is server-side behind `ProveedorVisionUML`.
+- Deterministic tests prove bounded PNG/JPEG upload, candidate validation, preview-before-mutation, explicit confirmation, additive canonical application, Apollon rendering and Yjs propagation.
+- Normal tests do not call Groq.
+- Direct account diagnostics established that `qwen/qwen3.6-27b` is unavailable, while `qwen/qwen3.8-27b` accepts the vision request when `max_tokens: 512` is explicit. The production boundary now uses that verified default and budget.
+
+### External acceptance still required
+
+1. Configure `GROQ_API_KEY` in the backend process environment.
+2. Configure `SW1_IMAGE_FIXTURE` with a local PNG/JPEG containing a clearly readable `Factura` class with `numero: String` and `total: Double`.
+3. Run `npm run proof:imagen:groq` from `backend`.
+4. Record the non-secret semantic result; never record credentials or the user-local fixture path.
+
+### PASS condition
+
+The proof must use real Groq vision with `qwen/qwen3.8-27b` and `max_tokens: 512`, and confirm `Factura` with the visible attributes `numero: String` and `total: Double`, including both exact trimmed types. Only then may this gate be closed and Iteration 12 be changed to `PASS`.

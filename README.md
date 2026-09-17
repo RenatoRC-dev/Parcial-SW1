@@ -21,6 +21,8 @@ Iteration 10 is **PASS**. It has verified deterministic incremental text-AI beha
 
 Iteration 11 is **PASS**. Push-to-talk voice input, automatic reuse of CU04, collaboration propagation and separate real Groq Whisper fixture acceptance are verified.
 
+Iteration 12 is **PARTIAL — REAL GROQ VISION ACCEPTANCE PENDING**. CU05 image upload, candidate review, explicit confirmation, additive application and collaboration propagation are internally verified; the external real-vision proof remains open as `GROQ-VISION-001`.
+
 Important boundaries:
 
 - Canonical contract: `frontend/src/nucleo/modelo_uml/`
@@ -50,6 +52,7 @@ Current interoperability profile:
 
 - [`EA-XMI-001`](docs/quality/PENDING_ACCEPTANCE_GATES.md) — Real Enterprise Architect bidirectional XMI acceptance. Status: **OPEN**.
 - [`GROQ-VOICE-001`](docs/quality/PENDING_ACCEPTANCE_GATES.md) — Real Groq voice transcription acceptance. Status: **CLOSED — REAL GROQ VOICE ACCEPTANCE PASS**.
+- [`GROQ-VISION-001`](docs/quality/PENDING_ACCEPTANCE_GATES.md) — Real Groq image-to-UML acceptance. Status: **OPEN — REAL GROQ VISION ACCEPTANCE PENDING**.
 
 Iteration 08 remains **PARTIAL — REAL ENTERPRISE ARCHITECT ROUND-TRIP PENDING**.
 
@@ -101,7 +104,25 @@ cd D:\2-2026\SW1\Proyecto-Parcial\backend
 npm run proof:voz:groq
 ```
 
-Streaming speech, continuous listening, wake words, audio history, language-selection UI, offline speech recognition, image input, conversational memory and autonomous agents remain deferred.
+Streaming speech, continuous listening, wake words, audio history, language-selection UI, offline speech recognition, conversational memory and autonomous agents remain deferred.
+
+## Image input profile
+
+- CU05 accepts one PNG or JPEG image per request, with a 10 MB application limit and MIME plus signature validation.
+- Groq vision runs only in the backend; image bytes are processed in memory and are not stored permanently.
+- Default vision model: `qwen/qwen3.8-27b`, with a conservative `max_tokens: 512` required by the verified account/tier behavior; `GROQ_VISION_MODEL` can override the model explicitly.
+- Analysis produces a semantic candidate containing visible classes, attributes and supported associations. It does not mutate the active diagram.
+- All detected attributes remain visible in the preview. Missing or CU08-unsupported types are marked as non-importable and omitted on confirmation without inventing a replacement type.
+- The user reviews the candidate and must explicitly select **Agregar al diagrama**. **Cancelar** performs no mutation.
+- Confirmation performs an additive merge against the latest canonical model, blocks case-insensitive class-name collisions, reuses CU08 validation and applies atomically through the existing canonical→Apollon path.
+- Only the confirmed model propagates through Yjs; selected images and candidate previews remain local.
+
+Real Groq vision acceptance is pending because the current execution environment did not contain `GROQ_API_KEY` or `SW1_IMAGE_FIXTURE`. To execute the external proof without storing either value:
+
+```powershell
+cd D:\2-2026\SW1\Proyecto-Parcial\backend
+npm run proof:imagen:groq
+```
 
 ## Prerequisites
 

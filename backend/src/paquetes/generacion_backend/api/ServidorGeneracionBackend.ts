@@ -16,15 +16,20 @@ import { registrarRutaInterpretacionIA } from "../../asistencia_ia/casos_uso/cu0
 import type { ProveedorTranscripcionAudio } from "../../asistencia_ia/compartido/proveedores/transcripcion/ProveedorTranscripcionAudio.js"
 import { ProveedorTranscripcionGroq } from "../../asistencia_ia/compartido/proveedores/transcripcion/groq/ProveedorTranscripcionGroq.js"
 import { registrarRutaTranscripcionVoz } from "../../asistencia_ia/casos_uso/cu04_modelar_con_ia/voz/registrarRutaTranscripcionVoz.js"
+import type { ProveedorVisionUML } from "../../asistencia_ia/compartido/proveedores/vision/ProveedorVisionUML.js"
+import { ProveedorVisionGroq } from "../../asistencia_ia/compartido/proveedores/vision/groq/ProveedorVisionGroq.js"
+import { registrarRutaAnalisisImagen } from "../../asistencia_ia/casos_uso/cu05_modelar_desde_imagen/registrarRutaAnalisisImagen.js"
 
 export function crearAplicacionGeneracionBackend(dependencias: {
   proveedorIA?: ProveedorModeloLenguaje
   proveedorTranscripcion?: ProveedorTranscripcionAudio
+  proveedorVision?: ProveedorVisionUML
 } = {}) {
   const aplicacion = express()
   aplicacion.use(express.json({ limit: "1mb" }))
   registrarRutaInterpretacionIA(aplicacion, dependencias.proveedorIA ?? new ProveedorGroq())
   registrarRutaTranscripcionVoz(aplicacion, dependencias.proveedorTranscripcion ?? new ProveedorTranscripcionGroq())
+  registrarRutaAnalisisImagen(aplicacion, dependencias.proveedorVision ?? new ProveedorVisionGroq())
 
   aplicacion.get("/api/health", (_solicitud, respuesta) => {
     respuesta.json({ estado: "ok" })
