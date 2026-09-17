@@ -2,6 +2,7 @@ import { useRef, useState } from "react"
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
 import { procesarInstruccionIA, type EstadoProcesoIA } from "./procesarInstruccionIA"
 import { solicitarCambioIA } from "./solicitarCambioIA"
+import { GrabadorInstruccionVoz } from "./voz/GrabadorInstruccionVoz"
 
 export interface PropiedadesPanelAsistenteModelado {
   modelo: ModeloUMLCanonico
@@ -14,11 +15,12 @@ export function PanelAsistenteModelado({ modelo, revision, alAplicarModelo }: Pr
   const [estado, establecerEstado] = useState<EstadoProcesoIA | "listo" | "error" | null>(null)
   const [mensaje, establecerMensaje] = useState<string | null>(null)
   const [procesando, establecerProcesando] = useState(false)
+  const [vozOcupada, establecerVozOcupada] = useState(false)
   const estadoActual = useRef({ modelo, revision })
   estadoActual.current = { modelo, revision }
 
-  const enviar = async () => {
-    const texto = instruccion.trim()
+  const enviar = async (textoRecibido?: string, conservarTexto = false) => {
+    const texto = (textoRecibido ?? instruccion).trim()
     if (!texto) {
       establecerEstado("error")
       establecerMensaje("Escribe una instrucción de modelado.")
@@ -36,7 +38,7 @@ export function PanelAsistenteModelado({ modelo, revision, alAplicarModelo }: Pr
       })
       establecerEstado(resultado.resultado === "aplicado" ? "listo" : resultado.resultado === "error" ? "error" : "listo")
       establecerMensaje(resultado.mensaje)
-      if (resultado.resultado === "aplicado") establecerInstruccion("")
+      if (resultado.resultado === "aplicado" && !conservarTexto) establecerInstruccion("")
     } catch (error) {
       establecerEstado("error")
       establecerMensaje(error instanceof Error ? error.message : "No se pudo procesar la instrucción con IA.")
@@ -44,6 +46,13 @@ export function PanelAsistenteModelado({ modelo, revision, alAplicarModelo }: Pr
       establecerProcesando(false)
     }
   }
+
+  const procesarTranscripcion = async (transcripcion: string) => {
+    establecerInstruccion(transcripcion)
+    await enviar(transcripcion, true)
+  }
+
+  const ocupado = procesando || vozOcupada
 
   return (
     <aside className="ai-panel" data-testid="panel-asistente-ia">
@@ -53,7 +62,7 @@ export function PanelAsistenteModelado({ modelo, revision, alAplicarModelo }: Pr
         id="instruccion-ia"
         value={instruccion}
         maxLength={2000}
-        disabled={procesando}
+        disabled={ocupado}
         placeholder="Ej.: Crea una clase Cliente"
         onChange={(evento) => establecerInstruccion(evento.target.value)}
         onKeyDown={(evento) => {
@@ -63,7 +72,12 @@ export function PanelAsistenteModelado({ modelo, revision, alAplicarModelo }: Pr
           }
         }}
       />
-      <button type="button" disabled={procesando} onClick={() => void enviar()}>Enviar</button>
+      <button type="button" disabled={ocupado} onClick={() => void enviar()}>Enviar</button>
+      <GrabadorInstruccionVoz
+        deshabilitado={procesando}
+        alCambiarOcupado={establecerVozOcupada}
+        alReconocer={procesarTranscripcion}
+      />
       {estado ? <p role="status"><strong>{estado === "interpretando" ? "Interpretando..." : estado === "aplicando" ? "Aplicando..." : estado === "listo" ? "Listo" : "Error"}</strong>{mensaje ? `: ${mensaje}` : ""}</p> : null}
       <p className="ai-note">Los cambios claros y válidos se aplican automáticamente, sin confirmación.</p>
     </aside>

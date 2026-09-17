@@ -13,11 +13,18 @@ import { exportarModeloXmi } from "../../interoperabilidad/casos_uso/cu07_export
 import type { ProveedorModeloLenguaje } from "../../asistencia_ia/compartido/proveedores/ProveedorModeloLenguaje.js"
 import { ProveedorGroq } from "../../asistencia_ia/compartido/proveedores/groq/ProveedorGroq.js"
 import { registrarRutaInterpretacionIA } from "../../asistencia_ia/casos_uso/cu04_modelar_con_ia/registrarRutaInterpretacionIA.js"
+import type { ProveedorTranscripcionAudio } from "../../asistencia_ia/compartido/proveedores/transcripcion/ProveedorTranscripcionAudio.js"
+import { ProveedorTranscripcionGroq } from "../../asistencia_ia/compartido/proveedores/transcripcion/groq/ProveedorTranscripcionGroq.js"
+import { registrarRutaTranscripcionVoz } from "../../asistencia_ia/casos_uso/cu04_modelar_con_ia/voz/registrarRutaTranscripcionVoz.js"
 
-export function crearAplicacionGeneracionBackend(dependencias: { proveedorIA?: ProveedorModeloLenguaje } = {}) {
+export function crearAplicacionGeneracionBackend(dependencias: {
+  proveedorIA?: ProveedorModeloLenguaje
+  proveedorTranscripcion?: ProveedorTranscripcionAudio
+} = {}) {
   const aplicacion = express()
   aplicacion.use(express.json({ limit: "1mb" }))
   registrarRutaInterpretacionIA(aplicacion, dependencias.proveedorIA ?? new ProveedorGroq())
+  registrarRutaTranscripcionVoz(aplicacion, dependencias.proveedorTranscripcion ?? new ProveedorTranscripcionGroq())
 
   aplicacion.get("/api/health", (_solicitud, respuesta) => {
     respuesta.json({ estado: "ok" })

@@ -19,6 +19,8 @@ Iteration 08 has a verified internal XMI import/export round-trip and browser fl
 
 Iteration 10 is **PASS**. It has verified deterministic incremental text-AI behavior, automatic application, collaboration propagation and separate real Groq structured-output acceptance.
 
+Iteration 11 is **PASS**. Push-to-talk voice input, automatic reuse of CU04, collaboration propagation and separate real Groq Whisper fixture acceptance are verified.
+
 Important boundaries:
 
 - Canonical contract: `frontend/src/nucleo/modelo_uml/`
@@ -47,6 +49,7 @@ Current interoperability profile:
 ## Open acceptance gates
 
 - [`EA-XMI-001`](docs/quality/PENDING_ACCEPTANCE_GATES.md) — Real Enterprise Architect bidirectional XMI acceptance. Status: **OPEN**.
+- [`GROQ-VOICE-001`](docs/quality/PENDING_ACCEPTANCE_GATES.md) — Real Groq voice transcription acceptance. Status: **CLOSED — REAL GROQ VOICE ACCEPTANCE PASS**.
 
 Iteration 08 remains **PARTIAL — REAL ENTERPRISE ARCHITECT ROUND-TRIP PENDING**.
 
@@ -82,7 +85,23 @@ cd D:\2-2026\SW1\Proyecto-Parcial\backend
 npm run proof:ia:groq
 ```
 
-Voice, image input, conversational memory, local CASE AI and autonomous agent behavior remain deferred.
+## Voice input profile
+
+- Push-to-talk recording with a maximum duration of 30 seconds.
+- Browser `MediaRecorder` audio is transcribed server-side with Groq Whisper through a dedicated provider boundary.
+- Default transcription model: `whisper-large-v3-turbo`; default language: Spanish.
+- The recognized transcript is shown and automatically sent through the existing CU04 text pipeline without confirmation.
+- Deterministic E2E proves voice → CU04 → Apollon and voice → CU04 → Apollon/Yjs → collaborator.
+- No audio is stored permanently.
+
+Real voice acceptance passed and `GROQ-VOICE-001` is closed. The backend proof used a real Spanish audio fixture with Groq Whisper and passed its semantic condition; the browser E2E remains separate and uses deterministic providers. To rerun the real proof, configure `GROQ_API_KEY` and a local speech fixture path in `SW1_VOICE_FIXTURE`, then run:
+
+```powershell
+cd D:\2-2026\SW1\Proyecto-Parcial\backend
+npm run proof:voz:groq
+```
+
+Streaming speech, continuous listening, wake words, audio history, language-selection UI, offline speech recognition, image input, conversational memory and autonomous agents remain deferred.
 
 ## Prerequisites
 

@@ -9,6 +9,9 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:4173",
     channel: "chrome",
     headless: true,
+    launchOptions: {
+      args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"],
+    },
     screenshot: "only-on-failure",
   },
   webServer: [

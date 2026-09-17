@@ -429,6 +429,24 @@ summary {
   line-height: 1.35;
 }
 
+.voice-input {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e1e5ed;
+}
+
+.voice-message,
+.voice-transcript {
+  margin: 8px 0 0;
+  color: #4d586d;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.voice-error {
+  color: #8f1d20;
+}
+
 .validation-diagnostics summary {
   color: #314d8a;
   cursor: pointer;

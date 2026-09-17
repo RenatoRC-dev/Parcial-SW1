@@ -76,3 +76,31 @@ No API key or secret value is recorded.
 ### PASS condition
 
 Satisfied. The real command completed successfully and returned the expected validated incremental command.
+
+## GROQ-VOICE-001 — Real Groq voice transcription acceptance
+
+- **Related package:** Asistencia Inteligente
+- **Related use case:** CU04 — Modelar mediante inteligencia artificial, voice input channel
+- **Origin:** Iteration 11
+- **Current status:** **CLOSED — REAL GROQ VOICE ACCEPTANCE PASS**
+
+### Internal evidence already completed
+
+- Push-to-talk recording uses the browser MediaRecorder boundary and a 30-second maximum.
+- Audio is uploaded to the CASE backend and passed through `ProveedorTranscripcionAudio`.
+- Deterministic browser evidence proves transcript visibility, automatic CU04 reuse, real Apollon application and Yjs collaboration propagation.
+- Normal tests do not call real Groq.
+
+### External acceptance evidence
+
+- `npm run proof:voz:groq` completed against real Groq using a real Spanish audio fixture.
+- `realGroqVoiceUsed = true`.
+- `model = whisper-large-v3-turbo`.
+- `transcriptionReceived = true`.
+- `semanticCondition = true`.
+
+No API key, secret value or local fixture path is recorded.
+
+### PASS condition
+
+Satisfied. The real command completed successfully against Groq Whisper using real audio and passed the semantic transcription condition.
