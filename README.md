@@ -17,6 +17,8 @@ Current completed iterations:
 
 Iteration 08 has a verified internal XMI import/export round-trip and browser flow. Its final status is **PARTIAL** until both directions are executed with a real Sparx Enterprise Architect installation.
 
+Iteration 10 is **PASS**. It has verified deterministic incremental text-AI behavior, automatic application, collaboration propagation and separate real Groq structured-output acceptance.
+
 Important boundaries:
 
 - Canonical contract: `frontend/src/nucleo/modelo_uml/`
@@ -63,6 +65,24 @@ Deferred:
 - History/versioning and offline remote collaboration.
 
 This is an academic live-session relay, not a claim of internet-scale collaboration.
+
+## AI modeling profile
+
+Implemented and internally verified:
+
+- Server-side Groq provider boundary using strict structured commands.
+- Incremental text instructions with automatic application and no confirmation dialog.
+- Deterministic validation, atomic execution, ambiguity clarification and one stale-response replan.
+- Propagation of applied changes through the existing Apollon/Yjs collaboration path.
+
+Real Groq acceptance passed and [`GROQ-AI-001`](docs/quality/PENDING_ACCEPTANCE_GATES.md) is closed. The backend proof confirmed strict structured output and semantic validation with `openai/gpt-oss-20b`; the browser E2E remains separate and uses the deterministic provider. Configure `GROQ_API_KEY` only in the backend environment, optionally set `GROQ_MODEL`, and never expose either through `VITE_*` variables.
+
+```powershell
+cd D:\2-2026\SW1\Proyecto-Parcial\backend
+npm run proof:ia:groq
+```
+
+Voice, image input, conversational memory, local CASE AI and autonomous agent behavior remain deferred.
 
 ## Prerequisites
 

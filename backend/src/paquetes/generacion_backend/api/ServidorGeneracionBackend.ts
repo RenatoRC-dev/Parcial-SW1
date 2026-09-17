@@ -10,10 +10,14 @@ import type { ModeloUMLCanonicoIntercambio } from "../../interoperabilidad/compa
 import { ErrorInteroperabilidadXmi } from "../../interoperabilidad/compartido/crunch_uml/AdaptadorCrunchUML.js"
 import { importarModeloXmi } from "../../interoperabilidad/casos_uso/cu06_importar_modelo_xmi/importarModeloXmi.js"
 import { exportarModeloXmi } from "../../interoperabilidad/casos_uso/cu07_exportar_modelo_xmi/exportarModeloXmi.js"
+import type { ProveedorModeloLenguaje } from "../../asistencia_ia/compartido/proveedores/ProveedorModeloLenguaje.js"
+import { ProveedorGroq } from "../../asistencia_ia/compartido/proveedores/groq/ProveedorGroq.js"
+import { registrarRutaInterpretacionIA } from "../../asistencia_ia/casos_uso/cu04_modelar_con_ia/registrarRutaInterpretacionIA.js"
 
-export function crearAplicacionGeneracionBackend() {
+export function crearAplicacionGeneracionBackend(dependencias: { proveedorIA?: ProveedorModeloLenguaje } = {}) {
   const aplicacion = express()
   aplicacion.use(express.json({ limit: "1mb" }))
+  registrarRutaInterpretacionIA(aplicacion, dependencias.proveedorIA ?? new ProveedorGroq())
 
   aplicacion.get("/api/health", (_solicitud, respuesta) => {
     respuesta.json({ estado: "ok" })

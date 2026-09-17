@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import type { ApollonEditor, UMLModel } from "@tumaet/apollon"
 import {
   convertirAModeloCanonicoConAdvertencias,
@@ -12,15 +12,20 @@ import { InspectorModeloDesarrollo } from "./componentes/InspectorModeloDesarrol
 import { LimiteErrorEditor } from "./componentes/LimiteErrorEditor"
 import { PanelInteroperabilidadXmi } from "../../../interoperabilidad/compartido/PanelInteroperabilidadXmi"
 import { PanelColaboracion } from "../../../colaboracion/casos_uso/cu03_colaborar_modelo/PanelColaboracion"
+import { PanelAsistenteModelado } from "../../../asistencia_ia/casos_uso/cu04_modelar_con_ia/PanelAsistenteModelado"
 
 export function PaginaModeladoClases() {
   const [modelo, establecerModelo] = useState<UMLModel | null>(null)
   const [errorEditor, establecerErrorEditor] = useState<string | null>(null)
   const [modeloImportado, establecerModeloImportado] = useState<UMLModel | undefined>()
   const [editor, establecerEditor] = useState<ApollonEditor | null>(null)
+  const [revisionModelo, establecerRevisionModelo] = useState(0)
+  const revisionActual = useRef(0)
 
   const recibirCambioModelo = useCallback((modeloActualizado: UMLModel) => {
     establecerModelo(modeloActualizado)
+    revisionActual.current += 1
+    establecerRevisionModelo(revisionActual.current)
     establecerErrorEditor(null)
   }, [])
 
@@ -53,11 +58,11 @@ export function PaginaModeladoClases() {
     <main className="app-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">SW1 · Modelado UML · CU02 / CU03 / CU08</p>
+          <p className="eyebrow">SW1 · CU02 / CU03 / CU04 / CU08</p>
           <h1>Modelado manual de diagramas de clases</h1>
         </div>
         <p className="iteration-goal">
-          Edición manual y colaborativa en Apollon con proyección al modelo UML canónico.
+          Edición manual, colaborativa y asistida por IA sobre el modelo UML canónico.
         </p>
       </header>
 
@@ -81,6 +86,13 @@ export function PaginaModeladoClases() {
 
         <div className="workspace-sidebar">
           <PanelColaboracion editor={editor} />
+          {resultadoCanonico ? (
+            <PanelAsistenteModelado
+              modelo={resultadoCanonico.modelo}
+              revision={revisionModelo}
+              alAplicarModelo={(modeloCanonico) => establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico))}
+            />
+          ) : null}
           <InspectorModeloDesarrollo
             modeloApollon={modelo}
             resultadoCanonico={resultadoCanonico}

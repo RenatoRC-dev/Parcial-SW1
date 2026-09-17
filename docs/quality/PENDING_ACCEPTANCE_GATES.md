@@ -47,3 +47,32 @@ The current `crunch_uml` renderer emits exchange content declaring XMI 2.1 and a
 ### PASS condition
 
 Both directions must pass using real Enterprise Architect. Only then may `EA-XMI-001` be changed to `CLOSED` and Iteration 08 be changed to `PASS`.
+
+## GROQ-AI-001 — Real Groq structured-output acceptance
+
+- **Related package:** Asistencia Inteligente
+- **Related use case:** CU04 — Modelar mediante inteligencia artificial
+- **Origin:** Iteration 10
+- **Current status:** **CLOSED — REAL GROQ ACCEPTANCE PASS**
+
+### Internal evidence already completed
+
+- Server-side provider boundary and Groq SDK adapter are implemented.
+- Strict closed JSON Schema, deterministic plan validation and atomic execution are tested.
+- Automatic apply, ambiguity blocking, stale-response protection and one automatic replan pass.
+- Real Apollon browser application and AI → Yjs → collaborator propagation pass using the injected deterministic E2E provider.
+
+### External acceptance evidence
+
+- `npm run proof:ia:groq` completed against real Groq.
+- `realGroqUsed = true`.
+- `model = openai/gpt-oss-20b`.
+- `structuredOutput = true`.
+- `semanticValidation = true`.
+- `expectedCommandReceived = true`.
+
+No API key or secret value is recorded.
+
+### PASS condition
+
+Satisfied. The real command completed successfully and returned the expected validated incremental command.

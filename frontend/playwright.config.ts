@@ -13,7 +13,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "npm run dev",
+      command: "npm run dev:e2e",
       cwd: "../backend",
       url: "http://127.0.0.1:3001/api/health",
       reuseExistingServer: false,

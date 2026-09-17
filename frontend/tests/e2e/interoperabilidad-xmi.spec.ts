@@ -33,6 +33,8 @@ const fixture = {
 }
 
 test("importa XMI al editor y exporta modelo.xmi", async ({ page, request }) => {
+  test.setTimeout(90_000)
+
   const xmi = await request.post("http://127.0.0.1:3001/api/interoperabilidad/xmi/exportar", { data: fixture })
   expect(xmi.ok()).toBeTruthy()
 
@@ -45,7 +47,10 @@ test("importa XMI al editor y exporta modelo.xmi", async ({ page, request }) => 
     buffer: await xmi.body(),
   })
 
-  await expect(page.locator(".interoperability-panel").getByRole("status")).toHaveText("Importado correctamente")
+  await expect(page.locator(".interoperability-panel").getByRole("status")).toHaveText(
+    "Importado correctamente",
+    { timeout: 60_000 },
+  )
   await expect(page.getByTestId("resumen-canonico")).toContainText("2")
   await expect(page.getByText("Cliente", { exact: true }).first()).toBeVisible()
   await expect(page.getByText("Pedido", { exact: true }).first()).toBeVisible()

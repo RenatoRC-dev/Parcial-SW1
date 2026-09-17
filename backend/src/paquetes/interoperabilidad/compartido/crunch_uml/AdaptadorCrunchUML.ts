@@ -60,6 +60,10 @@ async function ejecutarPuente(
   const python = await resolverPython()
   try {
     await ejecutarArchivo(python, [PUENTE, operacion, crunch, entrada, salida], {
+      env: {
+        ...process.env,
+        translators_default_region: process.env.translators_default_region ?? "EN",
+      },
       timeout: 30_000,
       windowsHide: true,
       maxBuffer: 1024 * 1024,
