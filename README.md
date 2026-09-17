@@ -143,6 +143,16 @@ npm run proof:imagen:groq
 
 ## Run the application
 
+Backend local configuration lives in `backend/.env`. On a fresh clone, create it from the versioned contract and fill the real key only when Groq features are needed:
+
+```powershell
+cd D:\2-2026\SW1\Proyecto-Parcial\backend
+Copy-Item .env.example .env
+# Edit .env and set GROQ_API_KEY with your private key.
+```
+
+`npm run dev` loads this file automatically. Existing PowerShell, CI or IDE environment variables take precedence. `GROQ_API_KEY` is backend-only and `.env` is ignored by Git. Project storage needs no configuration and defaults to `backend/.sw1-data/proyectos`; `SW1_PROJECTS_DIR` is an optional override. Voice/image fixture variables and PostgreSQL variables in `.env.example` are optional and used only by their manual proof commands.
+
 Terminal 1 — CASE backend:
 
 ```powershell

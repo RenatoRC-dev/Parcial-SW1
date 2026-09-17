@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/paquetes/generacion_backend/api/iniciarServidorGeneracionBackend.ts",
+    "start": "node dist/paquetes/generacion_backend/api/iniciarServidorGeneracionBackend.js",
     "dev:e2e": "node scripts/prepararDatosE2E.mjs && tsx watch src/paquetes/generacion_backend/api/iniciarServidorGeneracionBackend.ts --proveedor-ia-determinista --datos-proyectos-e2e",
     "test": "vitest run",
     "typecheck": "tsc --noEmit --pretty false",

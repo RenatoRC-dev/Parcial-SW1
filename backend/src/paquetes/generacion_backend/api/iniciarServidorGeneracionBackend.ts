@@ -3,12 +3,15 @@ import { ProveedorDeterministaE2E } from "../../asistencia_ia/pruebas/ProveedorD
 import { ProveedorTranscripcionDeterministaE2E } from "../../asistencia_ia/pruebas/ProveedorTranscripcionDeterministaE2E.js"
 import { ProveedorVisionDeterministaE2E } from "../../asistencia_ia/pruebas/ProveedorVisionDeterministaE2E.js"
 import { resolve } from "node:path"
+import { cargarConfiguracionEntorno } from "../../../configuracion/cargarConfiguracionEntorno.js"
+
+cargarConfiguracionEntorno()
 
 if (process.argv.includes("--datos-proyectos-e2e")) {
   process.env.SW1_PROJECTS_DIR = resolve(process.cwd(), "generated-test-output", "e2e-projects")
 }
 
-const puerto = Number(process.env.PORT ?? 3001)
+const puerto = Number(process.env.PORT || 3001)
 const proveedorIA = process.argv.includes("--proveedor-ia-determinista") ? new ProveedorDeterministaE2E() : undefined
 const proveedorTranscripcion = process.argv.includes("--proveedor-ia-determinista")
   ? new ProveedorTranscripcionDeterministaE2E()

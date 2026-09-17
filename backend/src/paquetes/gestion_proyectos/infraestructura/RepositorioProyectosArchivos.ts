@@ -17,7 +17,7 @@ function esProyecto(valor: unknown): valor is ProyectoPersistido {
 export class RepositorioProyectosArchivos implements RepositorioProyectos {
   readonly directorio: string
 
-  constructor(directorio = process.env.SW1_PROJECTS_DIR ?? resolve(process.cwd(), ".sw1-data", "proyectos")) {
+  constructor(directorio = process.env.SW1_PROJECTS_DIR?.trim() || resolve(process.cwd(), ".sw1-data", "proyectos")) {
     this.directorio = resolve(directorio)
   }
 
