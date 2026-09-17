@@ -110,7 +110,7 @@ Satisfied. The real command completed successfully against Groq Whisper using re
 - **Related package:** Asistencia Inteligente
 - **Related use case:** CU05 — Obtener modelo UML a partir de imagen
 - **Origin:** Iteration 12
-- **Current status:** **OPEN — REAL GROQ VISION ACCEPTANCE PENDING**
+- **Current status:** **CLOSED — REAL GROQ VISION ACCEPTANCE PASS**
 
 ### Internal evidence already completed
 
@@ -119,13 +119,21 @@ Satisfied. The real command completed successfully against Groq Whisper using re
 - Normal tests do not call Groq.
 - Direct account diagnostics established that `qwen/qwen3.6-27b` is unavailable, while `qwen/qwen3.8-27b` accepts the vision request when `max_tokens: 512` is explicit. The production boundary now uses that verified default and budget.
 
-### External acceptance still required
+### External acceptance evidence
 
-1. Configure `GROQ_API_KEY` in the backend process environment.
-2. Configure `SW1_IMAGE_FIXTURE` with a local PNG/JPEG containing a clearly readable `Factura` class with `numero: String` and `total: Double`.
-3. Run `npm run proof:imagen:groq` from `backend`.
-4. Record the non-secret semantic result; never record credentials or the user-local fixture path.
+- `npm run proof:imagen:groq` completed successfully against the real Groq API using a real PNG/JPEG UML fixture.
+- `realGroqVisionUsed = true`.
+- `model = qwen/qwen3.8-27b`.
+- `candidateReceived = true`.
+- `containsClassFactura = true`.
+- `containsNumero = true`.
+- `containsTotal = true`.
+- `numeroTypeRecognized = true`.
+- `totalTypeRecognized = true`.
+- `semanticCondition = true`.
+
+No API key, organization identifier, secret value or local fixture path is recorded.
 
 ### PASS condition
 
-The proof must use real Groq vision with `qwen/qwen3.8-27b` and `max_tokens: 512`, and confirm `Factura` with the visible attributes `numero: String` and `total: Double`, including both exact trimmed types. Only then may this gate be closed and Iteration 12 be changed to `PASS`.
+Satisfied. The real proof used `qwen/qwen3.8-27b` with the application's bounded `max_tokens: 512` configuration and confirmed `Factura`, `numero: String` and `total: Double`, including both exact trimmed types.

@@ -22,7 +22,7 @@ Prove the CU05 flow image → server-side vision → validated UML candidate →
 - `EA-XMI-001`: OPEN — unchanged and unrelated to CU05.
 - `GROQ-AI-001`: CLOSED — REAL GROQ ACCEPTANCE PASS.
 - `GROQ-VOICE-001`: CLOSED — REAL GROQ VOICE ACCEPTANCE PASS.
-- `GROQ-VISION-001`: OPEN — REAL GROQ VISION ACCEPTANCE PENDING.
+- `GROQ-VISION-001`: CLOSED — REAL GROQ VISION ACCEPTANCE PASS.
 
 ## 5. Business Problem
 
@@ -161,7 +161,23 @@ PASS. Bruno sees neither candidate nor model changes before Ana confirms. After 
 
 ## 36. Real Groq Vision Proof
 
-BLOCKED. Neither `GROQ_API_KEY` nor `SW1_IMAGE_FIXTURE` was present in this execution shell, so `npm run proof:imagen:groq` was not run. A prior direct diagnostic established the root cause of the former provider failure: `qwen/qwen3.6-27b` is unavailable for the account, while `qwen/qwen3.8-27b` succeeds when `max_tokens: 512` is explicit. The pending real proof still requires recognition of `Factura`, `numero: String` and `total: Double`; its semantic condition verifies both attribute presence and exact trimmed types. `GROQ-VISION-001` remains open.
+PASS. The user executed `npm run proof:imagen:groq` with a real PNG/JPEG UML fixture and the real Groq API. The non-secret evidence was:
+
+```json
+{
+  "realGroqVisionUsed": true,
+  "model": "qwen/qwen3.8-27b",
+  "candidateReceived": true,
+  "containsClassFactura": true,
+  "containsNumero": true,
+  "containsTotal": true,
+  "numeroTypeRecognized": true,
+  "totalTypeRecognized": true,
+  "semanticCondition": true
+}
+```
+
+The initial account diagnostic found `qwen/qwen3.6-27b` unavailable and confirmed access to `qwen/qwen3.8-27b`. The application uses a bounded `max_tokens: 512` output configuration to stay within the observed account OTPM restriction; this is an application/account decision, not a universal Groq requirement. The final semantic proof passed against the real provider.
 
 ## 37. Regression Results
 
@@ -206,7 +222,7 @@ frontend/src/paquetes/asistencia_ia/casos_uso/
 | `npm run proof:http` | PASS |
 | `npm run proof:relation` | PASS |
 | `npm run proof:xmi` | PASS |
-| Environment prerequisite check | BLOCKED — real vision credentials/fixture absent |
+| `npm run proof:imagen:groq` | PASS — user-executed real provider acceptance |
 
 ## 41. Verification Matrix
 
@@ -246,12 +262,11 @@ frontend/src/paquetes/asistencia_ia/casos_uso/
 | Typechecks | PASS |
 | Builds | PASS |
 | Browser E2E | PASS |
-| Real Groq vision proof | BLOCKED |
+| Real Groq vision proof | PASS |
 
 ## 42. Risks / Technical Debt
 
 - `qwen/qwen3.8-27b` is a preview model and can be deprecated; configuration is centralized for an evidence-driven replacement.
-- Real visual accuracy is not accepted until `GROQ-VISION-001` closes.
 - The candidate preview is intentionally read-only. Untyped or unsupported attributes are omitted from the confirmed import and must be added or corrected manually in Apollon if the designer needs them.
 
 ## 43. Deferred Features
@@ -264,6 +279,6 @@ CU01 + CU11 — project creation/opening plus save/recovery. Not implemented her
 
 ## 45. Final Status
 
-PARTIAL — REAL GROQ VISION ACCEPTANCE PENDING
+PASS
 
-All deterministic implementation, regression and browser evidence passes. The required external real Groq image fixture proof could not run because its two local prerequisites were absent; `GROQ-VISION-001` remains open.
+All deterministic implementation, regression and browser evidence passes. The external real Groq image fixture proof also passed with `qwen/qwen3.8-27b`, so `GROQ-VISION-001` is closed and Iteration 12 is complete.

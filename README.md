@@ -21,7 +21,7 @@ Iteration 10 is **PASS**. It has verified deterministic incremental text-AI beha
 
 Iteration 11 is **PASS**. Push-to-talk voice input, automatic reuse of CU04, collaboration propagation and separate real Groq Whisper fixture acceptance are verified.
 
-Iteration 12 is **PARTIAL — REAL GROQ VISION ACCEPTANCE PENDING**. CU05 image upload, candidate review, explicit confirmation, additive application and collaboration propagation are internally verified; the external real-vision proof remains open as `GROQ-VISION-001`.
+Iteration 12 is **PASS**. CU05 image upload, candidate review, explicit confirmation, additive application, collaboration propagation and real Groq Vision acceptance are verified.
 
 Important boundaries:
 
@@ -52,7 +52,7 @@ Current interoperability profile:
 
 - [`EA-XMI-001`](docs/quality/PENDING_ACCEPTANCE_GATES.md) — Real Enterprise Architect bidirectional XMI acceptance. Status: **OPEN**.
 - [`GROQ-VOICE-001`](docs/quality/PENDING_ACCEPTANCE_GATES.md) — Real Groq voice transcription acceptance. Status: **CLOSED — REAL GROQ VOICE ACCEPTANCE PASS**.
-- [`GROQ-VISION-001`](docs/quality/PENDING_ACCEPTANCE_GATES.md) — Real Groq image-to-UML acceptance. Status: **OPEN — REAL GROQ VISION ACCEPTANCE PENDING**.
+- [`GROQ-VISION-001`](docs/quality/PENDING_ACCEPTANCE_GATES.md) — Real Groq image-to-UML acceptance. Status: **CLOSED — REAL GROQ VISION ACCEPTANCE PASS**.
 
 Iteration 08 remains **PARTIAL — REAL ENTERPRISE ARCHITECT ROUND-TRIP PENDING**.
 
@@ -117,7 +117,7 @@ Streaming speech, continuous listening, wake words, audio history, language-sele
 - Confirmation performs an additive merge against the latest canonical model, blocks case-insensitive class-name collisions, reuses CU08 validation and applies atomically through the existing canonical→Apollon path.
 - Only the confirmed model propagates through Yjs; selected images and candidate previews remain local.
 
-Real Groq vision acceptance is pending because the current execution environment did not contain `GROQ_API_KEY` or `SW1_IMAGE_FIXTURE`. To execute the external proof without storing either value:
+Real Groq Vision acceptance passed with `qwen/qwen3.8-27b`: the proof recognized `Factura`, `numero: String` and `total: Double` from a real UML image. The application uses bounded output with `max_tokens: 512`; the deterministic browser E2E remains separate. To reproduce the real proof without storing credentials or fixture paths:
 
 ```powershell
 cd D:\2-2026\SW1\Proyecto-Parcial\backend
