@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/paquetes/generacion_backend/api/iniciarServidorGeneracionBackend.ts",
-    "dev:e2e": "tsx watch src/paquetes/generacion_backend/api/iniciarServidorGeneracionBackend.ts --proveedor-ia-determinista",
+    "dev:e2e": "node scripts/prepararDatosE2E.mjs && tsx watch src/paquetes/generacion_backend/api/iniciarServidorGeneracionBackend.ts --proveedor-ia-determinista --datos-proyectos-e2e",
     "test": "vitest run",
     "typecheck": "tsc --noEmit --pretty false",
     "prebuild": "node scripts/limpiarDist.mjs",
@@ -17,7 +17,8 @@
     "proof:xmi": "tsx src/paquetes/interoperabilidad/pruebas_runtime/probarFlujoXmi.ts",
     "proof:ia:groq": "tsx src/paquetes/asistencia_ia/pruebas/probarGroqReal.ts",
     "proof:voz:groq": "tsx src/paquetes/asistencia_ia/pruebas/probarVozGroqReal.ts",
-    "proof:imagen:groq": "tsx src/paquetes/asistencia_ia/pruebas/probarVisionGroqReal.ts"
+    "proof:imagen:groq": "tsx src/paquetes/asistencia_ia/pruebas/probarVisionGroqReal.ts",
+    "proof:proyectos": "tsx src/paquetes/gestion_proyectos/pruebas_runtime/probarPersistenciaProyectos.ts"
   },
   "dependencies": {
     "ejs": "3.1.10",

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test"
+import { crearProyectoE2E } from "./ayudas/proyectos"
 
 const fixture = {
   id: "EAPK_SW1_E2E",
@@ -38,7 +39,7 @@ test("importa XMI al editor y exporta modelo.xmi", async ({ page, request }) => 
   const xmi = await request.post("http://127.0.0.1:3001/api/interoperabilidad/xmi/exportar", { data: fixture })
   expect(xmi.ok()).toBeTruthy()
 
-  await page.goto("/")
+  await crearProyectoE2E(page, "XMI")
   await expect(page.locator(".react-flow")).toBeVisible()
   page.once("dialog", (dialog) => dialog.accept())
   await page.getByTestId("selector-xmi").setInputFiles({

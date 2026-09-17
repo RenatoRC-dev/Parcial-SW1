@@ -1,9 +1,10 @@
 import { readFile } from "node:fs/promises"
 import { expect, test } from "@playwright/test"
 import JSZip from "jszip"
+import { crearProyectoE2E } from "./ayudas/proyectos"
 
 test("genera y descarga un backend desde una clase editada en Apollon", async ({ page }) => {
-  await page.goto("/")
+  await crearProyectoE2E(page, "CU09")
   await expect(page.locator(".react-flow")).toBeVisible()
 
   const herramientaClase = page.getByText("Class", { exact: true }).first()

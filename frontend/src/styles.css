@@ -24,6 +24,22 @@ body {
   min-height: 100vh;
 }
 
+.project-home { width: min(900px, calc(100% - 32px)); margin: 40px auto; }
+.project-home h1 { margin: 0; }
+.project-create, .project-list { margin-top: 24px; padding: 22px; border: 1px solid #d8deea; border-radius: 12px; background: #fff; }
+.project-create label { display: grid; gap: 7px; }
+.project-create input { padding: 10px; border: 1px solid #c9d1df; border-radius: 7px; }
+.project-create button, .project-list button, .project-toolbar button { padding: 9px 14px; border: 0; border-radius: 7px; background: #304e96; color: #fff; cursor: pointer; }
+.project-create button { margin-top: 12px; }
+.project-list ul { padding: 0; list-style: none; }
+.project-list li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid #edf0f5; }
+.project-list small { display: block; margin-top: 4px; color: #6a7282; }
+.project-toolbar { position: sticky; z-index: 20; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 24px; background: #172033; color: #fff; }
+.project-toolbar span { margin-left: 12px; color: #cbd4e8; font-size: .82rem; }
+.project-toolbar button { margin-left: 8px; }
+.project-toolbar button:disabled { opacity: .5; cursor: not-allowed; }
+.project-toolbar p { margin: 0; font-size: .82rem; }
+
 button,
 summary {
   font: inherit;

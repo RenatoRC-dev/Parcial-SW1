@@ -30,4 +30,23 @@ describe("AnfitrionEditorApollon", () => {
     expect(alOcurrirError).not.toHaveBeenCalled()
 
   })
+
+  it("confirma explícitamente que el modelo persistido fue instalado antes de habilitar colaboración", async () => {
+    const alCambiarModelo = vi.fn()
+    const alAplicarModeloInicial = vi.fn()
+    render(<AnfitrionEditorApollon
+      alCambiarModelo={alCambiarModelo}
+      alOcurrirError={vi.fn()}
+      alAplicarModeloInicial={alAplicarModeloInicial}
+      modeloParaReemplazar={{
+        version: "4.2.0", id: "modelo-proyecto", title: "Persistido", type: "ClassDiagram",
+        nodes: [], edges: [], assessments: {},
+      }}
+    />)
+    await waitFor(() => expect(alAplicarModeloInicial).toHaveBeenCalledTimes(1))
+    expect(alCambiarModelo).toHaveBeenCalledWith(expect.objectContaining({ title: "Persistido" }))
+    expect(alAplicarModeloInicial.mock.invocationCallOrder[0]).toBeGreaterThan(
+      Math.min(...alCambiarModelo.mock.invocationCallOrder),
+    )
+  })
 })

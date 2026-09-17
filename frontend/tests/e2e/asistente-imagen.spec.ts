@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
+import { abrirProyectoE2E, crearProyectoE2E } from "./ayudas/proyectos"
 
 const imagenPng = {
   name: "diagrama.png",
@@ -14,17 +15,8 @@ async function analizar(page: Page) {
   return panel
 }
 
-async function unirSala(page: Page, nombre: string, sala: string) {
-  await page.goto(`/?room=${sala}`)
-  await expect(page.locator(".react-flow")).toBeVisible()
-  const panel = page.getByTestId("panel-colaboracion")
-  await panel.getByLabel("Nombre").fill(nombre)
-  await panel.getByRole("button", { name: "Conectar" }).click()
-  await expect(panel.getByRole("status")).toContainText("conectado")
-}
-
 test("CU05 muestra candidato sin mutar y Cancelar conserva el modelo", async ({ page }) => {
-  await page.goto("/")
+  await crearProyectoE2E(page, "Imagen cancelar")
   await expect(page.locator(".react-flow")).toBeVisible()
   const panel = await analizar(page)
   await expect(panel.getByText("Factura", { exact: true })).toBeVisible()
@@ -36,7 +28,7 @@ test("CU05 muestra candidato sin mutar y Cancelar conserva el modelo", async ({ 
 })
 
 test("CU05 confirma y aplica el candidato en Apollon", async ({ page }) => {
-  await page.goto("/")
+  await crearProyectoE2E(page, "Imagen confirmar")
   await expect(page.locator(".react-flow")).toBeVisible()
   const panel = await analizar(page)
   await panel.getByRole("button", { name: "Agregar al diagrama" }).click()
@@ -47,14 +39,13 @@ test("CU05 confirma y aplica el candidato en Apollon", async ({ page }) => {
 })
 
 test("CU05 solo propaga el modelo confirmado al colaborador", async ({ browser }) => {
-  const sala = `imagen-collab-${Date.now()}`
   const contextoA = await browser.newContext()
   const contextoB = await browser.newContext()
   const ana = await contextoA.newPage()
   const bruno = await contextoB.newPage()
   try {
-    await unirSala(ana, "Ana", sala)
-    await unirSala(bruno, "Bruno", sala)
+    const proyecto = await crearProyectoE2E(ana, "Imagen colaboración")
+    await abrirProyectoE2E(bruno, proyecto)
     await expect(ana.getByTestId("cantidad-participantes")).toContainText("2")
     const panelAna = await analizar(ana)
     await expect(bruno.locator(".react-flow__node").filter({ hasText: "Factura" })).toHaveCount(0)

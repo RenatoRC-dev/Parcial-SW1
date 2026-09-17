@@ -4,11 +4,13 @@ import { crearAplicacionGeneracionBackend } from "./paquetes/generacion_backend/
 import type { ProveedorModeloLenguaje } from "./paquetes/asistencia_ia/compartido/proveedores/ProveedorModeloLenguaje.js"
 import type { ProveedorTranscripcionAudio } from "./paquetes/asistencia_ia/compartido/proveedores/transcripcion/ProveedorTranscripcionAudio.js"
 import type { ProveedorVisionUML } from "./paquetes/asistencia_ia/compartido/proveedores/vision/ProveedorVisionUML.js"
+import type { RepositorioProyectos } from "./paquetes/gestion_proyectos/compartido/RepositorioProyectos.js"
 
 export function crearServidorCase(dependencias: {
   proveedorIA?: ProveedorModeloLenguaje
   proveedorTranscripcion?: ProveedorTranscripcionAudio
   proveedorVision?: ProveedorVisionUML
+  repositorioProyectos?: RepositorioProyectos
 } = {}) {
   const servidor = createServer(crearAplicacionGeneracionBackend(dependencias))
   const relayColaboracion = adjuntarRelayColaboracion(servidor)

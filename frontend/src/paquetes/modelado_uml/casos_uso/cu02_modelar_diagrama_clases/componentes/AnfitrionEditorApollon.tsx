@@ -13,6 +13,7 @@ export interface PropiedadesAnfitrionEditorApollon {
   alOcurrirError: (error: Error) => void
   modeloParaReemplazar?: UMLModel
   alCambiarEditor?: (editor: ApollonEditor | null) => void
+  alAplicarModeloInicial?: () => void
 }
 
 export function AnfitrionEditorApollon({
@@ -20,6 +21,7 @@ export function AnfitrionEditorApollon({
   alOcurrirError,
   modeloParaReemplazar,
   alCambiarEditor,
+  alAplicarModeloInicial,
 }: PropiedadesAnfitrionEditorApollon) {
   const editorActual = useRef<ApollonEditor | null>(null)
   const publicarModelo = useCallback(
@@ -76,10 +78,12 @@ export function AnfitrionEditorApollon({
     try {
       editorActual.current.updateDiagramTitle(modeloParaReemplazar.title)
       editorActual.current.model = modeloParaReemplazar
+      publicarModelo(editorActual.current.model)
+      alAplicarModeloInicial?.()
     } catch (error) {
       alOcurrirError(convertirAError(error, "No se pudo reemplazar el modelo de Apollon"))
     }
-  }, [alOcurrirError, modeloParaReemplazar])
+  }, [alAplicarModeloInicial, alOcurrirError, modeloParaReemplazar, publicarModelo])
 
   return (
     <Apollon

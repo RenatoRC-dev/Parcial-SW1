@@ -1,13 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
-
-async function unirSala(page: Page, nombre: string, sala: string) {
-  await page.goto(`/?room=${sala}`)
-  await expect(page.locator(".react-flow")).toBeVisible()
-  const panel = page.getByTestId("panel-colaboracion")
-  await panel.getByLabel("Nombre").fill(nombre)
-  await panel.getByRole("button", { name: "Conectar" }).click()
-  await expect(panel.getByRole("status")).toContainText("conectado")
-}
+import { abrirProyectoE2E, crearProyectoE2E } from "./ayudas/proyectos"
 
 async function crearClase(page: Page, nombre: string, desplazamientoX = 0) {
   const herramienta = page.getByText("Class", { exact: true }).first()
@@ -28,8 +20,6 @@ async function crearClase(page: Page, nombre: string, desplazamientoX = 0) {
 
 test("dos diseñadores colaboran, convergen y aíslan salas", async ({ browser }) => {
   const sufijo = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  const sala = `sw1-e2e-${sufijo}`
-  const otraSala = `otra-${sufijo}`
   const contextoA = await browser.newContext()
   const contextoB = await browser.newContext()
   const contextoC = await browser.newContext()
@@ -38,15 +28,14 @@ test("dos diseñadores colaboran, convergen y aíslan salas", async ({ browser }
   const paginaC = await contextoC.newPage()
 
   try {
-    await unirSala(paginaA, "Ana", sala)
+    const proyecto = await crearProyectoE2E(paginaA, `Colaboración ${sufijo}`)
     await crearClase(paginaA, "Cliente")
 
-    await unirSala(paginaB, "Bruno", sala)
+    await abrirProyectoE2E(paginaB, proyecto)
     await expect(paginaB.getByText("Cliente", { exact: true }).first()).toBeVisible({ timeout: 15_000 })
     await expect(paginaA.getByTestId("cantidad-participantes")).toContainText("2")
     await expect(paginaB.getByTestId("cantidad-participantes")).toContainText("2")
-    await expect(paginaA.getByRole("list", { name: "Participantes conectados" })).toContainText("Ana")
-    await expect(paginaA.getByRole("list", { name: "Participantes conectados" })).toContainText("Bruno")
+    await expect(paginaA.getByRole("list", { name: "Participantes conectados" })).toContainText("Diseñador")
 
     await paginaA.getByRole("textbox", { name: "Name" }).first().fill("ClienteCompartido")
     await expect(paginaB.getByText("ClienteCompartido", { exact: true }).first()).toBeVisible({ timeout: 15_000 })
@@ -60,7 +49,7 @@ test("dos diseñadores colaboran, convergen y aíslan salas", async ({ browser }
       await expect(pagina.getByTestId("resumen-canonico")).toContainText("2")
     }
 
-    await unirSala(paginaC, "Carla", otraSala)
+    await crearProyectoE2E(paginaC, `Otra colaboración ${sufijo}`)
     await expect(paginaC.getByTestId("resumen-canonico")).toContainText("Clases0")
     await expect(paginaC.getByText("ClienteCompartido", { exact: true })).toHaveCount(0)
     await expect(paginaC.getByText("Pedido", { exact: true })).toHaveCount(0)

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ApollonEditor, UMLModel } from "@tumaet/apollon"
 import {
   convertirAModeloCanonicoConAdvertencias,
@@ -14,13 +14,19 @@ import { PanelInteroperabilidadXmi } from "../../../interoperabilidad/compartido
 import { PanelColaboracion } from "../../../colaboracion/casos_uso/cu03_colaborar_modelo/PanelColaboracion"
 import { PanelAsistenteModelado } from "../../../asistencia_ia/casos_uso/cu04_modelar_con_ia/PanelAsistenteModelado"
 import { PanelModeladoDesdeImagen } from "../../../asistencia_ia/casos_uso/cu05_modelar_desde_imagen/PanelModeladoDesdeImagen"
+import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
 
-export function PaginaModeladoClases() {
+export function PaginaModeladoClases({ proyectoId, modeloInicial, alCambiarModeloCanonico }: {
+  proyectoId: string
+  modeloInicial: ModeloUMLCanonico
+  alCambiarModeloCanonico: (modelo: ModeloUMLCanonico) => void
+}) {
   const [modelo, establecerModelo] = useState<UMLModel | null>(null)
   const [errorEditor, establecerErrorEditor] = useState<string | null>(null)
-  const [modeloImportado, establecerModeloImportado] = useState<UMLModel | undefined>()
+  const [modeloImportado, establecerModeloImportado] = useState<UMLModel | undefined>(() => convertirDesdeModeloCanonico(modeloInicial))
   const [editor, establecerEditor] = useState<ApollonEditor | null>(null)
   const [revisionModelo, establecerRevisionModelo] = useState(0)
+  const [modeloInicialAplicado, establecerModeloInicialAplicado] = useState(false)
   const revisionActual = useRef(0)
 
   const recibirCambioModelo = useCallback((modeloActualizado: UMLModel) => {
@@ -32,6 +38,9 @@ export function PaginaModeladoClases() {
 
   const registrarErrorEditor = useCallback((error: Error) => {
     establecerErrorEditor(error.message)
+  }, [])
+  const registrarModeloInicialAplicado = useCallback(() => {
+    establecerModeloInicialAplicado(true)
   }, [])
 
   const resultadoCanonico = useMemo(
@@ -54,6 +63,15 @@ export function PaginaModeladoClases() {
         : null,
     [resultadoCanonico, resultadoValidacion]
   )
+
+  useEffect(() => {
+    if (resultadoCanonico) alCambiarModeloCanonico({
+      ...resultadoCanonico.modelo,
+      id: modeloInicial.id,
+      nombre: modeloInicial.nombre,
+      version: modeloInicial.version,
+    })
+  }, [resultadoCanonico, alCambiarModeloCanonico, modeloInicial.id, modeloInicial.nombre, modeloInicial.version])
 
   return (
     <main className="app-shell">
@@ -81,12 +99,13 @@ export function PaginaModeladoClases() {
               alOcurrirError={registrarErrorEditor}
               modeloParaReemplazar={modeloImportado}
               alCambiarEditor={establecerEditor}
+              alAplicarModeloInicial={registrarModeloInicialAplicado}
             />
           </LimiteErrorEditor>
         </div>
 
         <div className="workspace-sidebar">
-          <PanelColaboracion editor={editor} />
+          <PanelColaboracion editor={editor} proyectoId={proyectoId} habilitada={modeloInicialAplicado} />
           {resultadoCanonico ? (
             <>
               <PanelAsistenteModelado

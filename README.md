@@ -14,6 +14,7 @@ Current completed iterations:
 - Iteration 06: deterministic one-to-many JPA association generation (`Generación de Backend` / CU09).
 - Iteration 07: PostgreSQL runtime CRUD and canonical ID integrity (`Generación de Backend` / CU09).
 - Iteration 09: real-time collaborative UML editing with Apollon/Yjs (`Colaboración` / CU03).
+- Iteration 13: project creation/opening and explicit filesystem save/recovery (`Gestión de Proyectos` / CU01 and CU11).
 
 Iteration 08 has a verified internal XMI import/export round-trip and browser flow. Its final status is **PARTIAL** until both directions are executed with a real Sparx Enterprise Architect installation.
 
@@ -33,6 +34,14 @@ Important boundaries:
 - Verified status: `PASS`
 
 Application functionality follows the mandatory hierarchy `paquetes/<paquete>/casos_uso/<caso_de_uso>/`. The canonical UML contract is the explicit exception: it lives in `nucleo/modelo_uml` because it is designed for future cross-package consumption and has no dependency on Apollon.
+
+## Project lifecycle profile
+
+- CU01 creates projects with backend UUIDs, lists persisted summaries and opens their canonical UML snapshot.
+- CU11 saves explicitly; there is no autosave. Incomplete drafts, including attributes whose type is still `null`, remain persistible.
+- By default, project JSON files live under `backend/.sw1-data/proyectos/`. Set `SW1_PROJECTS_DIR` to select another directory.
+- Collaboration rooms are derived from the active project ID. Yjs is live ephemeral state; the last explicit canonical save is the durable source of truth.
+- Only project metadata and `ModeloUMLCanonico` are persisted; awareness, AI history and uploaded media are not.
 
 Current generation profile:
 
@@ -169,6 +178,7 @@ From `D:\2-2026\SW1\Proyecto-Parcial\backend`:
 npm test
 npm run typecheck
 npm run build
+npm run proof:proyectos
 ```
 
 Generate and compile the deterministic fixture:

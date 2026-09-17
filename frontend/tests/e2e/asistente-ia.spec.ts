@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
+import { abrirProyectoE2E, crearProyectoE2E } from "./ayudas/proyectos"
 
 async function instruir(page: Page, texto: string) {
   const panel = page.getByTestId("panel-asistente-ia")
@@ -8,17 +9,8 @@ async function instruir(page: Page, texto: string) {
   return panel
 }
 
-async function unirSala(page: Page, nombre: string, sala: string) {
-  await page.goto(`/?room=${sala}`)
-  await expect(page.locator(".react-flow")).toBeVisible()
-  const panel = page.getByTestId("panel-colaboracion")
-  await panel.getByLabel("Nombre").fill(nombre)
-  await panel.getByRole("button", { name: "Conectar" }).click()
-  await expect(panel.getByRole("status")).toContainText("conectado")
-}
-
 test("CU04 aplica clase y atributo automáticamente y aclara sin mutar", async ({ page }) => {
-  await page.goto("/")
+  await crearProyectoE2E(page, "IA")
   await expect(page.locator(".react-flow")).toBeVisible()
   const panel = page.getByTestId("panel-asistente-ia")
   await expect(panel.getByRole("button", { name: /confirmar|aplicar|aceptar/i })).toHaveCount(0)
@@ -39,14 +31,13 @@ test("CU04 aplica clase y atributo automáticamente y aclara sin mutar", async (
 })
 
 test("un cambio automático de IA se propaga al colaborador por Apollon/Yjs", async ({ browser }) => {
-  const sala = `ia-collab-${Date.now()}`
   const contextoA = await browser.newContext()
   const contextoB = await browser.newContext()
   const paginaA = await contextoA.newPage()
   const paginaB = await contextoB.newPage()
   try {
-    await unirSala(paginaA, "Ana", sala)
-    await unirSala(paginaB, "Bruno", sala)
+    const proyecto = await crearProyectoE2E(paginaA, "IA colaboración")
+    await abrirProyectoE2E(paginaB, proyecto)
     await expect(paginaA.getByTestId("cantidad-participantes")).toContainText("2")
 
     await instruir(paginaA, "Crea una clase Factura")

@@ -1,9 +1,10 @@
 import { expect, test } from "@playwright/test"
+import { crearProyectoE2E } from "./ayudas/proyectos"
 
 test("el diseñador crea una clase y CU02 recibe el modelo estructurado", async ({
   page,
 }) => {
-  await page.goto("/")
+  await crearProyectoE2E(page, "CU02")
 
   await expect(
     page.getByRole("heading", { name: "Modelado manual de diagramas de clases" })

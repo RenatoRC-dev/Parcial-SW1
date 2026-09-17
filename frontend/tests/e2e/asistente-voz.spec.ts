@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
+import { abrirProyectoE2E, crearProyectoE2E } from "./ayudas/proyectos"
 
 async function usarVoz(page: Page) {
   const panel = page.getByTestId("panel-asistente-ia")
@@ -10,17 +11,8 @@ async function usarVoz(page: Page) {
   return panel
 }
 
-async function unirSala(page: Page, nombre: string, sala: string) {
-  await page.goto(`/?room=${sala}`)
-  await expect(page.locator(".react-flow")).toBeVisible()
-  const panel = page.getByTestId("panel-colaboracion")
-  await panel.getByLabel("Nombre").fill(nombre)
-  await panel.getByRole("button", { name: "Conectar" }).click()
-  await expect(panel.getByRole("status")).toContainText("conectado")
-}
-
 test("la voz se transcribe y aplica automáticamente mediante el CU04 existente", async ({ page }) => {
-  await page.goto("/")
+  await crearProyectoE2E(page, "Voz")
   await expect(page.locator(".react-flow")).toBeVisible()
   const panel = await usarVoz(page)
   await expect(panel.getByLabel("Instrucción UML")).toHaveValue("Crea una clase Factura")
@@ -30,14 +22,13 @@ test("la voz se transcribe y aplica automáticamente mediante el CU04 existente"
 })
 
 test("la clase creada por voz se propaga al colaborador por Apollon/Yjs", async ({ browser }) => {
-  const sala = `voz-collab-${Date.now()}`
   const contextoA = await browser.newContext()
   const contextoB = await browser.newContext()
   const ana = await contextoA.newPage()
   const bruno = await contextoB.newPage()
   try {
-    await unirSala(ana, "Ana", sala)
-    await unirSala(bruno, "Bruno", sala)
+    const proyecto = await crearProyectoE2E(ana, "Voz colaboración")
+    await abrirProyectoE2E(bruno, proyecto)
     await expect(ana.getByTestId("cantidad-participantes")).toContainText("2")
     await usarVoz(ana)
     await expect(ana.getByText("Factura", { exact: true }).first()).toBeVisible()
