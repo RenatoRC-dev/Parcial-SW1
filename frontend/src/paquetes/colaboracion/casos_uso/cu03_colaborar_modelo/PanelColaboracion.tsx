@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react"
 import type { ApollonEditor, CollaboratorInfo } from "@tumaet/apollon"
 import { conectarColaboracionApollon, normalizarSalaColaboracion, type ConexionColaboracion, type EstadoConexionColaboracion } from "./conectarColaboracionApollon"
 import { crearIdentidadColaborador, obtenerIdSesionColaborador } from "./identidadColaborador"
+import { usarPreferenciasUI } from "../../../../configuracion/PreferenciasUI"
 
 export function PanelColaboracion({ editor, proyectoId, habilitada }: { editor: ApollonEditor | null; proyectoId: string; habilitada: boolean }) {
+  const { t } = usarPreferenciasUI()
   const [estado, establecerEstado] = useState<EstadoConexionColaboracion>("desconectado")
   const [participantes, establecerParticipantes] = useState<CollaboratorInfo[]>([])
   const [error, establecerError] = useState<string | null>(null)
@@ -24,12 +26,12 @@ export function PanelColaboracion({ editor, proyectoId, habilitada }: { editor: 
   }, [editor, habilitada, proyectoId, sala])
 
   return <aside className="collaboration-panel" data-testid="panel-colaboracion">
-    <h2>Colaboración</h2>
-    <p>Proyecto compartido: <code>{proyectoId}</code></p>
-    <p role="status">Estado: <strong>{estado}</strong></p>
-    <p data-testid="cantidad-participantes">Participantes: {participantes.length}</p>
-    {participantes.length > 0 ? <ul aria-label="Participantes conectados">{participantes.map((participante) => <li key={participante.id}><span className="participant-color" style={{ backgroundColor: participante.color }} />{participante.name}{participante.isLocal ? " (Tú)" : ""}</li>)}</ul> : null}
+    <h2>{t("colaboracion.titulo")}</h2>
+    <p>{t("colaboracion.proyecto")}: <code>{proyectoId}</code></p>
+    <p role="status">{t("colaboracion.estado")}: <strong>{t(`colaboracion.${estado}`)}</strong></p>
+    <p data-testid="cantidad-participantes">{t("colaboracion.participantes")}: {participantes.length}</p>
+    {participantes.length > 0 ? <ul aria-label={t("colaboracion.lista")}>{participantes.map((participante) => <li key={participante.id}><span className="participant-color" style={{ backgroundColor: participante.color }} />{participante.name}{participante.isLocal ? ` (${t("colaboracion.tu")})` : ""}</li>)}</ul> : null}
     {error ? <p className="collaboration-error" role="alert">{error}</p> : null}
-    <p className="collaboration-note">Sala efímera derivada del proyecto; el guardado persistente continúa siendo explícito.</p>
+    <p className="collaboration-note">{t("colaboracion.nota")}</p>
   </aside>
 }

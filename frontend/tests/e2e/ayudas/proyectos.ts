@@ -17,14 +17,12 @@ export async function abrirProyectoE2E(page: Page, nombre: string): Promise<void
 }
 
 export async function crearClaseNombradaE2E(page: Page, nombre: string, desplazamientoX = 0): Promise<void> {
-  const lienzo = page.locator(".react-flow__pane")
-  const caja = await lienzo.boundingBox()
-  if (!caja) throw new Error("No se pudo calcular el lienzo")
-  await page.getByText("Class", { exact: true }).first().dragTo(lienzo, {
-    targetPosition: { x: Math.round(caja.width / 2 + desplazamientoX), y: Math.round(caja.height / 2) },
-  })
-  await page.locator(".react-flow__node").last().click()
-  await page.getByRole("button", { name: /Edit element|Editar elemento/i }).click()
-  await page.getByRole("textbox", { name: "Name" }).first().fill(nombre)
-  await expect(page.getByText(nombre, { exact: true }).first()).toBeVisible()
+  const inspector = page.getByTestId("inspector-propiedades")
+  const nuevaClase = inspector.getByRole("group", { name: "Nueva clase" })
+  void desplazamientoX
+  await nuevaClase.getByLabel("Nombre de clase").fill(nombre)
+  await nuevaClase.getByRole("button", { name: "Crear clase" }).click()
+  const nodo = page.locator(".react-flow__node").filter({ hasText: nombre })
+  await expect(nodo).toBeVisible()
+  await nodo.click()
 }

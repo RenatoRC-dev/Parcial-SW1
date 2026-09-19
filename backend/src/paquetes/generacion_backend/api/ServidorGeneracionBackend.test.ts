@@ -46,6 +46,17 @@ describe("API de generación", () => {
     await request(aplicacion).post("/api/generacion/spring").send(tipoInvalido).expect(400)
   })
 
+  it("acepta métodos UML válidos como semántica de diseño y rechaza su estructura inválida", async () => {
+    const conMetodo = { ...fixtureCliente, clases: fixtureCliente.clases.map((clase) => ({ ...clase, metodos: [{ id: "m1", nombre: "cambiarNombre", visibilidad: "publica", tipoRetorno: "void", parametros: [{ id: "p1", nombre: "nombre", tipo: "String" }] }] })) }
+    const respuesta = await request(aplicacion).post("/api/generacion/spring").send(conMetodo).buffer(true).parse(leerBinario).expect(200)
+    const zip = await JSZip.loadAsync(respuesta.body as Buffer)
+    const entidad = await zip.file("backend-generado/src/main/java/com/sw1/generated/modelo/Cliente.java")!.async("string")
+    expect(entidad).not.toContain("cambiarNombre")
+
+    const invalido = { ...fixtureCliente, clases: fixtureCliente.clases.map((clase) => ({ ...clase, metodos: [{ id: "m1", nombre: "x", visibilidad: "publica", tipoRetorno: "void", parametros: [null] }] })) }
+    await request(aplicacion).post("/api/generacion/spring").send(invalido).expect(400)
+  })
+
   it("rechaza relaciones anidadas malformadas con 400", async () => {
     const tipoDesconocido = {
       ...fixtureCliente,

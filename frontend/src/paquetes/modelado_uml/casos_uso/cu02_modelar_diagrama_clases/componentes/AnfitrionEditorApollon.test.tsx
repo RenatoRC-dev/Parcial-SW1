@@ -27,6 +27,8 @@ describe("AnfitrionEditorApollon", () => {
     await waitFor(() =>
       expect(container.querySelector(".react-flow")).not.toBeNull()
     )
+    expect(container.querySelector('[data-apollon-control="apollon:palette"]')).toBeNull()
+    expect(container.querySelector('[data-apollon-control="apollon:zoom"]')).not.toBeNull()
     expect(alOcurrirError).not.toHaveBeenCalled()
 
   })

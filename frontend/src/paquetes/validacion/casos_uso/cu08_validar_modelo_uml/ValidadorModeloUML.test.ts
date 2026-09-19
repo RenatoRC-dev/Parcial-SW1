@@ -47,6 +47,22 @@ function codigos(resultado: ReturnType<typeof validarModelo>): string[] {
 }
 
 describe("ValidadorModeloUML", () => {
+  it("acepta operaciones UML válidas sin convertirlas en error de generación", () => {
+    const persona = clase("persona", "Persona", [])
+    persona.metodos = [{ id: "m1", nombre: "cambiarNombre", visibilidad: "publica", tipoRetorno: "void", parametros: [{ id: "p1", nombre: "nombre", tipo: "String" }] }]
+    expect(validarModelo(modelo([persona])).valido).toBe(true)
+  })
+
+  it("rechaza métodos vacíos, tipos inválidos y firmas duplicadas", () => {
+    const persona = clase("persona", "Persona", [])
+    persona.metodos = [
+      { id: "m1", nombre: "", visibilidad: "publica", tipoRetorno: "voiid", parametros: [{ id: "p1", nombre: "", tipo: "strin" }] },
+      { id: "m2", nombre: "", visibilidad: "publica", tipoRetorno: "voiid", parametros: [{ id: "p2", nombre: "otro", tipo: "strin" }] },
+    ]
+    const resultado = validarModelo(modelo([persona]))
+    expect(resultado.valido).toBe(false)
+    expect(codigos(resultado)).toEqual(expect.arrayContaining(["METODO_NOMBRE_REQUERIDO", "METODO_RETORNO_INVALIDO", "PARAMETRO_NOMBRE_INVALIDO", "PARAMETRO_TIPO_INVALIDO", "METODO_FIRMA_DUPLICADA"]))
+  })
   it("rechaza un id de modelo vacío", () => {
     const entrada = modelo([clase("cliente", "Cliente")])
     entrada.id = "   "
@@ -149,7 +165,7 @@ describe("ValidadorModeloUML", () => {
 
   it.each([
     ["class", "ATRIBUTO_IDENTIFICADOR_INVALIDO"],
-    ["id", "ATRIBUTO_ID_RESERVADO"],
+    ["id", "ATRIBUTO_ID_TIPO_INVALIDO"],
   ])("rechaza el campo reservado %s", (nombre, codigo) => {
     const resultado = validarModelo(
       modelo([clase("cliente", "Cliente", [atributo("a1", nombre, "String")])])
@@ -157,6 +173,14 @@ describe("ValidadorModeloUML", () => {
 
     expect(resultado.valido).toBe(false)
     expect(codigos(resultado)).toContain(codigo)
+  })
+
+  it("acepta el identificador convencional id de tipo Long", () => {
+    const resultado = validarModelo(
+      modelo([clase("cliente", "Cliente", [atributo("a1", "id", "Long")])])
+    )
+
+    expect(resultado.valido).toBe(true)
   })
 
   it("detecta atributos duplicados sin distinguir mayúsculas", () => {

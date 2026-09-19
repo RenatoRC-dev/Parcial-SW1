@@ -1,7 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
 import JSZip from "jszip"
-import { fixtureClientePedido } from "../casos_uso/cu09_generar_backend_spring_boot/fixtureClientePedido.js"
+import { fixturePersonaAuto } from "../casos_uso/cu09_generar_backend_spring_boot/fixturePersonaAuto.js"
 import { crearAplicacionGeneracionBackend } from "./ServidorGeneracionBackend.js"
 
 const salida = resolve("generated-test-output", "relationship-proof")
@@ -21,7 +21,7 @@ try {
   const respuesta = await fetch(`http://127.0.0.1:${direccion.port}/api/generacion/spring`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(fixtureClientePedido),
+    body: JSON.stringify(fixturePersonaAuto),
   })
   if (!respuesta.ok) throw new Error(`La API respondió ${respuesta.status}: ${await respuesta.text()}`)
   const contenido = Buffer.from(await respuesta.arrayBuffer())

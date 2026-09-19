@@ -43,10 +43,23 @@ Application functionality follows the mandatory hierarchy `paquetes/<paquete>/ca
 - Collaboration rooms are derived from the active project ID. Yjs is live ephemeral state; the last explicit canonical save is the durable source of truth.
 - Only project metadata and `ModeloUMLCanonico` are persisted; awareness, AI history and uploaded media are not.
 
+## Manual modeling UX
+
+- The compact SW1 UML inspector creates classes and edits properties with guided selectors for attribute type, visibility and relationship multiplicity, without exposing Apollon's unrestricted property popup.
+- New attributes use separate controls for name, the authoritative CU08-supported type list, and visibility; private (`-`) is the default.
+- Relationships are real selectable Apollon edges with canonical type and endpoint multiplicity selectors (`1`, `0..1`, `0..*`, `1..*`); association names and endpoint roles are separate optional semantics.
+- The model accepts valid many-to-many UML multiplicities, but the current Spring profile still rejects them with controlled readiness feedback; no association class or `@ManyToMany` is invented.
+- A conventional explicit `id: Long` is a normal canonical attribute. The generator reuses it as its single generated JPA identity; when absent, the existing implicit `Long id` fallback remains.
+- The full UML modeling profile includes operations with public/private visibility, controlled return types and typed parameters. They are persisted, rendered in Apollon and synchronized collaboratively.
+- UML operations are design semantics: the deterministic Spring generator does not infer method bodies, REST endpoints or service algorithms from a signature.
+- Imported unsupported attribute types remain visible and are never converted automatically.
+- The interface defaults to Spanish and also supports English for SW1-owned static UI. User/UML data is never translated, and dynamic backend/provider messages remain in the language returned by their source. Appearance can follow the system or be set to light/dark; both preferences are local browser settings, not project data.
+- Apollon receives language labels and light/dark mode through its public `labels` and `dataTheme` APIs. Its internal property popup is disabled because it cannot be replaced field-by-field through a supported public customization API.
+
 Current generation profile:
 
 - Supported: independent entities, scalar fields, and UML association `1 ↔ 0..*`.
-- Deferred: one-to-one, many-to-many, aggregation, composition, and inheritance.
+- Deferred for generation: one-to-one, many-to-many, aggregation, composition, and inheritance. These generation limits do not prohibit valid canonical UML modeling.
 
 The concise frontend/backend capability contract is documented in [`docs/generation/SPRING_GENERATION_PROFILE.md`](docs/generation/SPRING_GENERATION_PROFILE.md).
 
@@ -88,7 +101,11 @@ Implemented and internally verified:
 - Server-side Groq provider boundary using strict structured commands.
 - Incremental text instructions with automatic application and no confirmation dialog.
 - Deterministic validation, atomic execution, ambiguity clarification and one stale-response replan.
+- Natural-language class names and references are normalized deterministically to canonical PascalCase: `factura` becomes `Factura` and `FACTURA_PRODUCTO` becomes `FacturaProducto`. Manual names are not rewritten by this rule.
+- Assisted attributes reuse the controlled UML type profile, default to private visibility when it is omitted, and accept the conventional explicit identity `id: Long`; a different type for `id` is rejected without mutation.
+- Text and voice commands can create, modify and delete method signatures and their parameters. Methods default to public and `void`; method bodies remain outside the modeled semantics.
 - Propagation of applied changes through the existing Apollon/Yjs collaboration path.
+- Relationship instructions use business-readable counts and are translated to UML association-end multiplicities; for example, one `Persona` with zero/many `Auto` instances is stored and rendered as `Persona 1 — 0..* Auto`.
 
 Real Groq acceptance passed and [`GROQ-AI-001`](docs/quality/PENDING_ACCEPTANCE_GATES.md) is closed. The backend proof confirmed strict structured output and semantic validation with `openai/gpt-oss-20b`; the browser E2E remains separate and uses the deterministic provider. Configure `GROQ_API_KEY` only in the backend environment, optionally set `GROQ_MODEL`, and never expose either through `VITE_*` variables.
 
@@ -121,10 +138,12 @@ Streaming speech, continuous listening, wake words, audio history, language-sele
 - Groq vision runs only in the backend; image bytes are processed in memory and are not stored permanently.
 - Default vision model: `qwen/qwen3.8-27b`, with a conservative `max_tokens: 512` required by the verified account/tier behavior; `GROQ_VISION_MODEL` can override the model explicitly.
 - Analysis produces a semantic candidate containing visible classes, attributes and supported associations. It does not mutate the active diagram.
+- A visible `id: Long` remains importable as explicit identity; another visible type for `id` is preserved honestly and rejected during canonical validation rather than silently repaired.
 - All detected attributes remain visible in the preview. Missing or CU08-unsupported types are marked as non-importable and omitted on confirmation without inventing a replacement type.
 - The user reviews the candidate and must explicitly select **Agregar al diagrama**. **Cancelar** performs no mutation.
 - Confirmation performs an additive merge against the latest canonical model, blocks case-insensitive class-name collisions, reuses CU08 validation and applies atomically through the existing canonical→Apollon path.
 - Only the confirmed model propagates through Yjs; selected images and candidate previews remain local.
+- Method extraction from images is not part of the currently accepted CU05 visual profile.
 
 Real Groq Vision acceptance passed with `qwen/qwen3.8-27b`: the proof recognized `Factura`, `numero: String` and `total: Double` from a real UML image. The application uses bounded output with `max_tokens: 512`; the deterministic browser E2E remains separate. To reproduce the real proof without storing credentials or fixture paths:
 

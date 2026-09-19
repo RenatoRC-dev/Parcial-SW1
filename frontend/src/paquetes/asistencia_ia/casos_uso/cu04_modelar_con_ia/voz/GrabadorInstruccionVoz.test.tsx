@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { ProveedorPreferenciasUI } from "../../../../../configuracion/PreferenciasUI"
 import { DURACION_MAXIMA_GRABACION_MS, GrabadorInstruccionVoz } from "./GrabadorInstruccionVoz"
 
 class MediaRecorderFalso {
@@ -35,6 +36,7 @@ const detenerPista = vi.fn()
 const obtenerMicrofono = vi.fn(async () => ({ getTracks: () => [{ stop: detenerPista }] }) as unknown as MediaStream)
 
 beforeEach(() => {
+  localStorage.clear()
   MediaRecorderFalso.instancias = []
   detenerPista.mockClear()
   obtenerMicrofono.mockClear()
@@ -113,5 +115,15 @@ describe("GrabadorInstruccionVoz", () => {
     fireEvent.click(screen.getByRole("button", { name: "⏹ Detener" }))
     expect(await screen.findByText("Transcribiendo...")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "🎙 Hablar" })).toBeDisabled()
+  })
+
+  it("muestra los estados estáticos de voz en inglés", async () => {
+    localStorage.setItem("sw1.idioma", "en")
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ transcripcion: "" }), { status: 200 })))
+    render(<ProveedorPreferenciasUI><GrabadorInstruccionVoz deshabilitado={false} alReconocer={vi.fn()} alCambiarOcupado={vi.fn()} /></ProveedorPreferenciasUI>)
+    fireEvent.click(screen.getByRole("button", { name: "🎙 Speak" }))
+    expect(await screen.findByText("Listening...")).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "⏹ Stop" }))
+    expect(await screen.findByText("No voice instruction was detected.")).toBeInTheDocument()
   })
 })

@@ -27,6 +27,7 @@ export function aplicarCandidatoImagen(
       nombre: clase.nombre.trim(),
       abstracta: false,
       posicion: { x: inicioX + (indice % 2) * 350, y: 100 + Math.floor(indice / 2) * 250 },
+      metodos: [],
       atributos: clase.atributos.flatMap((atributo) => {
         const importabilidad = evaluarAtributoCandidato(atributo)
         return importabilidad.importable ? [{

@@ -5,7 +5,7 @@ export class ErrorPlanCambiosUML extends Error {}
 export function ejecutarComandosUML(
   original: ModeloUMLCanonicoIA,
   comandos: ComandoModeloUML[],
-  generarId: (categoria: "clase" | "atributo" | "relacion") => string,
+  generarId: (categoria: "clase" | "atributo" | "metodo" | "parametro" | "relacion") => string,
 ): ModeloUMLCanonicoIA {
   const modelo = structuredClone(original)
   const referencias = new Map<string, string>()
@@ -27,6 +27,16 @@ export function ejecutarComandosUML(
     if (!relacion) throw new ErrorPlanCambiosUML(`No existe la relación ${id}.`)
     return relacion
   }
+  const obtenerMetodo = (id: string) => {
+    const metodo = modelo.clases.flatMap((clase) => clase.metodos ?? []).find((actual) => actual.id === id)
+    if (!metodo) throw new ErrorPlanCambiosUML(`No existe el método ${id}.`)
+    return metodo
+  }
+  const obtenerParametro = (id: string) => {
+    const parametro = modelo.clases.flatMap((clase) => clase.metodos ?? []).flatMap((metodo) => metodo.parametros).find((actual) => actual.id === id)
+    if (!parametro) throw new ErrorPlanCambiosUML(`No existe el parámetro ${id}.`)
+    return parametro
+  }
 
   for (const comando of comandos) {
     switch (comando.tipo) {
@@ -39,6 +49,7 @@ export function ejecutarComandosUML(
           nombre: comando.nombre,
           abstracta: comando.abstracta,
           atributos: [],
+          metodos: [],
           posicion: { x: 100 + (indice % 3) * 350, y: 100 + Math.floor(indice / 3) * 250 },
         })
         break
@@ -80,6 +91,50 @@ export function ejecutarComandosUML(
         clase.atributos = clase.atributos.filter((atributo) => atributo.id !== comando.atributoId)
         break
       }
+      case "crear_metodo": {
+        const clase = obtenerClase(comando.claseRef)
+        const id = generarId("metodo")
+        registrarTemporal(comando.refTemporal, id)
+        const parametros = comando.parametros.map((candidato) => {
+          const parametroId = generarId("parametro")
+          registrarTemporal(candidato.refTemporal, parametroId)
+          return { id: parametroId, nombre: candidato.nombre, tipo: candidato.tipo }
+        })
+        clase.metodos = [...(clase.metodos ?? []), { id, nombre: comando.nombre, tipoRetorno: comando.tipoRetorno, visibilidad: comando.visibilidad, parametros }]
+        break
+      }
+      case "modificar_metodo": {
+        const metodo = obtenerMetodo(comando.metodoId)
+        if (comando.nuevoNombre !== null) metodo.nombre = comando.nuevoNombre
+        if (comando.nuevoTipoRetorno !== null) metodo.tipoRetorno = comando.nuevoTipoRetorno
+        if (comando.nuevaVisibilidad !== null) metodo.visibilidad = comando.nuevaVisibilidad
+        break
+      }
+      case "eliminar_metodo": {
+        const clase = modelo.clases.find((actual) => (actual.metodos ?? []).some((metodo) => metodo.id === comando.metodoId))
+        if (!clase) throw new ErrorPlanCambiosUML(`No existe el método ${comando.metodoId}.`)
+        clase.metodos = (clase.metodos ?? []).filter((metodo) => metodo.id !== comando.metodoId)
+        break
+      }
+      case "agregar_parametro": {
+        const metodo = obtenerMetodo(comando.metodoId)
+        const id = generarId("parametro")
+        registrarTemporal(comando.refTemporal, id)
+        metodo.parametros.push({ id, nombre: comando.nombre, tipo: comando.tipoDato })
+        break
+      }
+      case "modificar_parametro": {
+        const parametro = obtenerParametro(comando.parametroId)
+        if (comando.nuevoNombre !== null) parametro.nombre = comando.nuevoNombre
+        if (comando.nuevoTipo !== null) parametro.tipo = comando.nuevoTipo
+        break
+      }
+      case "eliminar_parametro": {
+        const metodo = modelo.clases.flatMap((clase) => clase.metodos ?? []).find((actual) => actual.parametros.some((parametro) => parametro.id === comando.parametroId))
+        if (!metodo) throw new ErrorPlanCambiosUML(`No existe el parámetro ${comando.parametroId}.`)
+        metodo.parametros = metodo.parametros.filter((parametro) => parametro.id !== comando.parametroId)
+        break
+      }
       case "crear_relacion": {
         const id = generarId("relacion")
         registrarTemporal(comando.refTemporal, id)
@@ -88,8 +143,9 @@ export function ejecutarComandosUML(
           tipo: comando.tipoRelacion,
           claseOrigenId: obtenerClase(comando.claseOrigenRef).id,
           claseDestinoId: obtenerClase(comando.claseDestinoRef).id,
-          multiplicidadOrigen: comando.multiplicidadOrigen,
-          multiplicidadDestino: comando.multiplicidadDestino,
+          // La cantidad de destinos por un origen se anota en el extremo destino UML.
+          multiplicidadOrigen: comando.cantidadOrigenPorDestino,
+          multiplicidadDestino: comando.cantidadDestinoPorOrigen,
           ...(comando.rolOrigen ? { rolOrigen: comando.rolOrigen } : {}),
           ...(comando.rolDestino ? { rolDestino: comando.rolDestino } : {}),
         })
@@ -101,8 +157,8 @@ export function ejecutarComandosUML(
         break
       case "cambiar_multiplicidad": {
         const relacion = obtenerRelacion(comando.relacionId)
-        relacion.multiplicidadOrigen = comando.multiplicidadOrigen
-        relacion.multiplicidadDestino = comando.multiplicidadDestino
+        relacion.multiplicidadOrigen = comando.cantidadOrigenPorDestino
+        relacion.multiplicidadDestino = comando.cantidadDestinoPorOrigen
         break
       }
     }

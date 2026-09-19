@@ -132,10 +132,11 @@ function validarEntradaBasica(modelo: ModeloUMLCanonicoEntrada): string[] {
 
     const camposVistos = new Set<string>()
     for (const atributo of clase.atributos) {
-      if (
+      if (atributo.nombre === "id" && atributo.tipo !== "Long") {
+        errores.push("El identificador explícito `id` debe utilizar el tipo Long.")
+      } else if (
         !identificadorCampo.test(atributo.nombre) ||
-        palabrasReservadasJava.has(atributo.nombre) ||
-        atributo.nombre === "id"
+        palabrasReservadasJava.has(atributo.nombre)
       ) {
         errores.push(`Nombre de atributo no soportado: ${atributo.nombre || "(vacío)"}.`)
       }
@@ -279,7 +280,7 @@ function prepararRelaciones(
 function prepararEntidad(
   clase: ModeloUMLCanonicoEntrada["clases"][number]
 ): EntidadSpring {
-  const campos = clase.atributos.map((atributo) =>
+  const campos = clase.atributos.filter((atributo) => atributo.nombre !== "id").map((atributo) =>
     prepararCampo(atributo.nombre, atributo.tipo as string)
   )
   const importaciones = Array.from(

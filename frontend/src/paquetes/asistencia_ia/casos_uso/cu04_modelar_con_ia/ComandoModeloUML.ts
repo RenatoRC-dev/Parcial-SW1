@@ -7,9 +7,15 @@ export type ComandoModeloUML =
   | { tipo: "agregar_atributo"; claseRef: string; refTemporal: string; nombre: string; tipoDato: string; visibilidad: VisibilidadUML | null }
   | { tipo: "modificar_atributo"; atributoId: string; nuevoNombre: string | null; nuevoTipo: string | null; nuevaVisibilidad: VisibilidadUML | null }
   | { tipo: "eliminar_atributo"; atributoId: string }
-  | { tipo: "crear_relacion"; refTemporal: string; claseOrigenRef: string; claseDestinoRef: string; tipoRelacion: "asociacion"; multiplicidadOrigen: Multiplicidad; multiplicidadDestino: Multiplicidad; rolOrigen: string | null; rolDestino: string | null }
+  | { tipo: "crear_metodo"; claseRef: string; refTemporal: string; nombre: string; tipoRetorno: string; visibilidad: VisibilidadUML; parametros: Array<{ refTemporal: string; nombre: string; tipo: string }> }
+  | { tipo: "modificar_metodo"; metodoId: string; nuevoNombre: string | null; nuevoTipoRetorno: string | null; nuevaVisibilidad: VisibilidadUML | null }
+  | { tipo: "eliminar_metodo"; metodoId: string }
+  | { tipo: "agregar_parametro"; metodoId: string; refTemporal: string; nombre: string; tipoDato: string }
+  | { tipo: "modificar_parametro"; parametroId: string; nuevoNombre: string | null; nuevoTipo: string | null }
+  | { tipo: "eliminar_parametro"; parametroId: string }
+  | { tipo: "crear_relacion"; refTemporal: string; claseOrigenRef: string; claseDestinoRef: string; tipoRelacion: "asociacion"; cantidadDestinoPorOrigen: Multiplicidad; cantidadOrigenPorDestino: Multiplicidad; rolOrigen: string | null; rolDestino: string | null }
   | { tipo: "eliminar_relacion"; relacionId: string }
-  | { tipo: "cambiar_multiplicidad"; relacionId: string; multiplicidadOrigen: Multiplicidad; multiplicidadDestino: Multiplicidad }
+  | { tipo: "cambiar_multiplicidad"; relacionId: string; cantidadDestinoPorOrigen: Multiplicidad; cantidadOrigenPorDestino: Multiplicidad }
 
 export interface RespuestaInterpretacionUML {
   resultado: "aplicar" | "aclarar" | "rechazar"

@@ -6,6 +6,6 @@ import type {
 
 export class ProveedorTranscripcionDeterministaE2E implements ProveedorTranscripcionAudio {
   async transcribir(_audio: AudioParaTranscribir): Promise<ResultadoTranscripcion> {
-    return { transcripcion: "Crea una clase Factura", modelo: "determinista-e2e" }
+    return { transcripcion: "Crea una clase factura", modelo: "determinista-e2e" }
   }
 }

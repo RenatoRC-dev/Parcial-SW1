@@ -3,6 +3,7 @@ import type { SolicitudInterpretacionUML, RespuestaInterpretacionUMLHttp } from 
 import { construirContextoModelo } from "./construirContextoModelo.js"
 import { ErrorPlanCambiosUML } from "./EjecutorComandosUML.js"
 import { validarPlanCambiosUML } from "./validarPlanCambiosUML.js"
+import { normalizarComandosAsistidos } from "./normalizarSemanticaAsistida.js"
 
 export async function interpretarInstruccionModelado(
   solicitud: SolicitudInterpretacionUML,
@@ -17,7 +18,8 @@ export async function interpretarInstruccionModelado(
     return { ...interpretacion, comandos: [], revision: solicitud.revision }
   }
   try {
-    const destructivo = interpretacion.comandos.some((comando) => comando.tipo.startsWith("eliminar_"))
+    const comandos = normalizarComandosAsistidos(solicitud.modelo, interpretacion.comandos)
+    const destructivo = comandos.some((comando) => comando.tipo.startsWith("eliminar_"))
     if (destructivo && !/\b(elimina|eliminar|borra|borrar|quita|quitar)\b/i.test(solicitud.instruccion)) {
       return {
         resultado: "aclarar",
@@ -26,8 +28,8 @@ export async function interpretarInstruccionModelado(
         revision: solicitud.revision,
       }
     }
-    validarPlanCambiosUML(solicitud.modelo, interpretacion.comandos)
-    return { ...interpretacion, revision: solicitud.revision }
+    validarPlanCambiosUML(solicitud.modelo, comandos)
+    return { ...interpretacion, comandos, revision: solicitud.revision }
   } catch (error) {
     const mensaje = error instanceof ErrorPlanCambiosUML ? error.message : "El plan no supera la validación determinista."
     return { resultado: "rechazar", mensaje, comandos: [], revision: solicitud.revision }

@@ -18,6 +18,16 @@ describe("validación del candidato visual CU05", () => {
     expect(esResultadoVisionUML({ resultado: "candidato", mensaje: "ok", modelo: "fake", candidato: candidato() })).toBe(true)
   })
 
+  it("conserva honestamente id Long e id String en el candidato sin autoreparación", () => {
+    const conTipo = (tipoDato: string) => ({
+      clases: [{ refTemporal: "tmp_factura", nombre: "Factura", atributos: [{ refTemporal: "tmp_id", nombre: "id", tipoDato }] }],
+      relaciones: [], advertencias: [],
+    })
+    expect(esCandidatoModeloUMLImagen(conTipo("Long"))).toBe(true)
+    expect(esCandidatoModeloUMLImagen(conTipo("String"))).toBe(true)
+    expect(conTipo("String").clases[0].atributos[0].tipoDato).toBe("String")
+  })
+
   it.each([
     ["clases duplicadas", () => ({ ...candidato(), clases: [...candidato().clases, { refTemporal: "tmp_otro", nombre: "cliente", atributos: [] }] })],
     ["atributos duplicados", () => ({ ...candidato(), clases: [{ ...candidato().clases[0], atributos: [{ refTemporal: "a", nombre: "dato", tipoDato: "String" }, { refTemporal: "b", nombre: "DATO", tipoDato: "String" }] }] })],

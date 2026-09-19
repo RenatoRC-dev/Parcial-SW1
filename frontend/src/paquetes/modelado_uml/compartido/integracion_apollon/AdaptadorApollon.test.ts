@@ -91,6 +91,7 @@ describe("AdaptadorApollon", () => {
         id: "cliente",
         nombre: "Cliente",
         atributos: [],
+        metodos: [],
         posicion: { x: 125, y: 240 },
         abstracta: true,
       },
@@ -256,6 +257,7 @@ describe("AdaptadorApollon", () => {
       ],
       relaciones: [{
         id: "relacion",
+        nombre: "tiene",
         tipo: "asociacion" as const,
         claseOrigenId: "cliente",
         claseDestinoId: "pedido",
@@ -267,5 +269,39 @@ describe("AdaptadorApollon", () => {
     }
     const vuelta = convertirAModeloCanonico(convertirDesdeModeloCanonico(modelo))
     expect(vuelta.relaciones).toEqual([expect.objectContaining(modelo.relaciones[0])])
+    const arista = convertirDesdeModeloCanonico(modelo).edges[0]
+    expect(arista).toMatchObject({
+      sourceHandle: "right",
+      targetHandle: "left",
+      data: { label: "tiene", sourceMultiplicity: "1", targetMultiplicity: "*" },
+    })
+  })
+
+  it("preserva operaciones UML y parámetros en canonical → Apollon → canonical", () => {
+    const modelo = {
+      id: "modelo-metodos", nombre: "Métodos", version: "4.2.0",
+      clases: [{
+        id: "persona", nombre: "Persona", abstracta: false, posicion: { x: 100, y: 100 }, atributos: [],
+        metodos: [
+          { id: "calcular", nombre: "calcularTotal", visibilidad: "publica" as const, tipoRetorno: "Double", parametros: [] },
+          { id: "cambiar", nombre: "cambiarNombre", visibilidad: "publica" as const, tipoRetorno: "void", parametros: [{ id: "nombre-param", nombre: "nombre", tipo: "String" }] },
+          { id: "validar", nombre: "validarStock", visibilidad: "privada" as const, tipoRetorno: "Boolean", parametros: [{ id: "producto-param", nombre: "productoId", tipo: "Long" }] },
+        ],
+      }],
+      relaciones: [],
+    }
+
+    const apollon = convertirDesdeModeloCanonico(modelo)
+    expect(apollon.nodes[0].data.methods).toEqual([
+      { id: "calcular", name: "+ calcularTotal(): Double" },
+      { id: "cambiar", name: "+ cambiarNombre(nombre: String): void" },
+      { id: "validar", name: "- validarStock(productoId: Long): Boolean" },
+    ])
+    const vuelta = convertirAModeloCanonico(apollon)
+    expect(vuelta.clases[0].metodos).toEqual([
+      expect.objectContaining({ id: "calcular", nombre: "calcularTotal", visibilidad: "publica", tipoRetorno: "Double", parametros: [] }),
+      expect.objectContaining({ id: "cambiar", nombre: "cambiarNombre", visibilidad: "publica", tipoRetorno: "void", parametros: [expect.objectContaining({ nombre: "nombre", tipo: "String" })] }),
+      expect.objectContaining({ id: "validar", nombre: "validarStock", visibilidad: "privada", tipoRetorno: "Boolean", parametros: [expect.objectContaining({ nombre: "productoId", tipo: "Long" })] }),
+    ])
   })
 })

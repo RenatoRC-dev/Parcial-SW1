@@ -6,7 +6,7 @@ async function usarVoz(page: Page) {
   await panel.getByRole("button", { name: /Hablar/ }).click()
   await expect(panel.getByText("Escuchando...")).toBeVisible()
   await panel.getByRole("button", { name: /Detener/ }).click()
-  await expect(panel.getByText(/Voz reconocida:/).locator("..")).toContainText("Crea una clase Factura", { timeout: 20_000 })
+  await expect(panel.getByText(/Voz reconocida:/).locator("..")).toContainText("Crea una clase factura", { timeout: 20_000 })
   await expect(panel.getByRole("status")).toContainText("Listo", { timeout: 20_000 })
   return panel
 }
@@ -15,7 +15,7 @@ test("la voz se transcribe y aplica automáticamente mediante el CU04 existente"
   await crearProyectoE2E(page, "Voz")
   await expect(page.locator(".react-flow")).toBeVisible()
   const panel = await usarVoz(page)
-  await expect(panel.getByLabel("Instrucción UML")).toHaveValue("Crea una clase Factura")
+  await expect(panel.getByLabel("Instrucción UML")).toHaveValue("Crea una clase factura")
   await expect(panel.getByRole("button", { name: /confirmar|aplicar|aceptar/i })).toHaveCount(0)
   await expect(page.getByText("Factura", { exact: true }).first()).toBeVisible()
   await expect(page.getByTestId("resumen-canonico")).toContainText("Clases1")

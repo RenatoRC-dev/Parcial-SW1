@@ -16,12 +16,29 @@ function esRolOpcional(valor: unknown): boolean {
   return valor === undefined || typeof valor === "string"
 }
 
+function esTextoOpcional(valor: unknown): boolean {
+  return valor === undefined || typeof valor === "string"
+}
+
 function esAtributoEntrada(valor: unknown): boolean {
   if (!valor || typeof valor !== "object") return false
   const atributo = valor as Record<string, unknown>
   return typeof atributo.id === "string" &&
     typeof atributo.nombre === "string" &&
     (typeof atributo.tipo === "string" || atributo.tipo === null)
+}
+
+function esMetodoEntrada(valor: unknown): boolean {
+  if (!valor || typeof valor !== "object") return false
+  const metodo = valor as Record<string, unknown>
+  return typeof metodo.id === "string" && typeof metodo.nombre === "string" &&
+    (metodo.visibilidad === "publica" || metodo.visibilidad === "privada") &&
+    typeof metodo.tipoRetorno === "string" && Array.isArray(metodo.parametros) &&
+    metodo.parametros.every((valorParametro) => {
+      if (!valorParametro || typeof valorParametro !== "object") return false
+      const parametro = valorParametro as Record<string, unknown>
+      return typeof parametro.id === "string" && typeof parametro.nombre === "string" && typeof parametro.tipo === "string"
+    })
 }
 
 function esRelacionEntrada(valor: unknown): boolean {
@@ -32,6 +49,7 @@ function esRelacionEntrada(valor: unknown): boolean {
     tiposRelacion.has(relacion.tipo) &&
     typeof relacion.claseOrigenId === "string" &&
     typeof relacion.claseDestinoId === "string" &&
+    esTextoOpcional(relacion.nombre) &&
     esMultiplicidad(relacion.multiplicidadOrigen) &&
     esMultiplicidad(relacion.multiplicidadDestino) &&
     esRolOpcional(relacion.rolOrigen) &&
@@ -53,7 +71,8 @@ export function esModeloUMLCanonicoEntrada(valor: unknown): valor is ModeloUMLCa
         typeof candidata.nombre === "string" &&
         typeof candidata.abstracta === "boolean" &&
         Array.isArray(candidata.atributos) &&
-        candidata.atributos.every(esAtributoEntrada)
+        candidata.atributos.every(esAtributoEntrada) &&
+        (candidata.metodos === undefined || (Array.isArray(candidata.metodos) && candidata.metodos.every(esMetodoEntrada)))
     }) &&
     modelo.relaciones.every(esRelacionEntrada)
 }

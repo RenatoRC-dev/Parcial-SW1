@@ -13,7 +13,7 @@ const modelo: ModeloUMLCanonico = {
 
 function generador() {
   let numero = 0
-  return (categoria: "clase" | "atributo" | "relacion") => `${categoria}-${++numero}`
+  return (categoria: "clase" | "atributo" | "metodo" | "parametro" | "relacion") => `${categoria}-${++numero}`
 }
 
 describe("EjecutorComandosUML frontend", () => {
@@ -21,7 +21,7 @@ describe("EjecutorComandosUML frontend", () => {
     const resultado = ejecutarComandosUML(modelo, [
       { tipo: "crear_clase", refTemporal: "tmp_factura", nombre: "Factura", abstracta: false },
       { tipo: "agregar_atributo", claseRef: "tmp_factura", refTemporal: "tmp_fecha", nombre: "fecha", tipoDato: "LocalDate", visibilidad: "privada" },
-      { tipo: "crear_relacion", refTemporal: "tmp_rel", claseOrigenRef: "cliente", claseDestinoRef: "tmp_factura", tipoRelacion: "asociacion", multiplicidadOrigen: "1", multiplicidadDestino: "0..*", rolOrigen: "cliente", rolDestino: "facturas" },
+      { tipo: "crear_relacion", refTemporal: "tmp_rel", claseOrigenRef: "cliente", claseDestinoRef: "tmp_factura", tipoRelacion: "asociacion", cantidadDestinoPorOrigen: "0..*", cantidadOrigenPorDestino: "1", rolOrigen: "cliente", rolDestino: "facturas" },
     ], generador())
     const factura = resultado.clases.find((clase) => clase.nombre === "Factura")!
     expect(factura.id).toBe("clase-1")
@@ -43,11 +43,31 @@ describe("EjecutorComandosUML frontend", () => {
   it("modifica y elimina atributos y relaciones", () => {
     const resultado = ejecutarComandosUML(modelo, [
       { tipo: "modificar_atributo", atributoId: "nombre", nuevoNombre: "nombreCompleto", nuevoTipo: "String", nuevaVisibilidad: "privada" },
-      { tipo: "cambiar_multiplicidad", relacionId: "r1", multiplicidadOrigen: "0..1", multiplicidadDestino: "1..*" },
+      { tipo: "cambiar_multiplicidad", relacionId: "r1", cantidadDestinoPorOrigen: "1..*", cantidadOrigenPorDestino: "0..1" },
     ], generador())
     expect(resultado.clases[0].atributos[0].nombre).toBe("nombreCompleto")
     expect(resultado.relaciones[0].multiplicidadDestino).toBe("1..*")
     expect(ejecutarComandosUML(modelo, [{ tipo: "eliminar_atributo", atributoId: "nombre" }, { tipo: "eliminar_relacion", relacionId: "r1" }], generador())).toMatchObject({ relaciones: [], clases: [expect.objectContaining({ atributos: [] }), expect.anything()] })
+  })
+
+  it("crea, modifica y elimina métodos y parámetros", () => {
+    const creado = ejecutarComandosUML(modelo, [{
+      tipo: "crear_metodo", claseRef: "cliente", refTemporal: "tmp_cobrar", nombre: "cobrar",
+      tipoRetorno: "void", visibilidad: "publica",
+      parametros: [{ refTemporal: "tmp_monto", nombre: "monto", tipo: "Double" }],
+    }], generador())
+    const metodo = creado.clases[0].metodos![0]
+    expect(metodo).toMatchObject({ id: "metodo-1", nombre: "cobrar", tipoRetorno: "void", visibilidad: "publica", parametros: [{ id: "parametro-2", nombre: "monto", tipo: "Double" }] })
+
+    const modificado = ejecutarComandosUML(creado, [
+      { tipo: "modificar_metodo", metodoId: metodo.id, nuevoNombre: "procesarCobro", nuevoTipoRetorno: "Boolean", nuevaVisibilidad: "privada" },
+      { tipo: "modificar_parametro", parametroId: metodo.parametros[0].id, nuevoNombre: "importe", nuevoTipo: "Long" },
+    ], generador())
+    expect(modificado.clases[0].metodos![0]).toMatchObject({ nombre: "procesarCobro", tipoRetorno: "Boolean", visibilidad: "privada", parametros: [expect.objectContaining({ nombre: "importe", tipo: "Long" })] })
+
+    const sinParametro = ejecutarComandosUML(modificado, [{ tipo: "eliminar_parametro", parametroId: metodo.parametros[0].id }], generador())
+    expect(sinParametro.clases[0].metodos![0].parametros).toEqual([])
+    expect(ejecutarComandosUML(sinParametro, [{ tipo: "eliminar_metodo", metodoId: metodo.id }], generador()).clases[0].metodos).toEqual([])
   })
 
   it("un plan inválido no muta el modelo original", () => {

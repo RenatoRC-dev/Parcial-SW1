@@ -4,6 +4,7 @@ import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 import type { ModeloUMLCanonicoEntrada } from "./ContratoModeloUMLCanonico.js"
 import { fixtureClientePedido } from "./fixtureClientePedido.js"
+import { fixturePersonaAuto } from "./fixturePersonaAuto.js"
 import { generarProyectoSpring } from "./GeneradorSpringBoot.js"
 import { prepararProyectoSpring } from "./PrepararProyectoSpring.js"
 
@@ -20,6 +21,29 @@ function conRelacion(
 }
 
 describe("generación determinista de asociación uno-a-muchos", () => {
+  it("mantiene Persona 1 — 0..* Auto y ubica la FK en Auto", async () => {
+    const proyecto = prepararProyectoSpring(fixturePersonaAuto)
+    const persona = proyecto.entidades.find((entidad) => entidad.nombreClase === "Persona")!
+    const auto = proyecto.entidades.find((entidad) => entidad.nombreClase === "Auto")!
+    expect(persona.relacionesUnoAMuchos).toEqual([{
+      nombreCampo: "autos", entidadObjetivo: "Auto", mappedBy: "persona",
+    }])
+    expect(auto.relacionesMuchosAUno).toEqual([{
+      nombreCampo: "persona", entidadObjetivo: "Persona", nombreColumna: "persona_id",
+    }])
+
+    const salida = await mkdtemp(join(tmpdir(), "sw1-persona-auto-"))
+    temporales.push(salida)
+    await generarProyectoSpring(fixturePersonaAuto, salida)
+    const fuentePersona = await readFile(join(salida, "src/main/java/com/sw1/generated/modelo/Persona.java"), "utf8")
+    const fuenteAuto = await readFile(join(salida, "src/main/java/com/sw1/generated/modelo/Auto.java"), "utf8")
+    expect(fuentePersona).toContain('@OneToMany(mappedBy = "persona")')
+    expect(fuentePersona).toContain("private List<Auto> autos = new ArrayList<>();")
+    expect(fuenteAuto).toContain("@ManyToOne(optional = false)")
+    expect(fuenteAuto).toContain('@JoinColumn(name = "persona_id", nullable = false)')
+    expect(fuenteAuto).toContain("private Persona persona;")
+  })
+
   it("prepara roles en la clase opuesta y asigna la FK al lado muchos", () => {
     const proyecto = prepararProyectoSpring(fixtureClientePedido)
     const cliente = proyecto.entidades.find((entidad) => entidad.nombreClase === "Cliente")!

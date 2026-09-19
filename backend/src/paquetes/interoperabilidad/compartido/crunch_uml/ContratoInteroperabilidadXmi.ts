@@ -7,10 +7,20 @@ export interface AtributoIntercambio {
   visibilidad?: "publica" | "privada"
 }
 
+export interface ParametroIntercambio { id: string; nombre: string; tipo: string }
+export interface MetodoIntercambio {
+  id: string
+  nombre: string
+  visibilidad: "publica" | "privada"
+  tipoRetorno: string
+  parametros: ParametroIntercambio[]
+}
+
 export interface ClaseIntercambio {
   id: string
   nombre: string
   atributos: AtributoIntercambio[]
+  metodos?: MetodoIntercambio[]
   posicion: { x: number; y: number }
   abstracta: boolean
 }

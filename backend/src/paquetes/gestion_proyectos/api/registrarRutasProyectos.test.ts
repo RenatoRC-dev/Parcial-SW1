@@ -29,6 +29,16 @@ describe("API CU01/CU11 de proyectos", () => {
     expect(await readdir(directorio)).toEqual([`${creado.body.id}.json`])
   })
 
+  it("preserva métodos y parámetros y acepta proyectos heredados sin metodos", async () => {
+    const creado = await request(app()).post("/api/proyectos").send({ nombre: "Operaciones" }).expect(201)
+    const claseLegacy = { id: "persona", nombre: "Persona", abstracta: false, posicion: { x: 1, y: 2 }, atributos: [] }
+    await request(app()).put(`/api/proyectos/${creado.body.id}/modelo`).send({ modelo: { ...creado.body.modelo, clases: [claseLegacy] } }).expect(200)
+    const metodo = { id: "m1", nombre: "cambiarNombre", visibilidad: "publica", tipoRetorno: "void", parametros: [{ id: "p1", nombre: "nombre", tipo: "String" }] }
+    await request(app()).put(`/api/proyectos/${creado.body.id}/modelo`).send({ modelo: { ...creado.body.modelo, clases: [{ ...claseLegacy, metodos: [metodo] }] } }).expect(200)
+    const recuperado = await request(app()).get(`/api/proyectos/${creado.body.id}`).expect(200)
+    expect(recuperado.body.modelo.clases[0].metodos).toEqual([metodo])
+  })
+
   it("rechaza nombre duplicado sin distinguir mayúsculas", async () => {
     await request(app()).post("/api/proyectos").send({ nombre: "Ventas" }).expect(201)
     await request(app()).post("/api/proyectos").send({ nombre: "ventas" }).expect(409)
@@ -56,4 +66,3 @@ describe("API CU01/CU11 de proyectos", () => {
     expect(respuesta.body.error).not.toContain(directorio)
   })
 })
-

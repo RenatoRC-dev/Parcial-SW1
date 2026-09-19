@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { transcribirAudio } from "./transcribirAudio"
+import { usarPreferenciasUI } from "../../../../../configuracion/PreferenciasUI"
 
 export const DURACION_MAXIMA_GRABACION_MS = 30_000
 
@@ -20,6 +21,7 @@ export function GrabadorInstruccionVoz({
   alReconocer,
   alCambiarOcupado,
 }: PropiedadesGrabadorInstruccionVoz) {
+  const { t } = usarPreferenciasUI()
   const [estado, establecerEstado] = useState<"inactivo" | "solicitando" | "grabando" | "transcribiendo" | "procesando" | "error">("inactivo")
   const [mensaje, establecerMensaje] = useState<string | null>(null)
   const [transcripcion, establecerTranscripcion] = useState<string | null>(null)
@@ -45,12 +47,12 @@ export function GrabadorInstruccionVoz({
     fragmentos.current = []
     liberar()
     establecerEstado("transcribiendo")
-    establecerMensaje("Transcribiendo...")
+    establecerMensaje(t("voz.transcribiendo"))
     try {
       const resultado = await transcribirAudio(audio)
       if (!resultado.transcripcion) {
         establecerEstado("inactivo")
-        establecerMensaje("No se detectó una instrucción de voz.")
+        establecerMensaje(t("voz.sinInstruccion"))
         return
       }
       establecerTranscripcion(resultado.transcripcion)
@@ -60,7 +62,7 @@ export function GrabadorInstruccionVoz({
       establecerEstado("inactivo")
     } catch (error) {
       establecerEstado("error")
-      establecerMensaje(error instanceof Error ? error.message : "No se pudo transcribir el audio.")
+      establecerMensaje(error instanceof Error ? error.message : t("voz.errorTranscripcion"))
     } finally {
       alCambiarOcupado(false)
     }
@@ -69,7 +71,7 @@ export function GrabadorInstruccionVoz({
   const iniciar = async () => {
     if (!disponible || deshabilitado || (estado !== "inactivo" && estado !== "error")) return
     establecerEstado("solicitando")
-    establecerMensaje("Solicitando acceso al micrófono...")
+    establecerMensaje(t("voz.solicitando"))
     alCambiarOcupado(true)
     try {
       const nuevoFlujo = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -83,14 +85,14 @@ export function GrabadorInstruccionVoz({
       nuevoGrabador.addEventListener("stop", () => { void procesarGrabacion(nuevoGrabador.mimeType || mimeType) }, { once: true })
       nuevoGrabador.start()
       establecerEstado("grabando")
-      establecerMensaje("Escuchando...")
+      establecerMensaje(t("voz.escuchando"))
       temporizador.current = setTimeout(() => {
         if (nuevoGrabador.state === "recording") nuevoGrabador.stop()
       }, DURACION_MAXIMA_GRABACION_MS)
     } catch {
       liberar()
       establecerEstado("error")
-      establecerMensaje("No se pudo acceder al micrófono.")
+      establecerMensaje(t("voz.errorMicrofono"))
       alCambiarOcupado(false)
     }
   }
@@ -106,11 +108,11 @@ export function GrabadorInstruccionVoz({
         disabled={deshabilitado || !disponible || estado === "solicitando" || estado === "transcribiendo" || estado === "procesando"}
         onClick={estado === "grabando" ? detener : () => void iniciar()}
       >
-        {estado === "grabando" ? "⏹ Detener" : "🎙 Hablar"}
+        {estado === "grabando" ? t("voz.detener") : t("voz.hablar")}
       </button>
-      {!disponible ? <p className="voice-message">Entrada de voz no disponible en este navegador.</p> : null}
+      {!disponible ? <p className="voice-message">{t("voz.noDisponible")}</p> : null}
       {mensaje ? <p className={estado === "error" ? "voice-message voice-error" : "voice-message"} aria-live="polite">{mensaje}</p> : null}
-      {transcripcion ? <p className="voice-transcript"><strong>Voz reconocida:</strong> “{transcripcion}”</p> : null}
+      {transcripcion ? <p className="voice-transcript"><strong>{t("voz.reconocida")}</strong> “{transcripcion}”</p> : null}
     </div>
   )
 }

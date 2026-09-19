@@ -53,7 +53,7 @@ describe("EjecutorComandosUML backend", () => {
     const resultado = ejecutar([
       { tipo: "crear_clase", refTemporal: "tmp_factura", nombre: "Factura", abstracta: false },
       { tipo: "agregar_atributo", claseRef: "tmp_factura", refTemporal: "tmp_fecha", nombre: "fecha", tipoDato: "LocalDate", visibilidad: "privada" },
-      { tipo: "crear_relacion", refTemporal: "tmp_rel", claseOrigenRef: "cliente", claseDestinoRef: "tmp_factura", tipoRelacion: "asociacion", multiplicidadOrigen: "1", multiplicidadDestino: "0..*", rolOrigen: "cliente", rolDestino: "facturas" },
+      { tipo: "crear_relacion", refTemporal: "tmp_rel", claseOrigenRef: "cliente", claseDestinoRef: "tmp_factura", tipoRelacion: "asociacion", cantidadDestinoPorOrigen: "0..*", cantidadOrigenPorDestino: "1", rolOrigen: "cliente", rolDestino: "facturas" },
     ])
     const factura = resultado.clases.find((clase) => clase.nombre === "Factura")!
     expect(factura.atributos[0]).toMatchObject({ nombre: "fecha", tipo: "LocalDate" })
@@ -62,8 +62,22 @@ describe("EjecutorComandosUML backend", () => {
 
   it("crea asociación entre clases existentes", () => {
     const sinRelaciones = { ...modeloBase, relaciones: [] }
-    const resultado = ejecutarComandosUML(sinRelaciones, [{ tipo: "crear_relacion", refTemporal: "tmp_rel", claseOrigenRef: "cliente", claseDestinoRef: "pedido", tipoRelacion: "asociacion", multiplicidadOrigen: "1", multiplicidadDestino: "0..*", rolOrigen: null, rolDestino: null }], () => "relacion-nueva")
+    const resultado = ejecutarComandosUML(sinRelaciones, [{ tipo: "crear_relacion", refTemporal: "tmp_rel", claseOrigenRef: "cliente", claseDestinoRef: "pedido", tipoRelacion: "asociacion", cantidadDestinoPorOrigen: "0..*", cantidadOrigenPorDestino: "1", rolOrigen: null, rolDestino: null }], () => "relacion-nueva")
     expect(resultado.relaciones[0]).toMatchObject({ id: "relacion-nueva", claseOrigenId: "cliente", claseDestinoId: "pedido" })
+  })
+
+  it.each([
+    ["Persona/Auto", "0..*", "1", "1", "0..*"],
+    ["Usuario/Perfil", "0..1", "1", "1", "0..1"],
+    ["Departamento/Empleado", "1..*", "0..1", "0..1", "1..*"],
+  ] as const)("convierte cantidades de negocio %s a extremos UML sin invertirlos", (_caso, destinosPorOrigen, origenesPorDestino, extremoOrigen, extremoDestino) => {
+    const sinRelaciones = { ...modeloBase, relaciones: [] }
+    const resultado = ejecutarComandosUML(sinRelaciones, [{
+      tipo: "crear_relacion", refTemporal: "tmp_rel", claseOrigenRef: "cliente", claseDestinoRef: "pedido",
+      tipoRelacion: "asociacion", cantidadDestinoPorOrigen: destinosPorOrigen,
+      cantidadOrigenPorDestino: origenesPorDestino, rolOrigen: null, rolDestino: null,
+    }], () => "relacion-asimetrica")
+    expect(resultado.relaciones[0]).toMatchObject({ multiplicidadOrigen: extremoOrigen, multiplicidadDestino: extremoDestino })
   })
 
   it("modifica y elimina atributos", () => {
@@ -73,8 +87,44 @@ describe("EjecutorComandosUML backend", () => {
     expect(eliminado.clases[0].atributos).toEqual([])
   })
 
+  it("crea un método con parámetros y valores controlados", () => {
+    const resultado = ejecutar([{
+      tipo: "crear_metodo", claseRef: "cliente", refTemporal: "tmp_cobrar", nombre: "cobrar",
+      tipoRetorno: "Boolean", visibilidad: "privada",
+      parametros: [{ refTemporal: "tmp_monto", nombre: "monto", tipo: "Double" }],
+    }])
+    expect(resultado.clases[0].metodos).toEqual([{
+      id: "metodo-1", nombre: "cobrar", tipoRetorno: "Boolean", visibilidad: "privada",
+      parametros: [{ id: "parametro-2", nombre: "monto", tipo: "Double" }],
+    }])
+  })
+
+  it("modifica y elimina métodos y parámetros sin afectar otros elementos", () => {
+    const conMetodo: ModeloUMLCanonicoIA = structuredClone(modeloBase)
+    conMetodo.clases[0].metodos = [{ id: "cobrar", nombre: "cobrar", tipoRetorno: "void", visibilidad: "publica", parametros: [{ id: "monto", nombre: "monto", tipo: "Integer" }] }]
+    const ejecutarEnModelo = (comandos: ComandoModeloUML[]) => ejecutarComandosUML(conMetodo, comandos, (categoria) => `${categoria}-nuevo`)
+
+    expect(ejecutarEnModelo([{ tipo: "modificar_metodo", metodoId: "cobrar", nuevoNombre: "procesarCobro", nuevoTipoRetorno: "Boolean", nuevaVisibilidad: "privada" }]).clases[0].metodos?.[0]).toMatchObject({ nombre: "procesarCobro", tipoRetorno: "Boolean", visibilidad: "privada" })
+    expect(ejecutarEnModelo([{ tipo: "agregar_parametro", metodoId: "cobrar", refTemporal: "tmp_moneda", nombre: "moneda", tipoDato: "String" }]).clases[0].metodos?.[0].parametros).toHaveLength(2)
+    expect(ejecutarEnModelo([{ tipo: "modificar_parametro", parametroId: "monto", nuevoNombre: "importe", nuevoTipo: "Double" }]).clases[0].metodos?.[0].parametros[0]).toMatchObject({ nombre: "importe", tipo: "Double" })
+    expect(ejecutarEnModelo([{ tipo: "eliminar_parametro", parametroId: "monto" }]).clases[0].metodos?.[0].parametros).toEqual([])
+    const eliminado = ejecutarEnModelo([{ tipo: "eliminar_metodo", metodoId: "cobrar" }])
+    expect(eliminado.clases[0].metodos).toEqual([])
+    expect(eliminado.clases[0].atributos).toEqual(modeloBase.clases[0].atributos)
+  })
+
+  it("rechaza un tipo de parámetro no soportado sin mutar el original", () => {
+    const copia = structuredClone(modeloBase)
+    expect(() => validarPlanCambiosUML(modeloBase, [{
+      tipo: "crear_metodo", claseRef: "cliente", refTemporal: "tmp_cobrar", nombre: "cobrar",
+      tipoRetorno: "void", visibilidad: "publica",
+      parametros: [{ refTemporal: "tmp_monto", nombre: "monto", tipo: "Money" }],
+    }])).toThrow(/Tipo de parámetro no soportado/)
+    expect(modeloBase).toEqual(copia)
+  })
+
   it("cambia multiplicidades y elimina relaciones", () => {
-    const cambiado = ejecutar([{ tipo: "cambiar_multiplicidad", relacionId: "r1", multiplicidadOrigen: "0..1", multiplicidadDestino: "1..*" }])
+    const cambiado = ejecutar([{ tipo: "cambiar_multiplicidad", relacionId: "r1", cantidadDestinoPorOrigen: "1..*", cantidadOrigenPorDestino: "0..1" }])
     expect(cambiado.relaciones[0]).toMatchObject({ multiplicidadOrigen: "0..1", multiplicidadDestino: "1..*" })
     expect(ejecutar([{ tipo: "eliminar_relacion", relacionId: "r1" }]).relaciones).toEqual([])
   })

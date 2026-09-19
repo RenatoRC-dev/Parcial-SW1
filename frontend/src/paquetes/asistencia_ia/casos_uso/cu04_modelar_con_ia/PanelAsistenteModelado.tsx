@@ -3,6 +3,7 @@ import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLC
 import { procesarInstruccionIA, type EstadoProcesoIA } from "./procesarInstruccionIA"
 import { solicitarCambioIA } from "./solicitarCambioIA"
 import { GrabadorInstruccionVoz } from "./voz/GrabadorInstruccionVoz"
+import { usarPreferenciasUI } from "../../../../configuracion/PreferenciasUI"
 
 export interface PropiedadesPanelAsistenteModelado {
   modelo: ModeloUMLCanonico
@@ -11,6 +12,7 @@ export interface PropiedadesPanelAsistenteModelado {
 }
 
 export function PanelAsistenteModelado({ modelo, revision, alAplicarModelo }: PropiedadesPanelAsistenteModelado) {
+  const { t } = usarPreferenciasUI()
   const [instruccion, establecerInstruccion] = useState("")
   const [estado, establecerEstado] = useState<EstadoProcesoIA | "listo" | "error" | null>(null)
   const [mensaje, establecerMensaje] = useState<string | null>(null)
@@ -23,7 +25,7 @@ export function PanelAsistenteModelado({ modelo, revision, alAplicarModelo }: Pr
     const texto = (textoRecibido ?? instruccion).trim()
     if (!texto) {
       establecerEstado("error")
-      establecerMensaje("Escribe una instrucción de modelado.")
+      establecerMensaje(t("ia.instruccionRequerida"))
       return
     }
     establecerProcesando(true)
@@ -41,7 +43,7 @@ export function PanelAsistenteModelado({ modelo, revision, alAplicarModelo }: Pr
       if (resultado.resultado === "aplicado" && !conservarTexto) establecerInstruccion("")
     } catch (error) {
       establecerEstado("error")
-      establecerMensaje(error instanceof Error ? error.message : "No se pudo procesar la instrucción con IA.")
+      establecerMensaje(error instanceof Error ? error.message : t("ia.errorProcesamiento"))
     } finally {
       establecerProcesando(false)
     }
@@ -56,14 +58,14 @@ export function PanelAsistenteModelado({ modelo, revision, alAplicarModelo }: Pr
 
   return (
     <aside className="ai-panel" data-testid="panel-asistente-ia">
-      <h2>Asistente IA</h2>
-      <label htmlFor="instruccion-ia">Instrucción UML</label>
+      <h2>{t("ia.titulo")}</h2>
+      <label htmlFor="instruccion-ia">{t("ia.instruccion")}</label>
       <textarea
         id="instruccion-ia"
         value={instruccion}
         maxLength={2000}
         disabled={ocupado}
-        placeholder="Ej.: Crea una clase Cliente"
+        placeholder={t("ia.placeholder")}
         onChange={(evento) => establecerInstruccion(evento.target.value)}
         onKeyDown={(evento) => {
           if (evento.key === "Enter" && !evento.shiftKey) {
@@ -72,14 +74,14 @@ export function PanelAsistenteModelado({ modelo, revision, alAplicarModelo }: Pr
           }
         }}
       />
-      <button type="button" disabled={ocupado} onClick={() => void enviar()}>Enviar</button>
+      <button type="button" disabled={ocupado} onClick={() => void enviar()}>{t("ia.enviar")}</button>
       <GrabadorInstruccionVoz
         deshabilitado={procesando}
         alCambiarOcupado={establecerVozOcupada}
         alReconocer={procesarTranscripcion}
       />
-      {estado ? <p role="status"><strong>{estado === "interpretando" ? "Interpretando..." : estado === "aplicando" ? "Aplicando..." : estado === "listo" ? "Listo" : "Error"}</strong>{mensaje ? `: ${mensaje}` : ""}</p> : null}
-      <p className="ai-note">Los cambios claros y válidos se aplican automáticamente, sin confirmación.</p>
+      {estado ? <p role="status"><strong>{estado === "interpretando" ? t("ia.interpretando") : estado === "aplicando" ? t("ia.aplicando") : estado === "listo" ? t("ia.listo") : t("ia.error")}</strong>{mensaje ? `: ${mensaje}` : ""}</p> : null}
+      <p className="ai-note">{t("ia.nota")}</p>
     </aside>
   )
 }

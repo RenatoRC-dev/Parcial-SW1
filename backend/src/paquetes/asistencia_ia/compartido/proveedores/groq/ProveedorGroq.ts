@@ -3,6 +3,7 @@ import type { RespuestaInterpretacionUML } from "../../contrato/PlanCambiosUML.j
 import { ErrorProveedorIA, type ProveedorModeloLenguaje, type SolicitudProveedorUML } from "../ProveedorModeloLenguaje.js"
 import { esRespuestaInterpretacionUML } from "../../../casos_uso/cu04_modelar_con_ia/validarPlanCambiosUML.js"
 import { ESQUEMA_RESPUESTA_GROQ } from "./EsquemaRespuestaGroq.js"
+import { TIPOS_UML_SOPORTADOS_IA } from "../../contrato/ComandoModeloUML.js"
 
 const MODELO_PREDETERMINADO = "openai/gpt-oss-20b"
 const TIMEOUT_MS = 18_000
@@ -13,6 +14,12 @@ Usa solo ids incluidos en el contexto para elementos existentes; nunca inventes 
 Para elementos nuevos usa referencias temporales tmp_* únicas dentro de esta respuesta.
 No crees elementos no solicitados salvo que la instrucción lo pida explícitamente.
 Solo puedes crear relaciones de tipo asociacion. No uses semántica fuera del vocabulario permitido.
+En crear_relacion y cambiar_multiplicidad, cantidadDestinoPorOrigen responde "para UNA instancia origen, cuántas instancias destino puede haber"; cantidadOrigenPorDestino responde la pregunta inversa. Son cantidades de negocio, no etiquetas visuales de extremo. Ejemplo: una Persona tiene cero o muchos Autos y cada Auto una Persona => origen Persona, destino Auto, cantidadDestinoPorOrigen="0..*", cantidadOrigenPorDestino="1". El ejecutor las convierte a multiplicidades de extremos UML.
+Normaliza referencias naturales de clases a sus ids del contexto. id: Long es un atributo explícito válido.
+Para atributos sin visibilidad explícita usa privada. Para métodos sin visibilidad o retorno explícitos usa publica y void.
+Los métodos son únicamente firmas de diseño: nombre, visibilidad, retorno y parámetros; nunca inventes cuerpos o algoritmos.
+Tipos de datos admitidos: ${TIPOS_UML_SOPORTADOS_IA.join(", ")}; los retornos además admiten void.
+Conserva crear/modificar/eliminar métodos y parámetros como comandos estructurados.
 Si hay más de una interpretación posible, resultado=aclarar, comandos=[] y una pregunta breve.
 Si la solicitud es inválida o no soportada, resultado=rechazar y comandos=[].
 Solo una intención destructiva explícita puede producir eliminación.

@@ -28,8 +28,9 @@ At the beginning of future iterations, agents should review this file. Open gate
 1. Export `modelo.xmi` from SW1.
 2. Import it into real Sparx Enterprise Architect.
 3. Verify `Cliente`, `Pedido`, their attributes, the association, multiplicities `1` and `0..*`, and roles `cliente` / `pedidos`.
-4. Record the Enterprise Architect version and XMI import option.
-5. Save screenshots and evidence.
+4. When the SW1 XMI bridge gains operation support, also verify a real UML operation name, visibility, return type and typed parameter; the current `crunch_uml` bridge does not preserve operations and no substitute encoding is accepted.
+5. Record the Enterprise Architect version and XMI import option.
+6. Save screenshots and evidence.
 
 **Direction B — Enterprise Architect → SW1**
 
@@ -37,8 +38,9 @@ At the beginning of future iterations, agents should review this file. Open gate
 2. Export it as XMI.
 3. Import the EA-produced XMI through CU06.
 4. Verify equivalent supported semantics in Apollon.
-5. Edit one imported class to prove that the model is live and editable.
-6. Save evidence.
+5. When operation support exists in the bridge, verify that an EA-produced operation retains its visibility, return type and typed parameters in SW1.
+6. Edit one imported class to prove that the model is live and editable.
+7. Save evidence.
 
 ### Compatibility note
 

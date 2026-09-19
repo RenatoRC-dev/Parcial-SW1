@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
+import { ProveedorPreferenciasUI } from "../../../../configuracion/PreferenciasUI"
 import { PanelModeladoDesdeImagen } from "./PanelModeladoDesdeImagen"
 
 const modelo: ModeloUMLCanonico = { id: "m", nombre: "Modelo", version: "4.2.0", clases: [], relaciones: [] }
@@ -21,6 +22,7 @@ const respuesta = {
 const archivo = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "diagrama.png", { type: "image/png" })
 
 beforeEach(() => {
+  localStorage.clear()
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(respuesta), { status: 200 })))
   Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:preview") })
   Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() })
@@ -110,5 +112,19 @@ describe("PanelModeladoDesdeImagen", () => {
     fireEvent.change(screen.getByLabelText("Seleccionar imagen"), { target: { files: [nueva] } })
     await waitFor(() => expect(screen.queryByRole("region", { name: "Modelo UML candidato" })).not.toBeInTheDocument())
     expect(screen.getByText(/otra.jpg/)).toBeInTheDocument()
+  })
+
+  it("presenta en inglés la semántica estática del candidato sin mutar el modelo", async () => {
+    localStorage.setItem("sw1.idioma", "en")
+    const modeloAntes = JSON.stringify(modelo)
+    render(<ProveedorPreferenciasUI><PanelModeladoDesdeImagen modelo={modelo} alAplicarModelo={vi.fn()} /></ProveedorPreferenciasUI>)
+    fireEvent.change(screen.getByLabelText("Select image"), { target: { files: [archivo] } })
+    fireEvent.click(screen.getByRole("button", { name: "Analyze image" }))
+    await screen.findByRole("region", { name: "Candidate UML model" })
+    expect(screen.getByText(/Classes detected: 1/)).toBeInTheDocument()
+    expect(screen.getByText(/nombre — type not visible · will not be imported/i)).toBeInTheDocument()
+    expect(screen.getByText(/monto: Money · unsupported type · will not be imported/i)).toBeInTheDocument()
+    expect(screen.getByText("Texto parcialmente ilegible.")).toBeInTheDocument()
+    expect(JSON.stringify(modelo)).toBe(modeloAntes)
   })
 })

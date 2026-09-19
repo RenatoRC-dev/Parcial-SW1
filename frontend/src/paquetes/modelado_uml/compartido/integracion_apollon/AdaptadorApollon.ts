@@ -2,6 +2,7 @@ import type { UMLModel } from "@tumaet/apollon"
 import type {
   AtributoUML,
   ClaseUML,
+  MetodoUML,
   ModeloUMLCanonico,
   Multiplicidad,
   RelacionUML,
@@ -35,6 +36,7 @@ interface ElementoClaseApollon {
 interface DatosClaseApollon {
   name: string
   attributes: ElementoClaseApollon[]
+  methods: ElementoClaseApollon[]
   isAbstract?: boolean
   stereotype?: unknown
 }
@@ -49,7 +51,7 @@ function esRegistro(valor: unknown): valor is Record<string, unknown> {
 }
 
 function leerDatosClase(valor: Record<string, unknown>): DatosClaseApollon | null {
-  if (typeof valor.name !== "string" || !Array.isArray(valor.attributes)) {
+  if (typeof valor.name !== "string" || !Array.isArray(valor.attributes) || !Array.isArray(valor.methods)) {
     return null
   }
 
@@ -59,13 +61,46 @@ function leerDatosClase(valor: Record<string, unknown>): DatosClaseApollon | nul
       typeof atributo.id === "string" &&
       typeof atributo.name === "string"
   )
+  const methods = valor.methods.filter(
+    (metodo): metodo is ElementoClaseApollon =>
+      esRegistro(metodo) && typeof metodo.id === "string" && typeof metodo.name === "string"
+  )
 
   return {
     name: valor.name,
     attributes,
+    methods,
     isAbstract:
       typeof valor.isAbstract === "boolean" ? valor.isAbstract : undefined,
     stereotype: valor.stereotype,
+  }
+}
+
+function interpretarMetodo(
+  metodoApollon: ElementoClaseApollon,
+  advertencias: string[]
+): MetodoUML | null {
+  const coincidencia = metodoApollon.name.trim().match(/^([+\-])?\s*([^()]+?)\s*\((.*)\)\s*:\s*(\S+)$/)
+  if (!coincidencia) {
+    advertencias.push(`El método ${metodoApollon.id} no usa la notación UML soportada "nombre(parámetros): Retorno".`)
+    return null
+  }
+  const [, simbolo, nombre, textoParametros, tipoRetorno] = coincidencia
+  const parametros = textoParametros.trim() === "" ? [] : textoParametros.split(",").map((texto, indice) => {
+    const partes = texto.trim().match(/^([^:]+?)\s*:\s*(\S+)$/)
+    if (!partes) return null
+    return { id: `${metodoApollon.id}:parametro:${indice}`, nombre: partes[1].trim(), tipo: partes[2].trim() }
+  })
+  if (parametros.some((parametro) => parametro === null)) {
+    advertencias.push(`El método ${metodoApollon.id} contiene parámetros fuera de la notación "nombre: Tipo".`)
+    return null
+  }
+  return {
+    id: metodoApollon.id,
+    nombre: nombre.trim(),
+    visibilidad: simbolo === "-" ? "privada" : "publica",
+    tipoRetorno: tipoRetorno.trim(),
+    parametros: parametros as MetodoUML["parametros"],
   }
 }
 
@@ -167,11 +202,15 @@ function convertirClase(
     if (resultado.advertencia) advertencias.push(resultado.advertencia)
     return resultado.atributo
   })
+  const metodos = datos.methods
+    .map((metodo) => interpretarMetodo(metodo, advertencias))
+    .filter((metodo): metodo is MetodoUML => metodo !== null)
 
   return {
     id: nodo.id,
     nombre: datos.name,
     atributos,
+    metodos,
     posicion: { x: nodo.position.x, y: nodo.position.y },
     abstracta: datos.isAbstract === true,
   }
@@ -223,8 +262,10 @@ function convertirRelacion(
     multiplicidadOrigen: multiplicidadOrigen ?? null,
     multiplicidadDestino: multiplicidadDestino ?? null,
   }
+  const nombre = leerTextoOpcional(arista.data.label)
   const rolOrigen = leerTextoOpcional(arista.data.sourceRole)
   const rolDestino = leerTextoOpcional(arista.data.targetRole)
+  if (nombre) relacion.nombre = nombre
   if (rolOrigen) relacion.rolOrigen = rolOrigen
   if (rolDestino) relacion.rolDestino = rolDestino
 
@@ -268,8 +309,34 @@ function notacionAtributo(atributo: AtributoUML): string {
   return tipo ? `${visibilidad}${atributo.nombre}: ${tipo}` : `${visibilidad}${atributo.nombre}`
 }
 
+function notacionMetodo(metodo: MetodoUML): string {
+  const visibilidad = metodo.visibilidad === "privada" ? "-" : "+"
+  const parametros = metodo.parametros.map((parametro) => `${parametro.nombre}: ${parametro.tipo}`).join(", ")
+  return `${visibilidad} ${metodo.nombre}(${parametros}): ${metodo.tipoRetorno}`
+}
+
 function multiplicidadApollon(multiplicidad: Multiplicidad | null): string {
   return multiplicidad === "0..*" ? "*" : (multiplicidad ?? "")
+}
+
+function obtenerHandlesRelacion(
+  relacion: RelacionUML,
+  clases: ModeloUMLCanonico["clases"]
+): { sourceHandle: string; targetHandle: string } {
+  const origen = clases.find((clase) => clase.id === relacion.claseOrigenId)
+  const destino = clases.find((clase) => clase.id === relacion.claseDestinoId)
+  if (!origen || !destino) return { sourceHandle: "right", targetHandle: "left" }
+
+  const deltaX = destino.posicion.x - origen.posicion.x
+  const deltaY = destino.posicion.y - origen.posicion.y
+  if (Math.abs(deltaX) >= Math.abs(deltaY)) {
+    return deltaX >= 0
+      ? { sourceHandle: "right", targetHandle: "left" }
+      : { sourceHandle: "left", targetHandle: "right" }
+  }
+  return deltaY >= 0
+    ? { sourceHandle: "bottom", targetHandle: "top" }
+    : { sourceHandle: "top", targetHandle: "bottom" }
 }
 
 export function convertirDesdeModeloCanonico(modelo: ModeloUMLCanonico): UMLModel {
@@ -298,7 +365,7 @@ export function convertirDesdeModeloCanonico(modelo: ModeloUMLCanonico): UMLMode
       data: {
         name: clase.nombre,
         attributes: clase.atributos.map((atributo) => ({ id: atributo.id, name: notacionAtributo(atributo) })),
-        methods: [],
+        methods: (clase.metodos ?? []).map((metodo) => ({ id: metodo.id, name: notacionMetodo(metodo) })),
         isAbstract: clase.abstracta,
       },
     })),
@@ -307,10 +374,10 @@ export function convertirDesdeModeloCanonico(modelo: ModeloUMLCanonico): UMLMode
       type: tiposRelacion[relacion.tipo],
       source: relacion.claseOrigenId,
       target: relacion.claseDestinoId,
-      sourceHandle: "source",
-      targetHandle: "target",
+      ...obtenerHandlesRelacion(relacion, modelo.clases),
       data: {
         points: [],
+        label: relacion.nombre ?? "",
         sourceMultiplicity: multiplicidadApollon(relacion.multiplicidadOrigen),
         targetMultiplicity: multiplicidadApollon(relacion.multiplicidadDestino),
         sourceRole: relacion.rolOrigen ?? "",

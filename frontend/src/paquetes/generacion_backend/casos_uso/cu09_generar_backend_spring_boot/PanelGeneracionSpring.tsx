@@ -3,6 +3,7 @@ import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLC
 import type { ResultadoValidacion } from "../../../validacion/casos_uso/cu08_validar_modelo_uml/ValidadorModeloUML"
 import { descargarBackendGenerado } from "../cu10_obtener_backend_generado/descargarBackendGenerado"
 import type { ResultadoAptitudGeneracion } from "./EvaluadorAptitudGeneracionSpring"
+import { usarPreferenciasUI } from "../../../../configuracion/PreferenciasUI"
 
 interface PropiedadesPanelGeneracionSpring {
   modelo: ModeloUMLCanonico
@@ -14,6 +15,7 @@ interface PropiedadesPanelGeneracionSpring {
 type EstadoGeneracion = "inactivo" | "generando" | "exito" | "error"
 
 export function PanelGeneracionSpring({ modelo, validacion, aptitud, alGenerar = descargarBackendGenerado }: PropiedadesPanelGeneracionSpring) {
+  const { t } = usarPreferenciasUI()
   const [estado, establecerEstado] = useState<EstadoGeneracion>("inactivo")
   const [mensajeError, establecerMensajeError] = useState("")
 
@@ -25,24 +27,24 @@ export function PanelGeneracionSpring({ modelo, validacion, aptitud, alGenerar =
       establecerEstado("exito")
     } catch (error) {
       establecerEstado("error")
-      establecerMensajeError(error instanceof Error ? error.message : "No se pudo generar el backend.")
+      establecerMensajeError(error instanceof Error ? error.message : t("generacion.errorGenerar"))
     }
   }
 
   return (
     <section className="generation-panel" aria-labelledby="titulo-generacion" data-testid="panel-generacion">
       <p className="eyebrow">CU09 / CU10</p>
-      <h2 id="titulo-generacion">Generación Spring Boot</h2>
+      <h2 id="titulo-generacion">{t("generacion.titulo")}</h2>
       <dl className="generation-status">
-        <div><dt>Modelo UML</dt><dd>{validacion.valido ? "Válido" : "Inválido"}</dd></div>
-        <div><dt>Generador</dt><dd>{aptitud.apto ? "Apto" : "No apto"}</dd></div>
+        <div><dt>{t("generacion.modelo")}</dt><dd>{validacion.valido ? t("generacion.valido") : t("generacion.invalido")}</dd></div>
+        <div><dt>{t("generacion.generador")}</dt><dd>{aptitud.apto ? t("generacion.apto") : t("generacion.noApto")}</dd></div>
       </dl>
       {aptitud.motivos.length > 0 ? <ul className="generation-reasons">{aptitud.motivos.map((motivo) => <li key={motivo}>{motivo}</li>)}</ul> : null}
       <button type="button" onClick={generar} disabled={!aptitud.apto || estado === "generando"}>
-        {estado === "generando" ? "Generando…" : "Generar backend Spring Boot"}
+        {estado === "generando" ? t("generacion.generando") : t("generacion.generar")}
       </button>
-      {estado === "exito" ? <p className="generation-success" role="status">Backend generado y descargado.</p> : null}
-      {estado === "error" ? <p className="generation-error" role="alert">Error: {mensajeError}</p> : null}
+      {estado === "exito" ? <p className="generation-success" role="status">{t("generacion.exito")}</p> : null}
+      {estado === "error" ? <p className="generation-error" role="alert">{t("generacion.error")}: {mensajeError}</p> : null}
     </section>
   )
 }

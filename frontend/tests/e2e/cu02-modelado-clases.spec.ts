@@ -15,21 +15,10 @@ test("el diseñador crea una clase y CU02 recibe el modelo estructurado", async 
   ).toBeVisible()
   await expect(page.getByTestId("resumen-apollon")).toContainText("ClassDiagram")
 
-  const herramientaClase = page.getByText("Class", { exact: true }).first()
-  const lienzo = page.locator(".react-flow__pane")
-
-  await expect(herramientaClase).toBeVisible()
-  await expect(lienzo).toBeVisible()
-
-  const cajaLienzo = await lienzo.boundingBox()
-  if (!cajaLienzo) throw new Error("No se pudo calcular el área del lienzo")
-
-  await herramientaClase.dragTo(lienzo, {
-    targetPosition: {
-      x: Math.round(cajaLienzo.width / 2),
-      y: Math.round(cajaLienzo.height / 2),
-    },
-  })
+  await expect(page.locator('[data-apollon-control="apollon:palette"]')).toHaveCount(0)
+  const inspector = page.getByTestId("inspector-propiedades")
+  await inspector.getByLabel("Nombre de clase").fill("Cliente")
+  await inspector.getByRole("button", { name: "Crear clase" }).click()
 
   const clasesApollon = page
     .getByTestId("resumen-apollon")
@@ -42,13 +31,12 @@ test("el diseñador crea una clase y CU02 recibe el modelo estructurado", async 
   await expect(clasesApollon).toContainText("1")
   await expect(clasesCanonicas).toContainText("1")
   await expect(page.getByTestId("resumen-validacion")).toBeVisible()
-  await expect(page.getByTestId("resumen-validacion")).toContainText("Inválido")
-  await expect(page.getByTestId("resumen-validacion")).toContainText(
-    "ATRIBUTO_TIPO_NO_SOPORTADO"
-  )
+  await expect(page.getByTestId("resumen-validacion")).toContainText("Válido")
 
   await page.getByText("Modelo UML canónico (JSON)").click()
   await expect(page.locator(".canonical-json pre")).toContainText(
-    '"nombre": "Class"'
+    '"nombre": "Cliente"'
   )
+  await expect(page.locator(".canonical-json pre")).toContainText('"atributos": []')
+  await expect(page.locator(".canonical-json pre")).toContainText('"metodos": []')
 })

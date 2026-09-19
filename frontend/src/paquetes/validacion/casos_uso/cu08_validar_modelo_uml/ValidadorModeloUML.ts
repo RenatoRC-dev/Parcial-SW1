@@ -1,6 +1,7 @@
 import type {
   AtributoUML,
   ClaseUML,
+  MetodoUML,
   ModeloUMLCanonico,
 } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
 
@@ -10,6 +11,8 @@ export type TipoElementoDiagnostico =
   | "modelo"
   | "clase"
   | "atributo"
+  | "metodo"
+  | "parametro"
   | "relacion"
 
 export interface DiagnosticoValidacion {
@@ -45,8 +48,10 @@ export const TIPOS_GENERACION_SOPORTADOS = [
   "LocalDateTime",
   "UUID",
 ] as const
+export const TIPOS_RETORNO_METODO = [...TIPOS_GENERACION_SOPORTADOS, "void"] as const
 
 const tiposSoportados = new Set<string>(TIPOS_GENERACION_SOPORTADOS)
+const tiposRetornoSoportados = new Set<string>(TIPOS_RETORNO_METODO)
 const identificadorClase = /^[A-Z][A-Za-z0-9]*$/
 const identificadorAtributo = /^[a-z][A-Za-z0-9]*$/
 const palabrasReservadasJava = new Set([
@@ -104,19 +109,19 @@ function validarAtributo(
     )
   }
 
-  if (nombre === "id") {
+  const tipo = atributo.tipo?.trim() ?? ""
+  if (nombre === "id" && tipo !== "Long") {
     diagnosticos.push(
       crearDiagnostico(
-        "ATRIBUTO_ID_RESERVADO",
+        "ATRIBUTO_ID_TIPO_INVALIDO",
         "error",
-        "El campo id está reservado para la identidad Long generada automáticamente.",
+        "El identificador explícito `id` debe utilizar el tipo Long.",
         "atributo",
         atributo.id
       )
     )
   }
 
-  const tipo = atributo.tipo?.trim() ?? ""
   if (tipo === "") {
     diagnosticos.push(
       crearDiagnostico(
@@ -184,6 +189,37 @@ function validarClase(
     }
     if (clave !== "") nombresAtributos.add(clave)
   }
+
+  const firmas = new Set<string>()
+  for (const metodo of clase.metodos ?? []) {
+    validarMetodo(metodo, diagnosticos)
+    const firma = `${metodo.nombre.trim().toLowerCase()}(${metodo.parametros.map((parametro) => parametro.tipo.trim()).join(",")})`
+    if (firmas.has(firma)) {
+      diagnosticos.push(crearDiagnostico(
+        "METODO_FIRMA_DUPLICADA", "error",
+        `La clase "${clase.nombre}" contiene la firma de método duplicada "${metodo.nombre}".`,
+        "metodo", metodo.id
+      ))
+    }
+    firmas.add(firma)
+  }
+}
+
+function validarMetodo(metodo: MetodoUML, diagnosticos: DiagnosticoValidacion[]) {
+  if (metodo.id.trim() === "") diagnosticos.push(crearDiagnostico("METODO_ID_REQUERIDO", "error", "El método debe tener un identificador estable.", "metodo", metodo.id))
+  if (metodo.nombre.trim() === "") diagnosticos.push(crearDiagnostico("METODO_NOMBRE_REQUERIDO", "error", "El método debe tener un nombre.", "metodo", metodo.id))
+  if (metodo.visibilidad !== "publica" && metodo.visibilidad !== "privada") diagnosticos.push(crearDiagnostico("METODO_VISIBILIDAD_INVALIDA", "error", "La visibilidad del método no está soportada.", "metodo", metodo.id))
+  if (!tiposRetornoSoportados.has(metodo.tipoRetorno.trim())) diagnosticos.push(crearDiagnostico("METODO_RETORNO_INVALIDO", "error", `El tipo de retorno "${metodo.tipoRetorno}" no está soportado.`, "metodo", metodo.id))
+  const idsParametros = new Set<string>()
+  const nombresParametros = new Set<string>()
+  for (const parametro of metodo.parametros) {
+    if (parametro.id.trim() === "" || idsParametros.has(parametro.id)) diagnosticos.push(crearDiagnostico("PARAMETRO_ID_INVALIDO", "error", "El parámetro debe tener un identificador único no vacío.", "parametro", parametro.id))
+    idsParametros.add(parametro.id)
+    const nombre = parametro.nombre.trim()
+    if (nombre === "" || nombresParametros.has(nombre.toLowerCase())) diagnosticos.push(crearDiagnostico("PARAMETRO_NOMBRE_INVALIDO", "error", "El parámetro debe tener un nombre único no vacío.", "parametro", parametro.id))
+    nombresParametros.add(nombre.toLowerCase())
+    if (!tiposSoportados.has(parametro.tipo.trim())) diagnosticos.push(crearDiagnostico("PARAMETRO_TIPO_INVALIDO", "error", `El tipo de parámetro "${parametro.tipo}" no está soportado.`, "parametro", parametro.id))
+  }
 }
 
 export function validarModelo(
@@ -218,6 +254,7 @@ export function validarModelo(
   const nombresClases = new Set<string>()
   const idsClasesVistos = new Set<string>()
   const idsAtributosVistos = new Set<string>()
+  const idsMetodosVistos = new Set<string>()
   for (const clase of modelo.clases) {
     if (clase.id.trim() === "") {
       diagnosticos.push(
@@ -267,6 +304,11 @@ export function validarModelo(
       } else {
         idsAtributosVistos.add(atributo.id)
       }
+    }
+
+    for (const metodo of clase.metodos ?? []) {
+      if (metodo.id.trim() !== "" && idsMetodosVistos.has(metodo.id)) diagnosticos.push(crearDiagnostico("METODO_ID_DUPLICADO", "error", `El identificador de método "${metodo.id}" está duplicado.`, "metodo", metodo.id))
+      if (metodo.id.trim() !== "") idsMetodosVistos.add(metodo.id)
     }
 
     validarClase(clase, diagnosticos)

@@ -15,12 +15,15 @@ import { PanelColaboracion } from "../../../colaboracion/casos_uso/cu03_colabora
 import { PanelAsistenteModelado } from "../../../asistencia_ia/casos_uso/cu04_modelar_con_ia/PanelAsistenteModelado"
 import { PanelModeladoDesdeImagen } from "../../../asistencia_ia/casos_uso/cu05_modelar_desde_imagen/PanelModeladoDesdeImagen"
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
+import { etiquetasApollon, usarPreferenciasUI } from "../../../../configuracion/PreferenciasUI"
+import { InspectorPropiedadesUML } from "./componentes/InspectorPropiedadesUML"
 
 export function PaginaModeladoClases({ proyectoId, modeloInicial, alCambiarModeloCanonico }: {
   proyectoId: string
   modeloInicial: ModeloUMLCanonico
   alCambiarModeloCanonico: (modelo: ModeloUMLCanonico) => void
 }) {
+  const { idioma, temaAplicado, t } = usarPreferenciasUI()
   const [modelo, establecerModelo] = useState<UMLModel | null>(null)
   const [errorEditor, establecerErrorEditor] = useState<string | null>(null)
   const [modeloImportado, establecerModeloImportado] = useState<UMLModel | undefined>(() => convertirDesdeModeloCanonico(modeloInicial))
@@ -41,6 +44,11 @@ export function PaginaModeladoClases({ proyectoId, modeloInicial, alCambiarModel
   }, [])
   const registrarModeloInicialAplicado = useCallback(() => {
     establecerModeloInicialAplicado(true)
+  }, [])
+  const aplicarDesdeInspector = useCallback((modeloCanonico: ModeloUMLCanonico) => {
+    const modeloApollon = convertirDesdeModeloCanonico(modeloCanonico)
+    establecerModelo(modeloApollon)
+    establecerModeloImportado(modeloApollon)
   }, [])
 
   const resultadoCanonico = useMemo(
@@ -78,33 +86,36 @@ export function PaginaModeladoClases({ proyectoId, modeloInicial, alCambiarModel
       <header className="app-header">
         <div>
           <p className="eyebrow">SW1 · CU02 / CU03 / CU04 / CU05 / CU08</p>
-          <h1>Modelado manual de diagramas de clases</h1>
+          <h1>{t("modelado.titulo")}</h1>
         </div>
         <p className="iteration-goal">
-          Edición manual, colaborativa y asistida por IA sobre el modelo UML canónico.
+          {t("modelado.descripcion")}
         </p>
       </header>
 
       {errorEditor ? (
         <div className="error-banner" role="alert">
-          <strong>Error de integración del editor:</strong> {errorEditor}
+          <strong>{t("modelado.error")}</strong> {errorEditor}
         </div>
       ) : null}
 
-      <section className="workspace" aria-label="Espacio de modelado UML">
+      <section className="workspace" aria-label={t("modelado.espacio")}>
         <div className="editor-panel">
-          <LimiteErrorEditor alDetectarError={registrarErrorEditor}>
+          <LimiteErrorEditor alDetectarError={registrarErrorEditor} titulo={t("editor.fallo")} etiquetaRecargar={t("editor.recargar")}>
             <AnfitrionEditorApollon
               alCambiarModelo={recibirCambioModelo}
               alOcurrirError={registrarErrorEditor}
               modeloParaReemplazar={modeloImportado}
               alCambiarEditor={establecerEditor}
               alAplicarModeloInicial={registrarModeloInicialAplicado}
+              labels={etiquetasApollon(idioma)}
+              tema={temaAplicado}
             />
           </LimiteErrorEditor>
         </div>
 
         <div className="workspace-sidebar">
+          {resultadoCanonico ? <InspectorPropiedadesUML editor={editor} modelo={resultadoCanonico.modelo} alAplicar={aplicarDesdeInspector} /> : null}
           <PanelColaboracion editor={editor} proyectoId={proyectoId} habilitada={modeloInicialAplicado} />
           {resultadoCanonico ? (
             <>

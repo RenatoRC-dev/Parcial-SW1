@@ -3,6 +3,8 @@ import { Component, type ErrorInfo, type ReactNode } from "react"
 interface PropiedadesLimiteErrorEditor {
   children: ReactNode
   alDetectarError: (error: Error) => void
+  titulo: string
+  etiquetaRecargar: string
 }
 
 interface EstadoLimiteErrorEditor {
@@ -27,10 +29,10 @@ export class LimiteErrorEditor extends Component<
     if (this.state.error) {
       return (
         <div className="editor-failure" role="alert">
-          <h2>No se pudo inicializar el editor UML</h2>
+          <h2>{this.props.titulo}</h2>
           <p>{this.state.error.message}</p>
           <button type="button" onClick={() => window.location.reload()}>
-            Recargar editor
+            {this.props.etiquetaRecargar}
           </button>
         </div>
       )
@@ -39,4 +41,3 @@ export class LimiteErrorEditor extends Component<
     return this.props.children
   }
 }
-

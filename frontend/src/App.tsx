@@ -5,8 +5,10 @@ import type { Proyecto } from "./paquetes/gestion_proyectos/compartido/Proyecto"
 import { PanelProyectos } from "./paquetes/gestion_proyectos/casos_uso/cu01_crear_abrir_proyecto/PanelProyectos"
 import { BarraProyectoActivo } from "./paquetes/gestion_proyectos/casos_uso/cu11_guardar_recuperar_trabajo/BarraProyectoActivo"
 import { guardarModeloProyecto } from "./paquetes/gestion_proyectos/compartido/clienteProyectos"
+import { ControlesPreferencias, ProveedorPreferenciasUI, usarPreferenciasUI } from "./configuracion/PreferenciasUI"
 
-function App() {
+function Aplicacion() {
+  const { t } = usarPreferenciasUI()
   const [proyecto, establecerProyecto] = useState<Proyecto | null>(null)
   const [modeloActual, establecerModeloActual] = useState<ModeloUMLCanonico | null>(null)
   const [snapshot, establecerSnapshot] = useState("")
@@ -24,7 +26,7 @@ function App() {
     establecerProyecto(nuevo); establecerModeloActual(nuevo.modelo); establecerSnapshot(JSON.stringify(nuevo.modelo)); establecerMensaje(null)
   }
   const volver = () => {
-    if (sucio && !window.confirm("Hay cambios sin guardar. ¿Deseas volver a Mis proyectos?")) return
+    if (sucio && !window.confirm(t("proyectos.confirmarSalida"))) return
     establecerProyecto(null); establecerModeloActual(null); establecerSnapshot(""); establecerMensaje(null)
   }
   const guardar = async () => {
@@ -33,15 +35,18 @@ function App() {
     try {
       const resumen = await guardarModeloProyecto(proyecto.id, modeloActual)
       establecerProyecto({ ...proyecto, ...resumen, modelo: modeloActual })
-      establecerSnapshot(JSON.stringify(modeloActual)); establecerMensaje("Proyecto guardado correctamente.")
+      establecerSnapshot(JSON.stringify(modeloActual)); establecerMensaje(t("proyectos.guardadoCorrecto"))
     } catch (error) { establecerMensaje((error as Error).message) } finally { establecerGuardando(false) }
   }
 
-  if (!proyecto) return <PanelProyectos alAbrir={abrir} />
+  if (!proyecto) return <><ControlesPreferencias /><PanelProyectos alAbrir={abrir} /></>
   return <>
+    <ControlesPreferencias />
     <BarraProyectoActivo nombre={proyecto.nombre} sucio={sucio} guardando={guardando} mensaje={mensaje} alGuardar={guardar} alVolver={volver} />
     <PaginaModeladoClases key={proyecto.id} proyectoId={proyecto.id} modeloInicial={proyecto.modelo} alCambiarModeloCanonico={establecerModeloActual} />
   </>
 }
+
+function App() { return <ProveedorPreferenciasUI><Aplicacion /></ProveedorPreferenciasUI> }
 
 export default App

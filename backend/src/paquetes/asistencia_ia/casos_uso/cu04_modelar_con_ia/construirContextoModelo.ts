@@ -14,6 +14,17 @@ export function construirContextoModelo(modelo: ModeloUMLCanonicoIA) {
         tipo: atributo.tipo,
         visibilidad: atributo.visibilidad ?? null,
       })),
+      metodos: (clase.metodos ?? []).map((metodo) => ({
+        id: metodo.id,
+        nombre: metodo.nombre,
+        visibilidad: metodo.visibilidad,
+        tipoRetorno: metodo.tipoRetorno,
+        parametros: metodo.parametros.map((parametro) => ({
+          id: parametro.id,
+          nombre: parametro.nombre,
+          tipo: parametro.tipo,
+        })),
+      })),
     })),
     relaciones: modelo.relaciones.map((relacion) => ({
       id: relacion.id,

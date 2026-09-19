@@ -1,28 +1,30 @@
 import { readFile } from "node:fs/promises"
 import { expect, test } from "@playwright/test"
 import JSZip from "jszip"
-import { crearProyectoE2E } from "./ayudas/proyectos"
+import { crearClaseNombradaE2E, crearProyectoE2E } from "./ayudas/proyectos"
 
 test("genera y descarga un backend desde una clase editada en Apollon", async ({ page }) => {
   await crearProyectoE2E(page, "CU09")
   await expect(page.locator(".react-flow")).toBeVisible()
 
-  const herramientaClase = page.getByText("Class", { exact: true }).first()
-  const lienzo = page.locator(".react-flow__pane")
-  const cajaLienzo = await lienzo.boundingBox()
-  if (!cajaLienzo) throw new Error("No se pudo calcular el área del lienzo")
-  await herramientaClase.dragTo(lienzo, {
-    targetPosition: {
-      x: Math.round(cajaLienzo.width / 2),
-      y: Math.round(cajaLienzo.height / 2),
-    },
-  })
-
-  await page.locator(".react-flow__node").last().click()
-  await page.getByRole("button", { name: /Edit element|Editar elemento/i }).click()
-  const camposNombre = page.getByRole("textbox", { name: "Name" })
-  await camposNombre.nth(0).fill("Cliente")
-  await camposNombre.nth(1).fill("+ nombre: String")
+  await crearClaseNombradaE2E(page, "Cliente")
+  const inspector = page.getByTestId("inspector-propiedades")
+  await inspector.getByRole("button", { name: "+ Agregar atributo" }).click()
+  const nuevo = inspector.getByRole("group", { name: "Nuevo atributo" })
+  await nuevo.getByLabel("Nombre").fill("nombre")
+  await nuevo.getByLabel("Tipo").selectOption("String")
+  await nuevo.getByLabel("Visibilidad").selectOption("privada")
+  await nuevo.getByRole("button", { name: "Confirmar atributo" }).click()
+  await inspector.getByRole("button", { name: "+ Agregar atributo" }).click()
+  const identidad = inspector.getByRole("group", { name: "Nuevo atributo" })
+  await identidad.getByLabel("Nombre").fill("id")
+  await identidad.getByLabel("Tipo").selectOption("Long")
+  await identidad.getByRole("button", { name: "Confirmar atributo" }).click()
+  await inspector.getByRole("button", { name: "+ Agregar método" }).click()
+  const operacion = inspector.getByRole("group", { name: "Nuevo método" })
+  await operacion.getByLabel("Nombre").fill("cambiarNombre")
+  await operacion.getByLabel("Tipo de retorno").selectOption("void")
+  await operacion.getByRole("button", { name: "Confirmar método" }).click()
 
   await expect(page.getByTestId("resumen-validacion")).toContainText("Válido")
   await expect(page.getByTestId("panel-generacion")).toContainText("GeneradorApto")
@@ -40,5 +42,10 @@ test("genera y descarga un backend desde una clase editada en Apollon", async ({
   expect(archivos).toContain(
     "backend-generado/src/main/java/com/sw1/generated/modelo/Cliente.java"
   )
+  const entidad = await zip.file("backend-generado/src/main/java/com/sw1/generated/modelo/Cliente.java")?.async("string")
+  expect(entidad?.match(/@Id\b/g)).toHaveLength(1)
+  expect(entidad?.match(/private Long id;/g)).toHaveLength(1)
+  expect(entidad).toContain("private String nombre;")
+  expect(entidad).not.toContain("cambiarNombre")
   await expect(page.getByText("Backend generado y descargado.")).toBeVisible()
 })

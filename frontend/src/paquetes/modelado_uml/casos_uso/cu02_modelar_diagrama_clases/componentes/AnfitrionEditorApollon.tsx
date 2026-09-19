@@ -3,6 +3,7 @@ import {
   Apollon,
   UMLDiagramType,
   type ApollonEditor,
+  type ApollonLabels,
   type UMLModel,
 } from "@tumaet/apollon"
 import "@tumaet/apollon/style.css"
@@ -14,6 +15,8 @@ export interface PropiedadesAnfitrionEditorApollon {
   modeloParaReemplazar?: UMLModel
   alCambiarEditor?: (editor: ApollonEditor | null) => void
   alAplicarModeloInicial?: () => void
+  labels?: Partial<ApollonLabels>
+  tema?: "light" | "dark"
 }
 
 export function AnfitrionEditorApollon({
@@ -22,6 +25,8 @@ export function AnfitrionEditorApollon({
   modeloParaReemplazar,
   alCambiarEditor,
   alAplicarModeloInicial,
+  labels,
+  tema,
 }: PropiedadesAnfitrionEditorApollon) {
   const editorActual = useRef<ApollonEditor | null>(null)
   const publicarModelo = useCallback(
@@ -89,6 +94,9 @@ export function AnfitrionEditorApollon({
     <Apollon
       className="apollon-host"
       defaultType={UMLDiagramType.ClassDiagram}
+      enablePopups={false}
+      labels={labels}
+      dataTheme={tema}
       collaborationEnabled
       collaboration={{
         enabled: true,
@@ -97,6 +105,9 @@ export function AnfitrionEditorApollon({
         showSelectionHighlights: true,
       }}
       onMount={alMontarEditor}
-    />
+    >
+      <Apollon.Zoom history />
+      <Apollon.MiniMap />
+    </Apollon>
   )
 }

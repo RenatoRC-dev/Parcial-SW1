@@ -49,3 +49,45 @@ test("un cambio automático de IA se propaga al colaborador por Apollon/Yjs", as
     await contextoB.close()
   }
 })
+
+test("CU04 normaliza clase, id y operaciones desde lenguaje natural", async ({ page }) => {
+  await crearProyectoE2E(page, "IA semántica actual")
+  await instruir(page, "Crea una clase factura")
+  await expect(page.getByText("Factura", { exact: true }).first()).toBeVisible()
+
+  await instruir(page, "Agrega a factura el atributo id de tipo long")
+  await expect(page.locator(".react-flow__node").filter({ hasText: "Factura" })).toContainText("id: Long")
+
+  await instruir(page, "Agrega a factura un método cobrar que retorne void")
+  await expect(page.locator(".react-flow__node").filter({ hasText: "Factura" })).toContainText("cobrar(): void")
+
+  await instruir(page, "Agrega al método cobrar un parámetro monto de tipo Double")
+  await expect(page.locator(".react-flow__node").filter({ hasText: "Factura" })).toContainText("cobrar(monto: Double): void")
+
+  await page.getByText("Modelo UML canónico (JSON)").click()
+  const json = page.locator(".canonical-json pre")
+  await expect(json).toContainText('"nombre": "Factura"')
+  await expect(json).toContainText('"nombre": "id"')
+  await expect(json).toContainText('"tipo": "Long"')
+  await expect(json).toContainText('"nombre": "cobrar"')
+
+  await instruir(page, "Elimina el método cobrar de Factura")
+  await expect(page.locator(".react-flow__node").filter({ hasText: "cobrar" })).toHaveCount(0)
+  await expect(json).not.toContainText('"nombre": "cobrar"')
+})
+
+test("CU04 traduce la cardinalidad de negocio Persona-Auto a extremos UML", async ({ page }) => {
+  await crearProyectoE2E(page, "IA cardinalidad Persona Auto")
+  await instruir(page, "Crea una clase Persona y una clase Auto. Una Persona puede tener cero o muchos Autos. Cada Auto pertenece exactamente a una Persona.")
+
+  await expect(page.getByText("Persona", { exact: true }).first()).toBeVisible()
+  await expect(page.getByText("Auto", { exact: true }).first()).toBeVisible()
+  await expect(page.locator(".react-flow__edge")).toHaveCount(1)
+  await expect(page.locator(".react-flow__edge").getByText("1", { exact: true })).toBeVisible()
+  await expect(page.locator(".react-flow__edge").getByText("*", { exact: true })).toBeVisible()
+
+  await page.getByText("Modelo UML canónico (JSON)").click()
+  const json = page.locator(".canonical-json pre")
+  await expect(json).toContainText('"multiplicidadOrigen": "1"')
+  await expect(json).toContainText('"multiplicidadDestino": "0..*"')
+})

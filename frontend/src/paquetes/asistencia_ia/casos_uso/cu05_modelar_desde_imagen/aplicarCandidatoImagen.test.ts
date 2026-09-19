@@ -66,6 +66,34 @@ describe("aplicación atómica de candidato de imagen", () => {
     expect(mixto).toEqual(candidatoAntes)
   })
 
+  it("importa el identificador visual explícito id Long sin reservarlo ni cambiarlo", () => {
+    const conId: CandidatoModeloUMLImagen = {
+      clases: [{ refTemporal: "tmp_factura", nombre: "Factura", atributos: [
+        { refTemporal: "tmp_id", nombre: "id", tipoDato: "Long" },
+        { refTemporal: "tmp_numero", nombre: "numero", tipoDato: "String" },
+      ] }],
+      relaciones: [], advertencias: [],
+    }
+    const resultado = aplicarCandidatoImagen(vacio, conId, ids())
+    expect(resultado.clases[0].atributos).toEqual([
+      { id: "atributo-2", nombre: "id", tipo: "Long" },
+      { id: "atributo-3", nombre: "numero", tipo: "String" },
+    ])
+    expect(validarModelo(resultado).valido).toBe(true)
+  })
+
+  it("rechaza id con tipo String sin repararlo ni mutar candidato/modelo", () => {
+    const conIdInvalido: CandidatoModeloUMLImagen = {
+      clases: [{ refTemporal: "tmp_factura", nombre: "Factura", atributos: [{ refTemporal: "tmp_id", nombre: "id", tipoDato: "String" }] }],
+      relaciones: [], advertencias: [],
+    }
+    const candidatoAntes = structuredClone(conIdInvalido)
+    const modeloAntes = structuredClone(vacio)
+    expect(() => aplicarCandidatoImagen(vacio, conIdInvalido, ids())).toThrow(/debe utilizar el tipo Long/)
+    expect(conIdInvalido).toEqual(candidatoAntes)
+    expect(vacio).toEqual(modeloAntes)
+  })
+
   it("rechaza extremos internos inválidos sin mutación parcial", () => {
     const invalido = structuredClone(candidato)
     invalido.relaciones[0]!.destinoRef = "tmp_ausente"

@@ -31,6 +31,20 @@ export function esModeloUMLPersistible(valor: unknown): valor is ModeloUMLCanoni
         || idsElementos.has(atributo.id)) return false
       idsElementos.add(atributo.id)
     }
+    if (!(clase.metodos === undefined || Array.isArray(clase.metodos))) return false
+    for (const metodo of clase.metodos ?? []) {
+      if (!objeto(metodo) || !texto(metodo.id) || !texto(metodo.nombre)
+        || !(metodo.visibilidad === "publica" || metodo.visibilidad === "privada")
+        || !texto(metodo.tipoRetorno) || !Array.isArray(metodo.parametros)
+        || idsElementos.has(metodo.id)) return false
+      idsElementos.add(metodo.id)
+      const idsParametros = new Set<string>()
+      for (const parametro of metodo.parametros) {
+        if (!objeto(parametro) || !texto(parametro.id) || !texto(parametro.nombre) || !texto(parametro.tipo)
+          || idsParametros.has(parametro.id)) return false
+        idsParametros.add(parametro.id)
+      }
+    }
   }
 
   for (const relacion of valor.relaciones) {
@@ -46,4 +60,3 @@ export function esModeloUMLPersistible(valor: unknown): valor is ModeloUMLCanoni
   }
   return true
 }
-

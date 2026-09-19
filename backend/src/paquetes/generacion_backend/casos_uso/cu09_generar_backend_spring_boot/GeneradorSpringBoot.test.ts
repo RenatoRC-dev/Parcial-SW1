@@ -65,6 +65,38 @@ describe("GeneradorSpringBoot", () => {
     expect(entidad).toContain("private Integer edad;")
   })
 
+  it("reutiliza id Long explícito sin duplicar la identidad generada", async () => {
+    const salida = await directorioTemporal()
+    const modelo = {
+      ...fixtureCliente,
+      clases: fixtureCliente.clases.map((clase) => ({
+        ...clase,
+        atributos: [
+          { id: "cliente-id", nombre: "id", tipo: "Long" },
+          ...clase.atributos,
+        ],
+      })),
+    }
+    await generarProyectoSpring(modelo, salida)
+    const entidad = await leer(salida, "src/main/java/com/sw1/generated/modelo/Cliente.java")
+
+    expect(entidad.match(/@Id\b/g)).toHaveLength(1)
+    expect(entidad.match(/private Long id;/g)).toHaveLength(1)
+    expect(entidad).toContain("private String nombre;")
+  })
+
+  it("rechaza un id explícito cuyo tipo no sea Long", () => {
+    const modelo = {
+      ...fixtureCliente,
+      clases: fixtureCliente.clases.map((clase) => ({
+        ...clase,
+        atributos: [{ id: "cliente-id", nombre: "id", tipo: "String" }],
+      })),
+    }
+
+    expect(() => prepararProyectoSpring(modelo)).toThrow("debe utilizar el tipo Long")
+  })
+
   it("genera Repository, Service, ServiceImpl y Controller CRUD", async () => {
     const salida = await directorioTemporal()
     await generarProyectoSpring(fixtureCliente, salida)

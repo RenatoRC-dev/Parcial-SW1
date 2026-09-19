@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
+import { ProveedorPreferenciasUI } from "../../../../configuracion/PreferenciasUI"
 import { PanelAsistenteModelado } from "./PanelAsistenteModelado"
 
 const modelo: ModeloUMLCanonico = { id: "m", nombre: "Modelo", version: "4.2.0", clases: [{ id: "cliente", nombre: "Cliente", abstracta: false, posicion: { x: 0, y: 0 }, atributos: [] }], relaciones: [] }
@@ -25,6 +26,7 @@ class MediaRecorderPanelFalso {
 }
 
 beforeEach(() => {
+  localStorage.clear()
   vi.stubGlobal("MediaRecorder", MediaRecorderPanelFalso)
   Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia: vi.fn(async () => ({ getTracks: () => [{ stop: vi.fn() }] }) as unknown as MediaStream) } })
 })
@@ -53,10 +55,26 @@ describe("PanelAsistenteModelado", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Listo: Correo agregado")
   })
 
+  it("presenta los estados estáticos de IA en inglés sin traducir el mensaje dinámico", async () => {
+    localStorage.setItem("sw1.idioma", "en")
+    let resolver!: (valor: Response) => void
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => { resolver = resolve })))
+    const aplicar = vi.fn()
+    const modeloAntes = JSON.stringify(modelo)
+    render(<ProveedorPreferenciasUI><PanelAsistenteModelado modelo={modelo} revision={3} alAplicarModelo={aplicar} /></ProveedorPreferenciasUI>)
+    fireEvent.change(screen.getByLabelText("UML instruction"), { target: { value: "Add email" } })
+    fireEvent.click(screen.getByRole("button", { name: "Send" }))
+    expect(screen.getByRole("status")).toHaveTextContent("Interpreting...")
+    resolver(new Response(JSON.stringify({ resultado: "aplicar", mensaje: "Correo agregado.", comandos: [{ tipo: "agregar_atributo", claseRef: "cliente", refTemporal: "tmp_correo", nombre: "correo", tipoDato: "String", visibilidad: "privada" }], revision: 3 }), { status: 200, headers: { "Content-Type": "application/json" } }))
+    await waitFor(() => expect(aplicar).toHaveBeenCalledOnce())
+    expect(screen.getByRole("status")).toHaveTextContent("Ready: Correo agregado.")
+    expect(JSON.stringify(modelo)).toBe(modeloAntes)
+  })
+
   it("muestra la voz reconocida y la envía automáticamente por el flujo CU04 existente", async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ transcripcion: "Crea una clase Factura" }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ resultado: "aplicar", mensaje: "Factura creada.", comandos: [{ tipo: "crear_clase", refTemporal: "tmp_factura", nombre: "Factura", abstracta: false }], revision: 3 }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ transcripcion: "Agrega a cliente un atributo id de tipo long" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ resultado: "aplicar", mensaje: "Identificador agregado.", comandos: [{ tipo: "agregar_atributo", claseRef: "cliente", refTemporal: "tmp_id", nombre: "id", tipoDato: "Long", visibilidad: "privada" }], revision: 3 }), { status: 200 }))
     vi.stubGlobal("fetch", fetchMock)
     const aplicar = vi.fn()
     render(<PanelAsistenteModelado modelo={modelo} revision={3} alAplicarModelo={aplicar} />)
@@ -65,8 +83,9 @@ describe("PanelAsistenteModelado", () => {
     fireEvent.click(screen.getByRole("button", { name: "⏹ Detener" }))
     await waitFor(() => expect(aplicar).toHaveBeenCalledOnce())
     expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(screen.getByLabelText("Instrucción UML")).toHaveValue("Crea una clase Factura")
-    expect(screen.getByText(/Voz reconocida:/).parentElement).toHaveTextContent("Crea una clase Factura")
+    expect(screen.getByLabelText("Instrucción UML")).toHaveValue("Agrega a cliente un atributo id de tipo long")
+    expect(screen.getByText(/Voz reconocida:/).parentElement).toHaveTextContent("Agrega a cliente un atributo id de tipo long")
+    expect(aplicar.mock.calls[0][0].clases[0].atributos).toContainEqual(expect.objectContaining({ nombre: "id", tipo: "Long", visibilidad: "privada" }))
     expect(screen.queryByRole("button", { name: /confirmar|aplicar|aceptar/i })).toBeNull()
   })
 

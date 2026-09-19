@@ -16,7 +16,7 @@ export async function procesarInstruccionIA(opciones: {
   solicitar: (solicitud: SolicitudInterpretacionUML) => Promise<RespuestaInterpretacionUML>
   aplicar: (modelo: ModeloUMLCanonico) => void
   alCambiarEstado: (estado: EstadoProcesoIA) => void
-  generarId?: (categoria: "clase" | "atributo" | "relacion") => string
+  generarId?: (categoria: "clase" | "atributo" | "metodo" | "parametro" | "relacion") => string
 }): Promise<{ resultado: "aplicado" | "aclarar" | "rechazar" | "error"; mensaje: string }> {
   for (let intento = 0; intento < 2; intento += 1) {
     const estadoSolicitud = opciones.obtenerEstado()

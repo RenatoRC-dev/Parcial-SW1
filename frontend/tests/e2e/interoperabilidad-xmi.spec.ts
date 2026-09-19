@@ -57,8 +57,10 @@ test("importa XMI al editor y exporta modelo.xmi", async ({ page, request }) => 
   await expect(page.getByText("Pedido", { exact: true }).first()).toBeVisible()
 
   await page.locator(".react-flow__node").filter({ hasText: "Cliente" }).click()
-  await page.getByRole("button", { name: /Edit element|Editar elemento/i }).click()
-  await page.getByRole("textbox", { name: "Name" }).first().fill("ClienteImportado")
+  const inspector = page.getByTestId("inspector-propiedades")
+  const nombreClase = inspector.getByLabel("Nombre de la clase seleccionada")
+  await nombreClase.fill("ClienteImportado")
+  await nombreClase.press("Enter")
   await expect(page.getByText("ClienteImportado", { exact: true }).first()).toBeVisible()
 
   const [archivo] = await Promise.all([

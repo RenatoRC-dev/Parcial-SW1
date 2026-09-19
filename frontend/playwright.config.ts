@@ -16,7 +16,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "npm run dev:e2e",
+      command: "node scripts/prepararDatosE2E.mjs && npx tsx src/paquetes/generacion_backend/api/iniciarServidorGeneracionBackend.ts --proveedor-ia-determinista --datos-proyectos-e2e",
       cwd: "../backend",
       url: "http://127.0.0.1:3001/api/health",
       reuseExistingServer: false,
