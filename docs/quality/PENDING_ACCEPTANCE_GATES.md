@@ -166,3 +166,35 @@ No API key, authorization header, or secret value is recorded.
 ### PASS condition
 
 Satisfied. Real Groq explained the actual direct N:M generation blocker from authoritative application context, suggested an allowed action, preserved the UML-valid distinction, and did not mutate product state.
+
+## FLUTTER-LOCAL-AI-001 — Physical Android offline LLM acceptance
+
+- **Related package:** Flutter exam scaffold
+- **Related capability:** Local on-device command interpretation
+- **Origin:** Iteration 15
+- **Current status:** **PASS — PHYSICAL OFFLINE AI ACCEPTED**
+
+### Internal evidence already completed
+
+- `LocalAiEngine` isolates business/application code from the selected llama.cpp plugin.
+- `llama_flutter_android` `0.2.6` is pinned and an ARM64 Android debug APK builds successfully.
+- Qwen3 bounded command extraction uses its hard non-thinking assistant prefix plus a neutral JSON syntax prefill.
+- Deterministic JSON extraction, action whitelist, field validation, controlled rejection, thinking-wrapper handling, prompt construction, and per-command context cleanup pass 14 focused tests.
+- GGUF model weights are excluded from Git and runtime model downloading is not implemented.
+- A Xiaomi ARM64 device loaded the 428,970,080-byte model in roughly 2–3 seconds and ran inference in airplane mode, proving local execution. Physical attempt 1 remains semantically failed because the model emitted the unsupported action `correcto`; prompt strengthening and deterministic sampling alone had not corrected it.
+- Physical Test 2.0 produced `crear_cliente`, `crear_producto`, and `consultar_clientes` correctly in sequence. It then exposed KV-cache accumulation: `g_n_past` grew from roughly 202 to 852 and an unsupported mail request hallucinated a client. The same request was correctly rejected after process restart returned the first inference to roughly 200 tokens. The adapter now invokes the plugin's public context reset before every command while retaining the loaded model.
+- Physical Test 2.1 passed on the real Xiaomi ARM64 device under airplane mode, without Groq, remote inference, or PC-hosted inference. Each command logged `Context cleared, g_n_past reset to 0`; `crear_cliente`, `crear_producto`, and `consultar_clientes` were validated, and the subsequent unsupported mail request remained unsupported without restarting the application.
+- The model stayed loaded while only KV/context state was cleared between requests.
+
+### Real acceptance evidence
+
+- `crear_cliente`: PASS — Ana / `ana@correo.com`.
+- `crear_producto`: PASS — Laptop / 3500.
+- `consultar_clientes`: PASS — empty parameters.
+- Unsupported mail request: PASS — controlled rejection with no invented data after the three preceding commands.
+- Unsupported-result duration currently displays `- ms` because validation failures do not return a normal timing result; this is a non-blocking observability limitation.
+- SQLite, REST synchronization, offline queueing, and local voice were not part of this gate and remain deferred.
+
+### PASS condition
+
+Satisfied. Physical Android inference works without networking; supported Spanish commands produce validated structured actions, the unsupported request is safely rejected after sequential commands, and inference context is cleared between requests without unloading the model. Iteration 15 is `PASS` for its defined technical-spike scope.
