@@ -198,3 +198,33 @@ Satisfied. Real Groq explained the actual direct N:M generation blocker from aut
 ### PASS condition
 
 Satisfied. Physical Android inference works without networking; supported Spanish commands produce validated structured actions, the unsupported request is safely rejected after sequential commands, and inference context is cleared between requests without unloading the model. Iteration 15 is `PASS` for its defined technical-spike scope.
+
+## FLUTTER-OFFLINE-PERSISTENCE-001 — Physical Android offline persistence acceptance
+
+- **Related package:** Flutter exam scaffold
+- **Related capability:** Durable local operations and synchronization outbox
+- **Origin:** Iteration 16
+- **Current status:** **PASS — PHYSICAL OFFLINE PERSISTENCE ACCEPTED**
+
+### Internal evidence already completed
+
+- Validated `crear_cliente` and `crear_producto` commands store their entities and exactly one pending outbox operation in an atomic SQLite transaction.
+- `consultar_clientes` reads local durable data and does not enqueue an operation.
+- Unsupported output is rejected before persistence, and a simulated outbox failure rolls back the entity insert.
+- SQLite FFI tests confirm data and outbox records survive closing and reopening the database.
+- The UI exposes local results and the count of pending synchronization operations.
+
+### Real acceptance evidence
+
+- Real Xiaomi ARM64 device, Android 16 / API 36, airplane mode, local Qwen3 GGUF, and no Internet dependency.
+- Ana was created locally and the pending count changed from zero to one.
+- A local client query returned Ana without adding an outbox record.
+- Laptop was created locally and the pending count changed from one to two.
+- After fully closing and reopening the application, the pending count remained two.
+- After reloading the local model, Ana remained queryable from SQLite and the pending count still remained two.
+- The post-restart local query completed successfully in approximately 28.383 seconds.
+- Spring REST integration, outbox delivery, reconnect synchronization, retry processing, conflict resolution, background synchronization, and local voice remain outside this accepted scope.
+
+### PASS condition
+
+Satisfied. Physical airplane-mode execution confirmed durable SQLite business data and pending outbox state across application restart, transactional offline creation, and read-only local querying. Iteration 16 is `PASS` for its defined offline-persistence scope.

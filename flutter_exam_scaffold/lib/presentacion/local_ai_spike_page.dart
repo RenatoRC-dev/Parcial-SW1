@@ -1,15 +1,22 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:sw1_local_ai_spike/aplicacion/ejecutor_comando_local.dart';
 import 'package:sw1_local_ai_spike/aplicacion/interpretador_comando_local.dart';
 import 'package:sw1_local_ai_spike/dominio/comando_local.dart';
 import 'package:sw1_local_ai_spike/local_ai/local_ai_engine.dart';
+import 'package:sw1_local_ai_spike/persistencia/base_datos_local.dart';
+import 'package:sw1_local_ai_spike/persistencia/cliente_local_repository.dart';
+import 'package:sw1_local_ai_spike/persistencia/outbox_repository.dart';
+import 'package:sw1_local_ai_spike/persistencia/producto_local_repository.dart';
 
 const nombreModelo = 'Qwen3-0.6B-Q4_0.gguf';
 
 class LocalAiSpikePage extends StatefulWidget {
-  const LocalAiSpikePage({required this.engine, super.key});
+  const LocalAiSpikePage({required this.engine, this.baseDatos, super.key});
   final LocalAiEngine engine;
+  final BaseDatosLocal? baseDatos;
   @override
   State<LocalAiSpikePage> createState() => _LocalAiSpikePageState();
 }
@@ -22,12 +29,43 @@ class _LocalAiSpikePageState extends State<LocalAiSpikePage> {
   bool _cargando = false, _cargado = false, _generando = false;
   Duration? _tiempoCarga;
   ResultadoInterpretacionLocal? _resultado;
+  ResultadoEjecucionLocal? _ejecucion;
   String? _error;
+  late final BaseDatosLocal _baseDatos;
+  late final EjecutorComandoLocal _ejecutor;
+  bool _persistenciaLista = false;
+  int _pendientes = 0;
 
   @override
   void initState() {
     super.initState();
+    _baseDatos = widget.baseDatos ?? BaseDatosLocal();
+    final clientes = ClienteLocalRepository(_baseDatos);
+    final productos = ProductoLocalRepository(_baseDatos);
+    final outbox = OutboxRepository(_baseDatos);
+    _ejecutor = EjecutorComandoLocal(
+      baseDatos: _baseDatos,
+      clientes: clientes,
+      productos: productos,
+      outbox: outbox,
+    );
     _prepararRuta();
+    _prepararPersistencia(outbox);
+  }
+
+  Future<void> _prepararPersistencia(RepositorioOutbox outbox) async {
+    try {
+      await _baseDatos.abrir();
+      final pendientes = await outbox.contarPendientes();
+      if (mounted) {
+        setState(() {
+          _persistenciaLista = true;
+          _pendientes = pendientes;
+        });
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = 'No se pudo abrir SQLite: $error');
+    }
   }
 
   Future<void> _prepararRuta() async {
@@ -79,13 +117,21 @@ class _LocalAiSpikePageState extends State<LocalAiSpikePage> {
     setState(() {
       _generando = true;
       _resultado = null;
+      _ejecucion = null;
       _error = null;
     });
     try {
       final resultado = await InterpretadorComandoLocal(
         widget.engine,
       ).interpretar(_instruccion.text);
-      if (mounted) setState(() => _resultado = resultado);
+      final ejecucion = await _ejecutor.ejecutar(resultado.comando);
+      if (mounted) {
+        setState(() {
+          _resultado = resultado;
+          _ejecucion = ejecucion;
+          _pendientes = ejecucion.pendientes;
+        });
+      }
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
@@ -96,7 +142,8 @@ class _LocalAiSpikePageState extends State<LocalAiSpikePage> {
   @override
   void dispose() {
     _instruccion.dispose();
-    widget.engine.dispose();
+    unawaited(widget.engine.dispose());
+    unawaited(_baseDatos.cerrar());
     super.dispose();
   }
 
@@ -114,6 +161,10 @@ class _LocalAiSpikePageState extends State<LocalAiSpikePage> {
       children: [
         Text('Modelo: ${_cargado ? 'Cargado' : 'No cargado'}'),
         const Text('Dependencia de Internet: Ninguna — Local'),
+        Text(
+          'Persistencia offline: ${_persistenciaLista ? 'Lista' : 'Preparando…'}',
+        ),
+        Text('Pendientes de sincronización: $_pendientes'),
         const SizedBox(height: 8),
         SelectableText(
           _rutaModelo ?? 'Preparando ubicación local…',
@@ -135,7 +186,9 @@ class _LocalAiSpikePageState extends State<LocalAiSpikePage> {
         ),
         const SizedBox(height: 12),
         FilledButton(
-          onPressed: !_cargado || _generando ? null : _interpretar,
+          onPressed: !_cargado || !_persistenciaLista || _generando
+              ? null
+              : _interpretar,
           child: Text(_generando ? 'Interpretando…' : 'Interpretar localmente'),
         ),
         const SizedBox(height: 20),
@@ -145,6 +198,18 @@ class _LocalAiSpikePageState extends State<LocalAiSpikePage> {
           const Text('Parámetros:'),
           ...resultado.comando.parametros.entries.map(
             (entrada) => Text('${entrada.key} = ${entrada.value}'),
+          ),
+        ],
+        if (_ejecucion case final ejecucion?) ...[
+          const SizedBox(height: 12),
+          Text(ejecucion.mensaje),
+          ...ejecucion.clientes.map(
+            (cliente) => ListTile(
+              dense: true,
+              leading: const Icon(Icons.person_outline),
+              title: Text(cliente.nombre),
+              subtitle: Text(cliente.correo),
+            ),
           ),
         ],
         if (_error case final error?)
