@@ -40,9 +40,6 @@ export function evaluarAptitudGeneracionSpring(
   if (!validacion.valido) motivos.push("El modelo contiene errores de validación UML.")
 
   for (const clase of modelo.clases) {
-    if (clase.tipoClase === "asociativa") {
-      motivos.push(`Clase asociativa detectada (${clase.nombre}); la generación de clave compuesta todavía no forma parte del perfil actual.`)
-    }
     if (clase.abstracta) motivos.push(`La clase abstracta ${clase.nombre} no puede generarse todavía.`)
     if (nombresEnConflicto.has(clase.nombre.trim())) {
       motivos.push(`El nombre de entidad ${clase.nombre} entra en conflicto con un tipo Java.`)
@@ -66,6 +63,32 @@ export function evaluarAptitudGeneracionSpring(
   if (identificadoresExplicitosInvalidos.length > 0) motivos.push(`El identificador explícito id debe usar Long: ${resumir(identificadoresExplicitosInvalidos)}.`)
 
   const clasesPorId = new Map(modelo.clases.map((clase) => [clase.id, clase]))
+  for (const asociativa of modelo.clases.filter((clase) => clase.tipoClase === "asociativa")) {
+    const incidentes = modelo.relaciones.filter((relacion) => relacion.claseOrigenId === asociativa.id || relacion.claseDestinoId === asociativa.id)
+    if (incidentes.length !== 2) {
+      motivos.push(`La clase asociativa ${asociativa.nombre} debe conectar exactamente dos clases principales.`)
+      continue
+    }
+    const principales = incidentes.map((relacion) => {
+      const asociativaEsOrigen = relacion.claseOrigenId === asociativa.id
+      const multiplicidadAsociativa = asociativaEsOrigen ? relacion.multiplicidadOrigen : relacion.multiplicidadDestino
+      const multiplicidadPrincipal = asociativaEsOrigen ? relacion.multiplicidadDestino : relacion.multiplicidadOrigen
+      if (relacion.tipo !== "asociacion" || multiplicidadAsociativa !== "0..*" || multiplicidadPrincipal !== "1") {
+        motivos.push(`La relación ${relacion.id} debe ubicar a ${asociativa.nombre} en el extremo 0..* y a su clase principal en el extremo 1.`)
+      }
+      const principalId = asociativaEsOrigen ? relacion.claseDestinoId : relacion.claseOrigenId
+      return clasesPorId.get(principalId)
+    }).filter((clase) => clase !== undefined)
+    if (principales.length === 2 && principales[0].id === principales[1].id) {
+      motivos.push(`La clase asociativa ${asociativa.nombre} debe referenciar dos clases principales distintas.`)
+    }
+    if (principales.some((clase) => clase.tipoClase === "asociativa")) {
+      motivos.push(`Las clases principales de ${asociativa.nombre} deben ser clases normales.`)
+    }
+    if (asociativa.atributos.some((atributo) => atributo.nombre === "id")) {
+      motivos.push(`La clase asociativa ${asociativa.nombre} no debe declarar un id simple; su identidad se deriva de sus dos relaciones.`)
+    }
+  }
   const camposPorClase = new Map(
     modelo.clases.map((clase) => [
       clase.id,
@@ -109,6 +132,13 @@ export function evaluarAptitudGeneracionSpring(
         camposValidos = false
       } else if (camposPorClase.get(campo.clase.id)!.has(campo.nombre.toLowerCase())) {
         motivos.push(`El campo de relación ${campo.nombre} colisiona en ${campo.clase.nombre}.`)
+        camposValidos = false
+      }
+    }
+    if (claseMuchos.tipoClase === "asociativa") {
+      const campoClave = `${campoMuchosAUno}Id`
+      if (camposPorClase.get(claseMuchos.id)!.has(campoClave.toLowerCase())) {
+        motivos.push(`El campo de clave derivado ${campoClave} colisiona en ${claseMuchos.nombre}.`)
         camposValidos = false
       }
     }

@@ -46,7 +46,7 @@ The manual inspector can create an empty associative class or atomically replace
 
 The metadata round-trips inside the existing public Apollon class `data`, so the established canonical → Apollon → Yjs path propagates it without a new collaboration protocol. CU11 normalizes legacy classes and preserves explicit associative metadata and both relationship ends. The inspected crunch_uml bridge has no reliable formal AssociationClass discriminator in the supported profile, so XMI continues to exchange the structural classes and relationships and does not fabricate `tipoClase`.
 
-CU08 accepts an empty associative class as structurally valid/editable. CU09 rejects it separately with the controlled readiness reason that composite-key generation is not in the current profile. Composite PK, PK/FK metadata, `@EmbeddedId`, `@IdClass`, `@ManyToMany`, join-table and associative-entity generation remain explicitly deferred to Patch B.
+CU08 accepts an empty associative class as structurally valid/editable. Patch B makes CU09 accept only the bounded profile with exactly two distinct Long-identity principals and the associative class on the `0..*` side of both relationships. CU09 derives an `@Embeddable` key, `@EmbeddedId`, and two `@MapsId`/`@ManyToOne` mappings without adding visible PK/FK attributes to the canonical diagram. Normal business attributes remain ordinary columns, while malformed associative structures receive readiness errors rather than CU08 corruption errors. Direct `@ManyToMany`, arbitrary composite IDs and structures with more than two principals remain deferred.
 
 ## Association-End Multiplicity Semantic Correction
 
@@ -238,7 +238,7 @@ The E2E server command was made deterministic by running the backend `tsx` execu
 - Full typography/localization inside every third-party-rendered diagram element is bounded by Apollon's public label surface.
 - Apollon's class-diagram edge renderer does not visually render the generic middle association `data.label`; SW1 preserves and edits the association name in the canonical inspector instead of introducing a fake overlay.
 - crunch_uml currently preserves supported endpoints, multiplicities and roles, but not the new optional association name.
-- Composite-key, PK/FK and M:N Spring/JPA generation for the now-modeled associative class remain a future Patch B capability.
+- Direct `@ManyToMany`, arbitrary composite keys and associative classes with more than two principals remain outside the bounded Spring/JPA profile.
 - The crunch_uml bridge does not currently preserve UML operations, and Apollon exposes no stable parameter IDs separate from operation notation.
 - CU05 does not extract method signatures from images; its accepted visual profile remains classes, attributes and supported relationships.
 - The new method-command vocabulary is verified deterministically but has not been separately exercised against the real Groq provider; the historical Groq acceptance evidence is not overstated.
@@ -247,4 +247,4 @@ The E2E server command was made deterministic by running the backend `tsx` execu
 
 PASS
 
-The safe subset is implemented through public APIs and existing semantic boundaries. Clean manual class creation, explicit associative-class semantics, deterministic assisted class/type normalization, unambiguous UML association-end multiplicities, real UML operations/parameters, relationship edges, canonical M:N modeling and conventional explicit `id: Long` are verified. The historical full-regression evidence remains recorded above; Patch A additionally passed its focused canonical, inspector, CU04, CU08, persistence and CU09 checks plus both affected typechecks. No composite-key/M:N generation, inferred image association class, method bodies or private Apollon customization was introduced.
+The safe subset is implemented through public APIs and existing semantic boundaries. Clean manual class creation, explicit associative-class semantics, deterministic assisted class/type normalization, unambiguous UML association-end multiplicities, real UML operations/parameters, relationship edges, canonical M:N modeling and conventional explicit `id: Long` are verified. Patch B adds only the bounded relational derivation for an explicit two-principal associative class; its focused generator/readiness tests and generated Java 21 Maven compilation pass. No direct `@ManyToMany`, canonical PK/FK fields, inferred image association class, method bodies or private Apollon customization was introduced.

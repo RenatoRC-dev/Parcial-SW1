@@ -299,24 +299,66 @@ function prepararEntidad(
     relacionesMuchosAUno: [],
     relacionesUnoAMuchos: [],
     importaciones,
+    tipoId: clase.tipoClase === "asociativa" ? `${clase.nombre}Id` : "Long",
+    esAsociativa: clase.tipoClase === "asociativa",
   }
+}
+
+function validarPerfilesAsociativos(modelo: ModeloUMLCanonicoEntrada): string[] {
+  const errores: string[] = []
+  const clasesPorId = new Map(modelo.clases.map((clase) => [clase.id, clase]))
+  for (const asociativa of modelo.clases.filter((clase) => clase.tipoClase === "asociativa")) {
+    const incidentes = modelo.relaciones.filter((relacion) =>
+      relacion.claseOrigenId === asociativa.id || relacion.claseDestinoId === asociativa.id
+    )
+    if (incidentes.length !== 2) {
+      errores.push(`La clase asociativa ${asociativa.nombre} debe conectar exactamente dos clases principales.`)
+      continue
+    }
+    const principales: ModeloUMLCanonicoEntrada["clases"] = []
+    for (const relacion of incidentes) {
+      const asociativaEsOrigen = relacion.claseOrigenId === asociativa.id
+      const multiplicidadAsociativa = asociativaEsOrigen ? relacion.multiplicidadOrigen : relacion.multiplicidadDestino
+      const multiplicidadPrincipal = asociativaEsOrigen ? relacion.multiplicidadDestino : relacion.multiplicidadOrigen
+      if (relacion.tipo !== "asociacion" || multiplicidadAsociativa !== "0..*" || multiplicidadPrincipal !== "1") {
+        errores.push(`La relación ${relacion.id} debe ubicar a ${asociativa.nombre} en el extremo 0..* y a su clase principal en el extremo 1.`)
+        continue
+      }
+      const principalId = asociativaEsOrigen ? relacion.claseDestinoId : relacion.claseOrigenId
+      const principal = clasesPorId.get(principalId)
+      if (!principal) {
+        errores.push(`La relación ${relacion.id} referencia una clase principal inexistente.`)
+      } else if (principal.tipoClase === "asociativa") {
+        errores.push(`La clase principal ${principal.nombre} de ${asociativa.nombre} no puede ser otra clase asociativa.`)
+      } else {
+        principales.push(principal)
+      }
+    }
+    if (principales.length === 2 && principales[0].id === principales[1].id) {
+      errores.push(`La clase asociativa ${asociativa.nombre} debe referenciar dos clases principales distintas.`)
+    }
+    for (const principal of principales) {
+      const identidad = principal.atributos.find((atributo) => atributo.nombre === "id")
+      if (identidad && identidad.tipo !== "Long") {
+        errores.push(`La clase principal ${principal.nombre} debe utilizar identidad Long.`)
+      }
+    }
+    if (asociativa.atributos.some((atributo) => atributo.nombre === "id")) {
+      errores.push(`La clase asociativa ${asociativa.nombre} no debe declarar un id simple; su identidad se deriva de sus dos relaciones.`)
+    }
+  }
+  return errores
 }
 
 export function prepararProyectoSpring(
   modelo: ModeloUMLCanonicoEntrada
 ): ModeloProyectoSpring {
-  const clasesAsociativas = modelo.clases.filter((clase) => clase.tipoClase === "asociativa")
-  if (clasesAsociativas.length > 0) {
-    throw new ErrorModeloNoGenerable(clasesAsociativas.map((clase) =>
-      `Clase asociativa detectada (${clase.nombre}); la generación de clave compuesta todavía no forma parte del perfil actual.`
-    ))
-  }
   const erroresIdentidad = validarIdentidades(modelo)
   if (erroresIdentidad.length > 0) {
     throw new ErrorModeloNoGenerable(erroresIdentidad)
   }
 
-  const errores = validarEntradaBasica(modelo)
+  const errores = [...validarEntradaBasica(modelo), ...validarPerfilesAsociativos(modelo)]
   const relaciones = prepararRelaciones(modelo, errores)
   if (errores.length > 0) {
     throw new ErrorModeloNoGenerable(errores)
@@ -346,6 +388,33 @@ export function prepararProyectoSpring(
     }
     entidad.importaciones = Array.from(new Set(entidad.importaciones)).sort()
   }
+
+  for (const [indice, clase] of modelo.clases.entries()) {
+    if (clase.tipoClase !== "asociativa") continue
+    const entidad = entidades[indice]
+    if (entidad.relacionesMuchosAUno.length !== 2) continue
+    const columnasAtributos = new Set(entidad.campos.map((campo) => campo.nombreColumna))
+    const columnasClave = new Set<string>()
+    for (const relacion of entidad.relacionesMuchosAUno) {
+      if (columnasAtributos.has(relacion.nombreColumna)) {
+        errores.push(`La columna derivada ${relacion.nombreColumna} colisiona con un atributo de ${entidad.nombreClase}.`)
+      }
+      if (columnasClave.has(relacion.nombreColumna)) {
+        errores.push(`La columna derivada ${relacion.nombreColumna} está duplicada en ${entidad.nombreClase}.`)
+      }
+      columnasClave.add(relacion.nombreColumna)
+      relacion.campoMapsId = `${relacion.nombreCampo}Id`
+    }
+    entidad.claveCompuesta = {
+      nombreClase: entidad.tipoId,
+      campos: entidad.relacionesMuchosAUno.map((relacion) => ({
+        nombreCampo: relacion.campoMapsId!, nombreColumna: relacion.nombreColumna,
+      })),
+    }
+    entidad.importaciones.push("jakarta.persistence.EmbeddedId", "jakarta.persistence.MapsId")
+    entidad.importaciones = Array.from(new Set(entidad.importaciones)).sort()
+  }
+  if (errores.length > 0) throw new ErrorModeloNoGenerable(errores)
 
   return {
     groupId: "com.sw1.generated",

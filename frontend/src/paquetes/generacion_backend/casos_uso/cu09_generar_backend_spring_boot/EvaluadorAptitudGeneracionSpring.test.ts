@@ -99,12 +99,27 @@ describe("evaluarAptitudGeneracionSpring", () => {
     expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).motivos[0]).toContain("abstracta")
   })
 
-  it("mantiene la clase asociativa como UML válido pero fuera del perfil Spring actual", () => {
+  it("mantiene la clase asociativa incompleta como UML válido pero no apto para Spring", () => {
     const modelo = crearModelo({ clases: [{ ...crearModelo().clases[0], nombre: "ClientePedido", tipoClase: "asociativa", atributos: [] }] })
     expect(validarModelo(modelo).valido).toBe(true)
-    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).motivos).toContain(
-      "Clase asociativa detectada (ClientePedido); la generación de clave compuesta todavía no forma parte del perfil actual."
-    )
+    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).motivos[0]).toContain("exactamente dos clases principales")
+  })
+
+  it("acepta una clase asociativa entre dos principales Long", () => {
+    const modelo: ModeloUMLCanonico = {
+      id: "m", nombre: "Roles", version: "1",
+      clases: [
+        { id: "usuario", nombre: "Usuario", tipoClase: "normal", abstracta: false, posicion: { x: 0, y: 0 }, atributos: [{ id: "u-id", nombre: "id", tipo: "Long" }] },
+        { id: "rol", nombre: "Rol", tipoClase: "normal", abstracta: false, posicion: { x: 400, y: 0 }, atributos: [{ id: "r-id", nombre: "id", tipo: "Long" }] },
+        { id: "usuario-rol", nombre: "UsuarioRol", tipoClase: "asociativa", abstracta: false, posicion: { x: 200, y: 150 }, atributos: [] },
+      ],
+      relaciones: [
+        { id: "u-ur", tipo: "asociacion", claseOrigenId: "usuario", claseDestinoId: "usuario-rol", multiplicidadOrigen: "1", multiplicidadDestino: "0..*" },
+        { id: "ur-r", tipo: "asociacion", claseOrigenId: "usuario-rol", claseDestinoId: "rol", multiplicidadOrigen: "0..*", multiplicidadDestino: "1" },
+      ],
+    }
+    expect(validarModelo(modelo).valido).toBe(true)
+    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo))).toEqual({ apto: true, motivos: [] })
   })
 
   it("rechaza nombres que colisionan con tipos Java", () => {

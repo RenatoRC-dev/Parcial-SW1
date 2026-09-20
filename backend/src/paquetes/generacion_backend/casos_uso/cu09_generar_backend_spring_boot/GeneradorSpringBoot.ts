@@ -58,6 +58,13 @@ export async function generarProyectoSpring(
 
   for (const entidad of proyecto.entidades) {
     const datos = { entidad }
+    if (entidad.claveCompuesta) {
+      archivos.push({
+        plantilla: "ClaveCompuesta.java.ejs",
+        ruta: `${raizJava}/modelo/${entidad.claveCompuesta.nombreClase}.java`,
+        datos,
+      })
+    }
     archivos.push(
       {
         plantilla: "Entidad.java.ejs",

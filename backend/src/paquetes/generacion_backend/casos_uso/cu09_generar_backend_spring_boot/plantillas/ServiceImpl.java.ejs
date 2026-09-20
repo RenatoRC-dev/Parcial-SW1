@@ -1,6 +1,8 @@
 package <%= proyecto.packageName %>.servicio.impl;
 
 import <%= proyecto.packageName %>.modelo.<%= entidad.nombreClase %>;
+<% if (entidad.esAsociativa) { %>import <%= proyecto.packageName %>.modelo.<%= entidad.tipoId %>;
+<% } %>
 import <%= proyecto.packageName %>.repositorio.<%= entidad.nombreClase %>Repository;
 import <%= proyecto.packageName %>.servicio.<%= entidad.nombreClase %>Service;
 import java.util.List;
@@ -21,19 +23,20 @@ public class <%= entidad.nombreClase %>ServiceImpl implements <%= entidad.nombre
     }
 
     @Override
-    public <%= entidad.nombreClase %> obtenerPorId(Long id) {
+    public <%= entidad.nombreClase %> obtenerPorId(<%= entidad.tipoId %> id) {
         return repositorio.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("<%= entidad.nombreClase %> no encontrado: " + id));
     }
 
     @Override
     public <%= entidad.nombreClase %> crear(<%= entidad.nombreClase %> <%= entidad.nombreVariable %>) {
-        <%= entidad.nombreVariable %>.setId(null);
+<% if (!entidad.esAsociativa) { %>        <%= entidad.nombreVariable %>.setId(null);
+<% } %>
         return repositorio.save(<%= entidad.nombreVariable %>);
     }
 
     @Override
-    public <%= entidad.nombreClase %> actualizar(Long id, <%= entidad.nombreClase %> <%= entidad.nombreVariable %>) {
+    public <%= entidad.nombreClase %> actualizar(<%= entidad.tipoId %> id, <%= entidad.nombreClase %> <%= entidad.nombreVariable %>) {
         <%= entidad.nombreClase %> existente = obtenerPorId(id);
 <% for (const campo of entidad.campos) { %>        existente.set<%= campo.nombreCampo.charAt(0).toUpperCase() + campo.nombreCampo.slice(1) %>(<%= entidad.nombreVariable %>.get<%= campo.nombreCampo.charAt(0).toUpperCase() + campo.nombreCampo.slice(1) %>());
 <% } %><% for (const relacion of entidad.relacionesMuchosAUno) { %>        existente.set<%= relacion.nombreCampo.charAt(0).toUpperCase() + relacion.nombreCampo.slice(1) %>(<%= entidad.nombreVariable %>.get<%= relacion.nombreCampo.charAt(0).toUpperCase() + relacion.nombreCampo.slice(1) %>());
@@ -41,7 +44,7 @@ public class <%= entidad.nombreClase %>ServiceImpl implements <%= entidad.nombre
     }
 
     @Override
-    public void eliminar(Long id) {
+    public void eliminar(<%= entidad.tipoId %> id) {
         repositorio.delete(obtenerPorId(id));
     }
 }

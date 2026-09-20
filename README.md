@@ -48,7 +48,7 @@ Application functionality follows the mandatory hierarchy `paquetes/<paquete>/ca
 - The compact SW1 UML inspector creates classes and edits properties with guided selectors for attribute type, visibility and relationship multiplicity, without exposing Apollon's unrestricted property popup.
 - New attributes use separate controls for name, the authoritative CU08-supported type list, and visibility; private (`-`) is the default.
 - Relationships are real selectable Apollon edges with canonical type and endpoint multiplicity selectors (`1`, `0..1`, `0..*`, `1..*`); association names and endpoint roles are separate optional semantics. Associations are non-navigable plain lines; aggregation/composition use `Part → Whole` so the diamond is beside the Whole, and generalization uses `Subclass → Superclass` so the triangle points to the Superclass.
-- The model accepts valid many-to-many UML multiplicities. A designer may explicitly create an empty associative class or atomically replace a direct `0..*`/`0..*` association with that class and two `1`/`0..*` associations; no ID, PK or FK attribute is invented. Composite-key and `@ManyToMany` generation remain outside the current Spring profile.
+- The model accepts valid many-to-many UML multiplicities. A designer may explicitly create an empty associative class or atomically replace a direct `0..*`/`0..*` association with that class and two `1`/`0..*` associations; no ID, PK or FK attribute is added to the conceptual model. CU09 derives an `@EmbeddedId` plus two `@MapsId` relationships for that bounded structure. Direct `@ManyToMany` remains unsupported.
 - A conventional explicit `id: Long` is a normal canonical attribute. The generator reuses it as its single generated JPA identity; when absent, the existing implicit `Long id` fallback remains.
 - The full UML modeling profile includes operations with public/private visibility, controlled return types and typed parameters. They are persisted, rendered in Apollon and synchronized collaboratively.
 - UML operations are design semantics: the deterministic Spring generator does not infer method bodies, REST endpoints or service algorithms from a signature.
@@ -58,8 +58,8 @@ Application functionality follows the mandatory hierarchy `paquetes/<paquete>/ca
 
 Current generation profile:
 
-- Supported: independent entities, scalar fields, and UML association `1 ↔ 0..*`.
-- Deferred for generation: one-to-one, many-to-many, aggregation, composition, and inheritance. These generation limits do not prohibit valid canonical UML modeling.
+- Supported: independent entities, scalar fields, UML association `1 ↔ 0..*`, and an explicit associative class connected as the many side to exactly two distinct Long-identity principals.
+- Deferred for generation: direct many-to-many, one-to-one, aggregation, composition, inheritance and associative structures with more than two principals. These generation limits do not prohibit valid canonical UML modeling.
 
 The concise frontend/backend capability contract is documented in [`docs/generation/SPRING_GENERATION_PROFILE.md`](docs/generation/SPRING_GENERATION_PROFILE.md).
 

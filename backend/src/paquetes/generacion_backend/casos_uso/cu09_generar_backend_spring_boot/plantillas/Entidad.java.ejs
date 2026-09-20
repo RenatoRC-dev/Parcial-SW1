@@ -2,9 +2,10 @@ package <%= proyecto.packageName %>.modelo;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
+<% if (!entidad.esAsociativa) { %>import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+<% } %>
 import jakarta.persistence.Table;
 <% for (const importacion of entidad.importaciones) { %>import <%= importacion %>;
 <% } %>
@@ -12,14 +13,18 @@ import jakarta.persistence.Table;
 @Table(name = "<%= entidad.nombreTabla %>")
 public class <%= entidad.nombreClase %> {
 
-    @Id
+<% if (entidad.esAsociativa) { %>    @EmbeddedId
+    private <%= entidad.tipoId %> id = new <%= entidad.tipoId %>();
+<% } else { %>    @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+<% } %>
 <% for (const campo of entidad.campos) { %>
     @Column(name = "<%= campo.nombreColumna %>")
     private <%= campo.tipoJava %> <%= campo.nombreCampo %>;
 <% } %><% for (const relacion of entidad.relacionesMuchosAUno) { %>
-    @ManyToOne(optional = false)
+<% if (relacion.campoMapsId) { %>    @MapsId("<%= relacion.campoMapsId %>")
+<% } %>    @ManyToOne(optional = false)
     @JoinColumn(name = "<%= relacion.nombreColumna %>", nullable = false)
     private <%= relacion.entidadObjetivo %> <%= relacion.nombreCampo %>;
 <% } %><% for (const relacion of entidad.relacionesUnoAMuchos) { %>
@@ -30,11 +35,11 @@ public class <%= entidad.nombreClase %> {
     public <%= entidad.nombreClase %>() {
     }
 
-    public Long getId() {
+    public <%= entidad.tipoId %> getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(<%= entidad.tipoId %> id) {
         this.id = id;
     }
 <% for (const campo of entidad.campos) { %>

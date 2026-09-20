@@ -3,7 +3,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises"
 import { createServer } from "node:net"
 import { dirname, join, resolve } from "node:path"
 import JSZip from "jszip"
-import { fixtureClientePedido } from "../casos_uso/cu09_generar_backend_spring_boot/fixtureClientePedido.js"
+import { fixtureUsuarioRol } from "../casos_uso/cu09_generar_backend_spring_boot/fixtureClaseAsociativa.js"
 import { crearAplicacionGeneracionBackend } from "../api/ServidorGeneracionBackend.js"
 
 interface EvidenciaRuntime {
@@ -13,12 +13,17 @@ interface EvidenciaRuntime {
   mavenBuildSuccess: boolean
   springStarted: boolean
   tablesVerified: boolean
-  foreignKeyVerified: boolean
-  clienteCreated: boolean
-  pedidoCreated: boolean
-  pedidoRead: boolean
-  pedidoUpdated: boolean
-  pedidoDeleted: boolean
+  associativeClassGenerated: boolean
+  compositePrimaryKeyVerified: boolean
+  compositePrimaryKeyColumnCount: number
+  usuarioForeignKeyVerified: boolean
+  rolForeignKeyVerified: boolean
+  noSurrogateIdVerified: boolean
+  usuarioCreated: boolean
+  rolCreated: boolean
+  usuarioRolCreated: boolean
+  usuarioRolReadByCompositeId: boolean
+  usuarioRolDeleted: boolean
   blocked?: boolean
   reason?: string
 }
@@ -28,7 +33,7 @@ const port = process.env.SW1_PG_PORT ?? "5432"
 const user = process.env.SW1_PG_USER ?? "postgres"
 const password = process.env.SW1_PG_PASSWORD
 const adminDatabase = process.env.SW1_PG_ADMIN_DB ?? "postgres"
-const testDatabase = process.env.SW1_PG_TEST_DB ?? "sw1_iteracion07"
+const testDatabase = process.env.SW1_PG_TEST_DB ?? "sw1_asociativa_patch_b"
 const applicationPort = 18080
 const outputDirectory = resolve("generated-test-output", "postgres-proof")
 const evidencePath = join(outputDirectory, "runtime-evidence.json")
@@ -42,12 +47,17 @@ const evidence: EvidenciaRuntime = {
   mavenBuildSuccess: false,
   springStarted: false,
   tablesVerified: false,
-  foreignKeyVerified: false,
-  clienteCreated: false,
-  pedidoCreated: false,
-  pedidoRead: false,
-  pedidoUpdated: false,
-  pedidoDeleted: false,
+  associativeClassGenerated: false,
+  compositePrimaryKeyVerified: false,
+  compositePrimaryKeyColumnCount: 0,
+  usuarioForeignKeyVerified: false,
+  rolForeignKeyVerified: false,
+  noSurrogateIdVerified: false,
+  usuarioCreated: false,
+  rolCreated: false,
+  usuarioRolCreated: false,
+  usuarioRolReadByCompositeId: false,
+  usuarioRolDeleted: false,
 }
 
 async function persistEvidence() {
@@ -112,7 +122,7 @@ async function generateThroughRealHttp(): Promise<void> {
     const response = await fetch(`http://127.0.0.1:${address.port}/api/generacion/spring`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(fixtureClientePedido),
+      body: JSON.stringify(fixtureUsuarioRol),
     })
     if (!response.ok) throw new Error(`La API CASE respondió ${response.status}: ${await response.text()}`)
     const content = Buffer.from(await response.arrayBuffer())
@@ -144,7 +154,7 @@ async function waitForApplication(child: ChildProcess): Promise<void> {
   while (Date.now() < deadline) {
     if (child.exitCode !== null) throw new Error(`Spring terminó antes de estar listo con código ${child.exitCode}.`)
     try {
-      const response = await fetch(`http://127.0.0.1:${applicationPort}/api/cliente`)
+      const response = await fetch(`http://127.0.0.1:${applicationPort}/api/usuario`)
       if (response.status === 200) return
     } catch {
       // La aplicación todavía está iniciando.
@@ -230,49 +240,55 @@ async function main(): Promise<void> {
     })
     evidence.springStarted = true
 
-    const tables = Number(await psql(testDatabase, "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('cliente','pedido');"))
-    const nullable = await psql(testDatabase, "SELECT is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name='pedido' AND column_name='cliente_id';")
-    const foreignKey = Number(await psql(testDatabase, "SELECT count(*) FROM pg_constraint c JOIN pg_class child ON child.oid=c.conrelid JOIN pg_class parent ON parent.oid=c.confrelid WHERE c.contype='f' AND child.relname='pedido' AND parent.relname='cliente' AND pg_get_constraintdef(c.oid) LIKE 'FOREIGN KEY (cliente_id) REFERENCES cliente(id)%';"))
-    if (tables !== 2 || nullable !== "NO") throw new Error("El esquema físico no contiene las tablas o cliente_id NOT NULL esperados.")
-    if (foreignKey < 1) throw new Error("No se encontró la FK pedido.cliente_id → cliente.id.")
+    const tables = Number(await psql(testDatabase, "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('usuario','rol','usuario_rol');"))
+    if (tables !== 3) throw new Error("El esquema físico no contiene usuario, rol y usuario_rol.")
     evidence.tablesVerified = true
-    evidence.foreignKeyVerified = true
+    evidence.associativeClassGenerated = true
 
-    const cliente = await requestJson<{ id: number }>("/api/cliente", "POST", {
-      nombre: "Cliente Iteracion 07",
-      email: "iteracion07@sw1.local",
-    }, 201)
-    if (!Number.isInteger(cliente.id)) throw new Error("POST Cliente no devolvió un id entero.")
-    evidence.clienteCreated = true
-
-    const pedido = await requestJson<{ id: number; fecha: string; cliente: { id: number } }>("/api/pedido", "POST", {
-      fecha: "2026-09-16",
-      cliente: { id: cliente.id },
-    }, 201)
-    if (!Number.isInteger(pedido.id)) throw new Error("POST Pedido no devolvió un id entero.")
-    evidence.pedidoCreated = true
-    const storedForeignKey = Number(await psql(testDatabase, `SELECT cliente_id FROM pedido WHERE id=${pedido.id};`))
-    if (storedForeignKey !== cliente.id) throw new Error("El valor físico de pedido.cliente_id no coincide con Cliente.")
-
-    const readPedido = await requestJson<{ id: number; fecha: string; cliente: { id: number } }>(`/api/pedido/${pedido.id}`, "GET", undefined, 200)
-    if (readPedido.id !== pedido.id || readPedido.fecha !== "2026-09-16" || readPedido.cliente.id !== cliente.id) {
-      throw new Error("GET Pedido no preservó id, fecha y relación Cliente.")
+    const columns = (await psql(testDatabase, "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='usuario_rol' ORDER BY column_name;")).split(/\s+/).filter(Boolean)
+    if (columns.includes("id")) throw new Error("usuario_rol contiene un id sustituto no permitido.")
+    if (columns.length !== 2 || !columns.includes("usuario_id") || !columns.includes("rol_id")) {
+      throw new Error(`Columnas inesperadas en usuario_rol: ${columns.join(", ")}.`)
     }
-    evidence.pedidoRead = true
+    evidence.noSurrogateIdVerified = true
 
-    const updatedPedido = await requestJson<{ fecha: string; cliente: { id: number } }>(`/api/pedido/${pedido.id}`, "PUT", {
-      fecha: "2026-09-17",
-      cliente: { id: cliente.id },
-    }, 200)
-    if (updatedPedido.fecha !== "2026-09-17" || updatedPedido.cliente.id !== cliente.id) {
-      throw new Error("PUT Pedido no actualizó la fecha o perdió la relación Cliente.")
+    const primaryKeyColumns = (await psql(testDatabase, "SELECT a.attname FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid CROSS JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS k(attnum, orden) JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum=k.attnum WHERE c.contype='p' AND t.relname='usuario_rol' ORDER BY k.orden;")).split(/\s+/).filter(Boolean)
+    evidence.compositePrimaryKeyColumnCount = primaryKeyColumns.length
+    if (primaryKeyColumns.length !== 2 || !primaryKeyColumns.includes("usuario_id") || !primaryKeyColumns.includes("rol_id")) {
+      throw new Error(`PK inesperada en usuario_rol: ${primaryKeyColumns.join(", ")}.`)
     }
-    evidence.pedidoUpdated = true
+    evidence.compositePrimaryKeyVerified = true
 
-    await deleteRequest(`/api/pedido/${pedido.id}`)
-    const remaining = Number(await psql(testDatabase, `SELECT count(*) FROM pedido WHERE id=${pedido.id};`))
-    if (remaining !== 0) throw new Error("DELETE Pedido no eliminó la fila física.")
-    evidence.pedidoDeleted = true
+    const usuarioForeignKey = Number(await psql(testDatabase, "SELECT count(*) FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name=kcu.constraint_name AND tc.constraint_schema=kcu.constraint_schema JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name=ccu.constraint_name AND tc.constraint_schema=ccu.constraint_schema WHERE tc.constraint_type='FOREIGN KEY' AND tc.table_schema='public' AND tc.table_name='usuario_rol' AND kcu.column_name='usuario_id' AND ccu.table_name='usuario' AND ccu.column_name='id';"))
+    const rolForeignKey = Number(await psql(testDatabase, "SELECT count(*) FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name=kcu.constraint_name AND tc.constraint_schema=kcu.constraint_schema JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name=ccu.constraint_name AND tc.constraint_schema=ccu.constraint_schema WHERE tc.constraint_type='FOREIGN KEY' AND tc.table_schema='public' AND tc.table_name='usuario_rol' AND kcu.column_name='rol_id' AND ccu.table_name='rol' AND ccu.column_name='id';"))
+    if (usuarioForeignKey !== 1 || rolForeignKey !== 1) throw new Error("No se encontraron las dos FK esperadas de usuario_rol.")
+    evidence.usuarioForeignKeyVerified = true
+    evidence.rolForeignKeyVerified = true
+
+    const usuario = await requestJson<{ id: number }>("/api/usuario", "POST", { nombre: "Usuario Runtime" }, 201)
+    if (!Number.isInteger(usuario.id)) throw new Error("POST Usuario no devolvió un id entero.")
+    evidence.usuarioCreated = true
+    const rol = await requestJson<{ id: number }>("/api/rol", "POST", { nombre: "Rol Runtime" }, 201)
+    if (!Number.isInteger(rol.id)) throw new Error("POST Rol no devolvió un id entero.")
+    evidence.rolCreated = true
+
+    const usuarioRol = await requestJson<{ id: { usuarioId: number; rolId: number }; usuario: { id: number }; rol: { id: number } }>("/api/usuarioRol", "POST", {
+      usuario: { id: usuario.id }, rol: { id: rol.id },
+    }, 201)
+    if (usuarioRol.id?.usuarioId !== usuario.id || usuarioRol.id?.rolId !== rol.id) throw new Error("POST UsuarioRol no devolvió la identidad compuesta esperada.")
+    evidence.usuarioRolCreated = true
+
+    const rutaCompuesta = `/api/usuarioRol/${usuario.id}/${rol.id}`
+    const recuperado = await requestJson<typeof usuarioRol>(rutaCompuesta, "GET", undefined, 200)
+    if (recuperado.id.usuarioId !== usuario.id || recuperado.id.rolId !== rol.id || recuperado.usuario.id !== usuario.id || recuperado.rol.id !== rol.id) {
+      throw new Error("GET UsuarioRol no preservó ambos componentes de identidad y relaciones.")
+    }
+    evidence.usuarioRolReadByCompositeId = true
+
+    await deleteRequest(rutaCompuesta)
+    const remaining = Number(await psql(testDatabase, `SELECT count(*) FROM usuario_rol WHERE usuario_id=${usuario.id} AND rol_id=${rol.id};`))
+    if (remaining !== 0) throw new Error("DELETE UsuarioRol no eliminó la fila asociativa.")
+    evidence.usuarioRolDeleted = true
     await persistEvidence()
     console.log(`Prueba PostgreSQL completada. Evidencia: ${evidencePath}`)
   } finally {

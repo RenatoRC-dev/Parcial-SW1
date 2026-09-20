@@ -32,12 +32,12 @@ afterEach(async () => {
 })
 
 describe("GeneradorSpringBoot", () => {
-  it("rechaza explícitamente la clase asociativa sin inventar una clave simple", () => {
+  it("rechaza una clase asociativa sin las dos relaciones requeridas", () => {
     const modelo = {
       ...fixtureCliente,
       clases: [{ ...fixtureCliente.clases[0], nombre: "ClientePedido", tipoClase: "asociativa" as const, atributos: [] }],
     }
-    expect(() => prepararProyectoSpring(modelo)).toThrow("generación de clave compuesta todavía no forma parte del perfil actual")
+    expect(() => prepararProyectoSpring(modelo)).toThrow("debe conectar exactamente dos clases principales")
   })
 
   it("genera todos los archivos del proyecto Cliente", async () => {

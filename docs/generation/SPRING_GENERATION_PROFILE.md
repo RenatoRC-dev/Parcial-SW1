@@ -11,12 +11,15 @@ This document is the explicit capability contract shared by review of the fronte
 - Either source/target orientation of that association.
 - Optional valid endpoint roles using the opposite-end property convention.
 - Deterministic role defaults when roles are absent.
+- Explicit associative class connected to exactly two distinct principal classes through two `1 ↔ 0..*` associations, with the associative class on both many sides.
+- Composite identity derived only during generation as an `@Embeddable` key and two `@MapsId`/`@ManyToOne` fields. Business attributes remain ordinary columns.
 
 ## Not supported
 
 - Abstract classes.
 - Self-relations.
-- `1 ↔ 1`, `0..1`, `1..*`, or many-to-many semantics.
+- `1 ↔ 1`, `0..1`, `1..*`, or direct many-to-many semantics.
+- Associative classes with fewer/more than two principals, repeated principals, incorrect end multiplicities or non-Long principal identity.
 - Aggregation, composition, or generalization generation.
 - Relation fields colliding with `id`, scalar fields, or other relation fields.
 - Entity names conflicting with supported Java type names.
@@ -31,6 +34,8 @@ This document is the explicit capability contract shared by review of the fronte
 | Reversed association `0..* → 1` | Supported | Supported |
 | Association `1 → 1` | Rejected | Rejected |
 | Association `0..* → 0..*` | Rejected | Rejected |
+| Explicit valid associative class | Supported | Supported with composite ID |
+| Invalid associative-class profile | Rejected | Rejected |
 | Aggregation | Rejected | Rejected |
 | Composition | Rejected | Rejected |
 | Generalization | Rejected | Rejected |

@@ -8,6 +8,7 @@ export interface RelacionMuchosAUnoSpring {
   nombreCampo: string
   entidadObjetivo: string
   nombreColumna: string
+  campoMapsId?: string
 }
 
 export interface RelacionUnoAMuchosSpring {
@@ -24,6 +25,19 @@ export interface EntidadSpring {
   relacionesMuchosAUno: RelacionMuchosAUnoSpring[]
   relacionesUnoAMuchos: RelacionUnoAMuchosSpring[]
   importaciones: string[]
+  tipoId: string
+  esAsociativa: boolean
+  claveCompuesta?: ClaveCompuestaSpring
+}
+
+export interface CampoClaveCompuestaSpring {
+  nombreCampo: string
+  nombreColumna: string
+}
+
+export interface ClaveCompuestaSpring {
+  nombreClase: string
+  campos: CampoClaveCompuestaSpring[]
 }
 
 export interface ModeloProyectoSpring {

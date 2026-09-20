@@ -1,7 +1,9 @@
 package <%= proyecto.packageName %>.repositorio;
 
 import <%= proyecto.packageName %>.modelo.<%= entidad.nombreClase %>;
+<% if (entidad.esAsociativa) { %>import <%= proyecto.packageName %>.modelo.<%= entidad.tipoId %>;
+<% } %>
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface <%= entidad.nombreClase %>Repository extends JpaRepository<<%= entidad.nombreClase %>, Long> {
+public interface <%= entidad.nombreClase %>Repository extends JpaRepository<<%= entidad.nombreClase %>, <%= entidad.tipoId %>> {
 }

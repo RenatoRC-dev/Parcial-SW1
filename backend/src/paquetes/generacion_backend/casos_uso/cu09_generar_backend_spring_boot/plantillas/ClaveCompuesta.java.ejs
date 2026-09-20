@@ -1,0 +1,36 @@
+package <%= proyecto.packageName %>.modelo;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Embeddable;
+import java.io.Serializable;
+import java.util.Objects;
+
+@Embeddable
+public class <%= entidad.claveCompuesta.nombreClase %> implements Serializable {
+
+<% for (const campo of entidad.claveCompuesta.campos) { %>    @Column(name = "<%= campo.nombreColumna %>")
+    private Long <%= campo.nombreCampo %>;
+
+<% } %>    public <%= entidad.claveCompuesta.nombreClase %>() {
+    }
+
+<% for (const campo of entidad.claveCompuesta.campos) { %>    public Long get<%= campo.nombreCampo.charAt(0).toUpperCase() + campo.nombreCampo.slice(1) %>() {
+        return <%= campo.nombreCampo %>;
+    }
+
+    public void set<%= campo.nombreCampo.charAt(0).toUpperCase() + campo.nombreCampo.slice(1) %>(Long <%= campo.nombreCampo %>) {
+        this.<%= campo.nombreCampo %> = <%= campo.nombreCampo %>;
+    }
+
+<% } %>    @Override
+    public boolean equals(Object otro) {
+        if (this == otro) return true;
+        if (!(otro instanceof <%= entidad.claveCompuesta.nombreClase %> clave)) return false;
+        return <% entidad.claveCompuesta.campos.forEach((campo, indice) => { %>Objects.equals(<%= campo.nombreCampo %>, clave.<%= campo.nombreCampo %>)<% if (indice < entidad.claveCompuesta.campos.length - 1) { %> && <% } else { %>;<% } %><% }) %>
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(<%= entidad.claveCompuesta.campos.map(campo => campo.nombreCampo).join(", ") %>);
+    }
+}
