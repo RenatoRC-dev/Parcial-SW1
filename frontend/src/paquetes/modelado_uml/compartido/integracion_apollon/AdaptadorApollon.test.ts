@@ -4,6 +4,7 @@ import {
   convertirAModeloCanonico,
   convertirAModeloCanonicoConAdvertencias,
   convertirDesdeModeloCanonico,
+  normalizarAsociacionesSinNavegabilidad,
 } from "./AdaptadorApollon"
 
 function crearModelo(
@@ -146,6 +147,50 @@ describe("AdaptadorApollon", () => {
       claseOrigenId: "cliente",
       claseDestinoId: "pedido",
     })
+  })
+
+  it("normaliza una asociacion Apollon con flecha a la arista publica sin navegabilidad", () => {
+    const original = crearModelo(
+      [crearClase("persona", "Persona"), crearClase("auto", "Auto")],
+      [{ ...crearRelacion("ClassUnidirectional"), source: "persona", target: "auto" }]
+    )
+
+    const normalizado = normalizarAsociacionesSinNavegabilidad(original)
+
+    expect(normalizado).not.toBe(original)
+    expect(normalizado.edges[0].type).toBe("ClassBidirectional")
+    expect(normalizado.edges[0]).toMatchObject({ source: "persona", target: "auto" })
+  })
+
+  it.each([
+    ["asociacion", "ClassBidirectional", "persona", "auto"],
+    ["agregacion", "ClassAggregation", "jugador", "equipo"],
+    ["composicion", "ClassComposition", "detalle", "pedido"],
+    ["generalizacion", "ClassInheritance", "cliente", "persona"],
+  ] as const)("renderiza la convencion canonica %s con el marcador en el extremo destino", (tipo, tipoApollon, origen, destino) => {
+    const nombres: Record<string, string> = {
+      persona: "Persona", auto: "Auto", jugador: "Jugador", equipo: "Equipo",
+      detalle: "DetallePedido", pedido: "Pedido", cliente: "Cliente",
+    }
+    const modelo = {
+      id: `modelo-${tipo}`,
+      nombre: "Relaciones",
+      version: "4.2.0",
+      clases: [origen, destino].map((id, indice) => ({
+        id, nombre: nombres[id], abstracta: false, posicion: { x: indice * 300, y: 0 }, atributos: [],
+      })),
+      relaciones: [{
+        id: `relacion-${tipo}`, tipo, claseOrigenId: origen, claseDestinoId: destino,
+        multiplicidadOrigen: tipo === "generalizacion" ? null : "1" as const,
+        multiplicidadDestino: tipo === "generalizacion" ? null : "0..*" as const,
+      }],
+    }
+
+    const arista = convertirDesdeModeloCanonico(modelo).edges[0]
+    expect(arista).toMatchObject({ type: tipoApollon, source: origen, target: destino })
+    if (tipo === "generalizacion") {
+      expect(arista.data).toMatchObject({ sourceMultiplicity: "", targetMultiplicity: "" })
+    }
   })
 
   it("normaliza multiplicidades y conserva roles verificados", () => {

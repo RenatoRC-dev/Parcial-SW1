@@ -58,6 +58,11 @@ export interface ModeloUMLCanonicoIA {
   relaciones: RelacionModeloIA[]
 }
 
+type ComandoCrearRelacion =
+  | { tipo: "crear_relacion"; refTemporal: string; tipoRelacion: "asociacion"; claseOrigenRef: string; claseDestinoRef: string; cantidadDestinoPorOrigen: MultiplicidadIA | null; cantidadOrigenPorDestino: MultiplicidadIA | null; rolOrigen: string | null; rolDestino: string | null }
+  | { tipo: "crear_relacion"; refTemporal: string; tipoRelacion: "agregacion" | "composicion"; parteRef: string; todoRef: string; cantidadPartesPorTodo: MultiplicidadIA | null; cantidadTodosPorParte: MultiplicidadIA | null; rolParte: string | null; rolTodo: string | null }
+  | { tipo: "crear_relacion"; refTemporal: string; tipoRelacion: "generalizacion"; subclaseRef: string; superclaseRef: string }
+
 export type ComandoModeloUML =
   | { tipo: "crear_clase"; refTemporal: string; nombre: string; abstracta: boolean }
   | { tipo: "renombrar_clase"; claseId: string; nuevoNombre: string }
@@ -71,6 +76,6 @@ export type ComandoModeloUML =
   | { tipo: "agregar_parametro"; metodoId: string; refTemporal: string; nombre: string; tipoDato: string }
   | { tipo: "modificar_parametro"; parametroId: string; nuevoNombre: string | null; nuevoTipo: string | null }
   | { tipo: "eliminar_parametro"; parametroId: string }
-  | { tipo: "crear_relacion"; refTemporal: string; claseOrigenRef: string; claseDestinoRef: string; tipoRelacion: "asociacion"; cantidadDestinoPorOrigen: MultiplicidadIA; cantidadOrigenPorDestino: MultiplicidadIA; rolOrigen: string | null; rolDestino: string | null }
+  | ComandoCrearRelacion
   | { tipo: "eliminar_relacion"; relacionId: string }
   | { tipo: "cambiar_multiplicidad"; relacionId: string; cantidadDestinoPorOrigen: MultiplicidadIA; cantidadOrigenPorDestino: MultiplicidadIA }

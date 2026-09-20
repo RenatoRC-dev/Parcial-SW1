@@ -138,9 +138,33 @@ export function ejecutarComandosUML(
       case "crear_relacion": {
         const id = generarId("relacion")
         registrarTemporal(comando.refTemporal, id)
+        if ("subclaseRef" in comando) {
+          modelo.relaciones.push({
+            id,
+            tipo: "generalizacion",
+            claseOrigenId: obtenerClase(comando.subclaseRef).id,
+            claseDestinoId: obtenerClase(comando.superclaseRef).id,
+            multiplicidadOrigen: null,
+            multiplicidadDestino: null,
+          })
+          break
+        }
+        if ("parteRef" in comando) {
+          modelo.relaciones.push({
+            id,
+            tipo: comando.tipoRelacion,
+            claseOrigenId: obtenerClase(comando.parteRef).id,
+            claseDestinoId: obtenerClase(comando.todoRef).id,
+            multiplicidadOrigen: comando.cantidadPartesPorTodo,
+            multiplicidadDestino: comando.cantidadTodosPorParte,
+            ...(comando.rolParte ? { rolOrigen: comando.rolParte } : {}),
+            ...(comando.rolTodo ? { rolDestino: comando.rolTodo } : {}),
+          })
+          break
+        }
         modelo.relaciones.push({
           id,
-          tipo: comando.tipoRelacion,
+          tipo: "asociacion",
           claseOrigenId: obtenerClase(comando.claseOrigenRef).id,
           claseDestinoId: obtenerClase(comando.claseDestinoRef).id,
           // La cantidad de destinos por un origen se anota en el extremo destino UML.

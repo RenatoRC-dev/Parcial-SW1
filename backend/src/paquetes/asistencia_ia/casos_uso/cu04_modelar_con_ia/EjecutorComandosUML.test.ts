@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import type { ComandoModeloUML, ModeloUMLCanonicoIA } from "../../compartido/contrato/ComandoModeloUML.js"
 import { ErrorPlanCambiosUML, ejecutarComandosUML } from "./EjecutorComandosUML.js"
-import { validarPlanCambiosUML } from "./validarPlanCambiosUML.js"
+import { esComandoModeloUML, validarPlanCambiosUML } from "./validarPlanCambiosUML.js"
 
 const modeloBase: ModeloUMLCanonicoIA = {
   id: "modelo",
@@ -64,6 +64,38 @@ describe("EjecutorComandosUML backend", () => {
     const sinRelaciones = { ...modeloBase, relaciones: [] }
     const resultado = ejecutarComandosUML(sinRelaciones, [{ tipo: "crear_relacion", refTemporal: "tmp_rel", claseOrigenRef: "cliente", claseDestinoRef: "pedido", tipoRelacion: "asociacion", cantidadDestinoPorOrigen: "0..*", cantidadOrigenPorDestino: "1", rolOrigen: null, rolDestino: null }], () => "relacion-nueva")
     expect(resultado.relaciones[0]).toMatchObject({ id: "relacion-nueva", claseOrigenId: "cliente", claseDestinoId: "pedido" })
+  })
+
+  it("crea los cuatro tipos con la misma convención canónica del editor manual", () => {
+    const clases = ["Persona", "Auto", "Equipo", "Jugador", "Pedido", "DetallePedido", "Cliente"].map((nombre, indice) => ({
+      id: nombre.toLowerCase(), nombre, abstracta: false, posicion: { x: indice * 100, y: 0 }, atributos: [],
+    }))
+    const base: ModeloUMLCanonicoIA = { id: "relaciones", nombre: "Relaciones", version: "4.2.0", clases, relaciones: [] }
+    let secuencia = 0
+    const comandos: ComandoModeloUML[] = [
+      { tipo: "crear_relacion", refTemporal: "tmp_asociacion", tipoRelacion: "asociacion", claseOrigenRef: "persona", claseDestinoRef: "auto", cantidadDestinoPorOrigen: null, cantidadOrigenPorDestino: null, rolOrigen: null, rolDestino: null },
+      { tipo: "crear_relacion", refTemporal: "tmp_agregacion", tipoRelacion: "agregacion", parteRef: "jugador", todoRef: "equipo", cantidadPartesPorTodo: null, cantidadTodosPorParte: null, rolParte: null, rolTodo: null },
+      { tipo: "crear_relacion", refTemporal: "tmp_composicion", tipoRelacion: "composicion", parteRef: "detallepedido", todoRef: "pedido", cantidadPartesPorTodo: null, cantidadTodosPorParte: null, rolParte: null, rolTodo: null },
+      { tipo: "crear_relacion", refTemporal: "tmp_generalizacion", tipoRelacion: "generalizacion", subclaseRef: "cliente", superclaseRef: "persona" },
+    ]
+    expect(comandos.every(esComandoModeloUML)).toBe(true)
+    const resultado = ejecutarComandosUML(base, comandos, (categoria) => `${categoria}-${++secuencia}`)
+
+    expect(resultado.relaciones).toEqual([
+      expect.objectContaining({ tipo: "asociacion", claseOrigenId: "persona", claseDestinoId: "auto", multiplicidadOrigen: null, multiplicidadDestino: null }),
+      expect.objectContaining({ tipo: "agregacion", claseOrigenId: "jugador", claseDestinoId: "equipo", multiplicidadOrigen: null, multiplicidadDestino: null }),
+      expect.objectContaining({ tipo: "composicion", claseOrigenId: "detallepedido", claseDestinoId: "pedido", multiplicidadOrigen: null, multiplicidadDestino: null }),
+      expect.objectContaining({ tipo: "generalizacion", claseOrigenId: "cliente", claseDestinoId: "persona", multiplicidadOrigen: null, multiplicidadDestino: null }),
+    ])
+  })
+
+  it("rechaza un comando Todo/Parte ambiguo en la frontera estructurada", () => {
+    expect(esComandoModeloUML({
+      tipo: "crear_relacion",
+      refTemporal: "tmp_ambigua",
+      tipoRelacion: "agregacion",
+      parteRef: "jugador",
+    })).toBe(false)
   })
 
   it.each([

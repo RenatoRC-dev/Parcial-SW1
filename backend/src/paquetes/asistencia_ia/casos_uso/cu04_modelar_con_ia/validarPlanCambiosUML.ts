@@ -25,6 +25,10 @@ function multiplicidad(valor: unknown): boolean {
   return cadena(valor) && MULTIPLICIDADES.has(valor)
 }
 
+function multiplicidadONull(valor: unknown): boolean {
+  return valor === null || multiplicidad(valor)
+}
+
 function visibilidadONull(valor: unknown): boolean {
   return valor === null || (cadena(valor) && VISIBILIDADES.has(valor))
 }
@@ -61,7 +65,14 @@ export function esComandoModeloUML(valor: unknown): valor is ComandoModeloUML {
     case "eliminar_parametro":
       return cadena(valor.parametroId)
     case "crear_relacion":
-      return cadena(valor.refTemporal) && cadena(valor.claseOrigenRef) && cadena(valor.claseDestinoRef) && valor.tipoRelacion === "asociacion" && multiplicidad(valor.cantidadDestinoPorOrigen) && multiplicidad(valor.cantidadOrigenPorDestino) && cadenaONull(valor.rolOrigen) && cadenaONull(valor.rolDestino)
+      if (!cadena(valor.refTemporal)) return false
+      if (valor.tipoRelacion === "asociacion") {
+        return cadena(valor.claseOrigenRef) && cadena(valor.claseDestinoRef) && multiplicidadONull(valor.cantidadDestinoPorOrigen) && multiplicidadONull(valor.cantidadOrigenPorDestino) && cadenaONull(valor.rolOrigen) && cadenaONull(valor.rolDestino)
+      }
+      if (valor.tipoRelacion === "agregacion" || valor.tipoRelacion === "composicion") {
+        return cadena(valor.parteRef) && cadena(valor.todoRef) && multiplicidadONull(valor.cantidadPartesPorTodo) && multiplicidadONull(valor.cantidadTodosPorParte) && cadenaONull(valor.rolParte) && cadenaONull(valor.rolTodo)
+      }
+      return valor.tipoRelacion === "generalizacion" && cadena(valor.subclaseRef) && cadena(valor.superclaseRef)
     case "eliminar_relacion":
       return cadena(valor.relacionId)
     case "cambiar_multiplicidad":

@@ -120,7 +120,15 @@ export function ejecutarComandosUML(
       case "crear_relacion": {
         const id = generarId("relacion")
         registrar(comando.refTemporal, id)
-        modelo.relaciones.push({ id, tipo: comando.tipoRelacion, claseOrigenId: clase(comando.claseOrigenRef).id, claseDestinoId: clase(comando.claseDestinoRef).id, multiplicidadOrigen: comando.cantidadOrigenPorDestino, multiplicidadDestino: comando.cantidadDestinoPorOrigen, ...(comando.rolOrigen ? { rolOrigen: comando.rolOrigen } : {}), ...(comando.rolDestino ? { rolDestino: comando.rolDestino } : {}) })
+        if ("subclaseRef" in comando) {
+          modelo.relaciones.push({ id, tipo: "generalizacion", claseOrigenId: clase(comando.subclaseRef).id, claseDestinoId: clase(comando.superclaseRef).id, multiplicidadOrigen: null, multiplicidadDestino: null })
+          break
+        }
+        if ("parteRef" in comando) {
+          modelo.relaciones.push({ id, tipo: comando.tipoRelacion, claseOrigenId: clase(comando.parteRef).id, claseDestinoId: clase(comando.todoRef).id, multiplicidadOrigen: comando.cantidadPartesPorTodo, multiplicidadDestino: comando.cantidadTodosPorParte, ...(comando.rolParte ? { rolOrigen: comando.rolParte } : {}), ...(comando.rolTodo ? { rolDestino: comando.rolTodo } : {}) })
+          break
+        }
+        modelo.relaciones.push({ id, tipo: "asociacion", claseOrigenId: clase(comando.claseOrigenRef).id, claseDestinoId: clase(comando.claseDestinoRef).id, multiplicidadOrigen: comando.cantidadOrigenPorDestino, multiplicidadDestino: comando.cantidadDestinoPorOrigen, ...(comando.rolOrigen ? { rolOrigen: comando.rolOrigen } : {}), ...(comando.rolDestino ? { rolDestino: comando.rolDestino } : {}) })
         break
       }
       case "eliminar_relacion":

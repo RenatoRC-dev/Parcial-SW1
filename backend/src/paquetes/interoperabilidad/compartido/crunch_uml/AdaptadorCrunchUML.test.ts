@@ -13,6 +13,7 @@ function leerBinario(respuesta: NodeJS.ReadableStream, callback: (error: Error |
 describe("AdaptadorCrunchUML", () => {
   it("preserva clases, atributos, asociación, multiplicidades, roles, ids y posiciones", async () => {
     const xmi = await exportarXmi(fixtureInteroperabilidad)
+    expect(xmi.toString("utf8")).not.toMatch(/isNavigable="true"/)
     const resultado = await importarXmi(xmi.toString("utf8"))
 
     expect(resultado.modelo.id).toBe(fixtureInteroperabilidad.id)
@@ -53,6 +54,88 @@ describe("AdaptadorCrunchUML", () => {
     const resultado = await importarXmi((await exportarXmi(independiente)).toString("utf8"))
     expect(resultado.modelo.clases).toHaveLength(1)
     expect(resultado.modelo.clases[0]).toMatchObject({ id: "EAID_CLIENTE", nombre: "Cliente" })
+  }, 30_000)
+
+  it("conserva atributos sin tipo y emite una sola advertencia resumida", async () => {
+    const incompleto = {
+      ...fixtureInteroperabilidad,
+      clases: [{ ...fixtureInteroperabilidad.clases[0], atributos: [
+        { id: "EAID_CLIENTE_NOMBRE", nombre: "nombre", tipo: null },
+        { id: "EAID_CLIENTE_EMAIL", nombre: "email", tipo: null },
+      ] }],
+      relaciones: [],
+    }
+    const resultado = await importarXmi((await exportarXmi(incompleto)).toString("utf8"))
+
+    expect(resultado.modelo.clases[0].atributos).toEqual(expect.arrayContaining([
+      expect.objectContaining({ nombre: "nombre", tipo: null }),
+      expect.objectContaining({ nombre: "email", tipo: null }),
+    ]))
+    expect(resultado.advertencias.filter((item) => item.codigo === "ATRIBUTOS_SIN_TIPO")).toEqual([
+      expect.objectContaining({ mensaje: expect.stringContaining("2 atributos sin tipo definido") }),
+    ])
+    expect(resultado.advertencias.map((item) => item.mensaje).join(" ")).not.toContain("EAID_")
+  }, 30_000)
+
+  it.each([
+    ["shared", "agregacion"],
+    ["composite", "composicion"],
+  ] as const)("importa aggregation=%s con el Todo en destino canónico", async (aggregation, tipo) => {
+    const exportado = (await exportarXmi(fixtureInteroperabilidad)).toString("utf8")
+    const xmiTodoCliente = exportado.replace(
+      'association="EAID_CLIENTE_PEDIDOS">',
+      `association="EAID_CLIENTE_PEDIDOS" aggregation="${aggregation}">`,
+    )
+    const resultado = await importarXmi(xmiTodoCliente)
+
+    expect(resultado.modelo.relaciones).toEqual([
+      expect.objectContaining({
+        tipo,
+        claseOrigenId: "EAID_PEDIDO",
+        claseDestinoId: "EAID_CLIENTE",
+        multiplicidadOrigen: "0..*",
+        multiplicidadDestino: "1",
+        rolOrigen: "pedidos",
+        rolDestino: "cliente",
+      }),
+    ])
+  }, 30_000)
+
+  it("conserva una generalización UML aunque CU09 no pueda generarla", async () => {
+    const exportado = (await exportarXmi({ ...fixtureInteroperabilidad, relaciones: [] })).toString("utf8")
+    const conGeneralizacion = exportado.replace(
+      "</packagedElement>",
+      '<generalization xmi:type="uml:Generalization" xmi:id="GEN_CLIENTE_PEDIDO" general="EAID_PEDIDO"/></packagedElement>',
+    )
+    const resultado = await importarXmi(conGeneralizacion)
+
+    expect(resultado.modelo.relaciones).toContainEqual(expect.objectContaining({
+      id: "GEN_CLIENTE_PEDIDO",
+      tipo: "generalizacion",
+      claseOrigenId: "EAID_CLIENTE",
+      claseDestinoId: "EAID_PEDIDO",
+    }))
+  }, 30_000)
+
+  it("preserva la abstracción declarada por una clase EA", async () => {
+    const exportado = (await exportarXmi({ ...fixtureInteroperabilidad, relaciones: [] })).toString("utf8")
+    const abstracto = exportado.replace(
+      'xmi:id="EAID_CLIENTE" name="Cliente" visibility="public"',
+      'xmi:id="EAID_CLIENTE" name="Cliente" visibility="public" isAbstract="true"',
+    )
+    const resultado = await importarXmi(abstracto)
+
+    expect(resultado.modelo.clases.find((clase) => clase.id === "EAID_CLIENTE")?.abstracta).toBe(true)
+  }, 30_000)
+
+  it("rechaza como corrupción estructural una relación hacia una clase inexistente", async () => {
+    const exportado = (await exportarXmi(fixtureInteroperabilidad)).toString("utf8")
+    const corrupto = exportado.replace(
+      '<type xmi:idref="EAID_PEDIDO"/>',
+      '<type xmi:idref="EAID_INEXISTENTE"/>',
+    )
+
+    await expect(importarXmi(corrupto)).rejects.toMatchObject({ tipo: "entrada" })
   }, 30_000)
 
   it("advierte y omite una enumeración fuera del perfil", async () => {

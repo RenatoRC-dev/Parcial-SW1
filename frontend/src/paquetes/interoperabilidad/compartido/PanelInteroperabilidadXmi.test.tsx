@@ -32,9 +32,26 @@ describe("PanelInteroperabilidadXmi", () => {
     vi.spyOn(window, "confirm").mockReturnValue(false)
     const alImportar = vi.fn()
     render(<PanelInteroperabilidadXmi modelo={modelo} alImportar={alImportar} />)
-    const archivo = new File(["<xml/>"] , "modelo.xmi", { type: "application/xml" })
+    const archivo = { name: "modelo.xmi", type: "application/xml", text: async () => "<xml/>" } as File
     fireEvent.change(screen.getByTestId("selector-xmi"), { target: { files: [archivo] } })
     expect(alImportar).not.toHaveBeenCalled()
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("presenta una advertencia agregada sin ids técnicos", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true)
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        modelo,
+        advertencias: [{ codigo: "ATRIBUTOS_SIN_TIPO", mensaje: "315 atributos sin tipo definido. Se conservaron como incompletos para su edición." }],
+      }),
+    }))
+    render(<PanelInteroperabilidadXmi modelo={modelo} alImportar={vi.fn()} />)
+    const archivo = { name: "modelo.xmi", type: "application/xml", text: async () => "<xml/>" } as File
+    fireEvent.change(screen.getByTestId("selector-xmi"), { target: { files: [archivo] } })
+
+    await waitFor(() => expect(screen.getByText(/315 atributos sin tipo definido/)).toBeVisible())
+    expect(screen.queryByText(/EAID_/)).toBeNull()
   })
 })

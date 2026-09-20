@@ -159,6 +159,18 @@ The only additive semantic field is the optional association name `RelacionUML.n
 
 Imported unsupported attribute types remain visible and preserved. Manual restrictions do not rewrite or delete imported semantics. The shared XMI-facing TypeScript contract tolerates the canonical method field, but the bridge mapping and endpoints remain unchanged and do not claim operation round-trip support.
 
+### Conceptual-model import stabilization
+
+Real Enterprise Architect import evidence led to a focused usability correction. Structurally valid/editable UML is now distinct from completeness and Spring readiness: attributes without a visible EA type keep `tipo = null`, CU08 emits one summarized warning using references such as `Clase.atributo`, and CU09 reports missing or unsupported generation types separately. Representable associations, aggregation, composition and generalization remain in the canonical editable model even when the current generator says **No apto**. Relationship properties use a bounded summary list and expand only the selected relationship. Existing EA diagram coordinates continue to come from `DiagramClass`; deterministic fallback positions are used only when the XMI has no usable geometry.
+
+### Relationship direction semantic stabilization
+
+SW1 now has one explicit convention for every input channel. A canonical association is non-navigable; `claseOrigenId` and `claseDestinoId` identify its two ends without inventing an arrow. For aggregation and composition, origin is the **Part** and destination is the **Whole**. For generalization, origin is the **Subclass** and destination is the **Superclass**. This matches the verified Apollon 5.3.0 renderer, which places the hollow/filled diamond and hollow triangle at `markerEnd` (the target end). `ClassUnidirectional`, Apollon's default new class edge, is normalized through the public model to `ClassBidirectional`, because the canonical model has no navigability semantics.
+
+The guided editor asks for Whole/Part or Subclass/Superclass instead of exposing source/target as the business decision. Generalization has no multiplicity controls. Multiplicity meanings remain association-end meanings and were not inverted by this correction. Focused fixtures verify: `Persona — Auto` as a plain association; `Jugador → Equipo` with the aggregation diamond beside Equipo; `DetallePedido → Pedido` with the composition diamond beside Pedido; and `Cliente → Persona` with the generalization triangle pointing to Persona.
+
+XMI import normalizes an aggregation/composition end marked `shared`/`composite` so the discovered Whole becomes the canonical destination, swapping its paired role and multiplicity only when the source XML uses the opposite orientation. Generalization already enters as subclass to superclass. Plain association export does not invent `isNavigable=true`. This internal bridge evidence does not close the real Enterprise Architect gate `EA-XMI-001`.
+
 ## 15. Persistence compatibility
 
 Project schema and explicit-save behavior are unchanged. Saved canonical name/type/visibility and multiplicities were verified after reopening. UI preferences remain in local storage only and require no project migration.
@@ -167,7 +179,9 @@ Project schema and explicit-save behavior are unchanged. Saved canonical name/ty
 
 Text and voice now share the expanded strict CU04 command vocabulary and assisted semantic normalizer. Deterministic tests and browser scenarios verify PascalCase class resolution, supported type casing, explicit `id: Long`, and method/parameter operations through the existing application path. The historical real-provider gate remains closed based on its prior connectivity/structured-output evidence; this stabilization does not claim that the newly added method commands were separately exercised against real Groq.
 
-CU05 provider behavior remains unchanged. Candidate/confirmation tests verify explicit-ID compatibility without inventing or repairing visual semantics.
+CU04 relationship commands now have parity with the canonical/manual relationship vocabulary. Association uses two non-navigable ends and permits unknown multiplicities as `null`; aggregation/composition use explicit `parteRef` and `todoRef`; generalization uses explicit `subclaseRef` and `superclaseRef` and cannot carry multiplicities. Ambiguous Whole/Part or Subclass/Superclass instructions must return `aclarar` with zero commands, so the existing atomic plan validation produces no mutation. Voice inherits these rules through the existing transcript-to-CU04 pipeline, without voice-specific relationship logic. These new relationship variants are verified deterministically and are not claimed as a new real-Groq acceptance execution.
+
+CU05 provider behavior remains unchanged. Its visual-input profile deliberately remains limited to classes, attributes and associations; it does not infer aggregation, composition or generalization from images in this correction. Candidate/confirmation tests verify explicit-ID compatibility without inventing or repairing visual semantics.
 
 ## 17. Collaboration compatibility
 

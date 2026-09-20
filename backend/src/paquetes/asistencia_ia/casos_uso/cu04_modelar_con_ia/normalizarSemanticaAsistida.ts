@@ -72,7 +72,13 @@ export function normalizarComandosAsistidos(
       case "modificar_parametro":
         return { ...comando, nuevoTipo: comando.nuevoTipo === null ? null : normalizarTipoAsistido(comando.nuevoTipo) }
       case "crear_relacion":
-        return { ...comando, claseOrigenRef: resolverClase(modelo, comando.claseOrigenRef), claseDestinoRef: resolverClase(modelo, comando.claseDestinoRef) }
+        if ("claseOrigenRef" in comando) {
+          return { ...comando, claseOrigenRef: resolverClase(modelo, comando.claseOrigenRef), claseDestinoRef: resolverClase(modelo, comando.claseDestinoRef) }
+        }
+        if ("parteRef" in comando) {
+          return { ...comando, parteRef: resolverClase(modelo, comando.parteRef), todoRef: resolverClase(modelo, comando.todoRef) }
+        }
+        return { ...comando, subclaseRef: resolverClase(modelo, comando.subclaseRef), superclaseRef: resolverClase(modelo, comando.superclaseRef) }
       default:
         return comando
     }

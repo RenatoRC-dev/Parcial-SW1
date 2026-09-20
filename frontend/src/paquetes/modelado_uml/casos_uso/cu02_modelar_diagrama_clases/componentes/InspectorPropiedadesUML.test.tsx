@@ -279,8 +279,49 @@ describe("InspectorPropiedadesUML compacto", () => {
     expect(aplicar.mock.calls[0][0].relaciones[0]).toMatchObject({ nombre: "tiene", tipo: "asociacion", claseOrigenId: "factura", claseDestinoId: "cliente", multiplicidadOrigen: "1", multiplicidadDestino: "0..*", rolOrigen: "pedidos" })
   })
 
+  it.each(["agregacion", "composicion"] as const)("crea %s con Parte en origen y Todo en destino", (tipo) => {
+    const aplicar = renderizar()
+    fireEvent.click(screen.getByRole("button", { name: "+ Nueva relación" }))
+    const grupo = screen.getByRole("group", { name: "Nueva relación" })
+    fireEvent.change(within(grupo).getByLabelText("Tipo de relación"), { target: { value: tipo } })
+    fireEvent.change(within(grupo).getByLabelText("Todo"), { target: { value: "factura" } })
+    fireEvent.change(within(grupo).getByLabelText("Parte"), { target: { value: "cliente" } })
+    fireEvent.change(within(grupo).getByLabelText("Para una Cliente, ¿cuántos Factura puede haber?"), { target: { value: "1" } })
+    fireEvent.change(within(grupo).getByLabelText("Para un Factura, ¿cuántas Cliente puede haber?"), { target: { value: "0..*" } })
+    fireEvent.click(within(grupo).getByRole("button", { name: "Crear relación" }))
+
+    expect(aplicar.mock.calls[0][0].relaciones[0]).toMatchObject({
+      tipo,
+      claseOrigenId: "cliente",
+      claseDestinoId: "factura",
+      multiplicidadOrigen: "0..*",
+      multiplicidadDestino: "1",
+    })
+  })
+
+  it("crea una generalización de Subclase a Superclase sin multiplicidades", () => {
+    const aplicar = renderizar()
+    fireEvent.click(screen.getByRole("button", { name: "+ Nueva relación" }))
+    const grupo = screen.getByRole("group", { name: "Nueva relación" })
+    fireEvent.change(within(grupo).getByLabelText("Tipo de relación"), { target: { value: "generalizacion" } })
+    fireEvent.change(within(grupo).getByLabelText("Subclase"), { target: { value: "factura" } })
+    fireEvent.change(within(grupo).getByLabelText("Superclase"), { target: { value: "cliente" } })
+    expect(within(grupo).queryByText(/¿cuántos/)).toBeNull()
+    fireEvent.click(within(grupo).getByRole("button", { name: "Crear relación" }))
+
+    expect(aplicar.mock.calls[0][0].relaciones[0]).toMatchObject({
+      tipo: "generalizacion",
+      claseOrigenId: "factura",
+      claseDestinoId: "cliente",
+      multiplicidadOrigen: null,
+      multiplicidadDestino: null,
+    })
+  })
+
   it("edita tipo, multiplicidad y rol sin botón Actualizar y elimina la relación", () => {
     const aplicar = renderizar(modeloConRelacion)
+    expect(screen.queryByRole("group", { name: "Relación Factura → Cliente" })).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Factura → Cliente" }))
     const grupo = screen.getByRole("group", { name: "Relación Factura → Cliente" })
     expect(within(grupo).queryByRole("button", { name: /Actualizar relación/ })).toBeNull()
     fireEvent.change(within(grupo).getByLabelText("Tipo de relación"), { target: { value: "agregacion" } })
@@ -332,6 +373,18 @@ describe("InspectorPropiedadesUML compacto", () => {
 
     expect(screen.getByText("Relación seleccionada")).toBeVisible()
     expect(screen.getByRole("group", { name: /Relación Factura/ })).toBeVisible()
+  })
+
+  it("resume muchas relaciones y expande sólo la elegida", () => {
+    const relaciones = Array.from({ length: 12 }, (_, indice) => ({
+      ...modeloConRelacion.relaciones[0], id: `r-${indice}`,
+    }))
+    renderizar({ ...modeloConRelacion, relaciones })
+
+    expect(screen.getByText("12 relaciones; selecciona una para editarla")).toBeVisible()
+    expect(screen.queryAllByRole("group", { name: /Relación Factura/ })).toHaveLength(0)
+    fireEvent.click(screen.getAllByRole("button", { name: "Factura → Cliente" })[4])
+    expect(screen.getAllByRole("group", { name: /Relación Factura/ })).toHaveLength(1)
   })
 
   it("traduce las nuevas acciones compactas sin cambiar los valores canónicos", () => {

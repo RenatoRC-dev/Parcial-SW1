@@ -47,7 +47,7 @@ Application functionality follows the mandatory hierarchy `paquetes/<paquete>/ca
 
 - The compact SW1 UML inspector creates classes and edits properties with guided selectors for attribute type, visibility and relationship multiplicity, without exposing Apollon's unrestricted property popup.
 - New attributes use separate controls for name, the authoritative CU08-supported type list, and visibility; private (`-`) is the default.
-- Relationships are real selectable Apollon edges with canonical type and endpoint multiplicity selectors (`1`, `0..1`, `0..*`, `1..*`); association names and endpoint roles are separate optional semantics.
+- Relationships are real selectable Apollon edges with canonical type and endpoint multiplicity selectors (`1`, `0..1`, `0..*`, `1..*`); association names and endpoint roles are separate optional semantics. Associations are non-navigable plain lines; aggregation/composition use `Part → Whole` so the diamond is beside the Whole, and generalization uses `Subclass → Superclass` so the triangle points to the Superclass.
 - The model accepts valid many-to-many UML multiplicities, but the current Spring profile still rejects them with controlled readiness feedback; no association class or `@ManyToMany` is invented.
 - A conventional explicit `id: Long` is a normal canonical attribute. The generator reuses it as its single generated JPA identity; when absent, the existing implicit `Long id` fallback remains.
 - The full UML modeling profile includes operations with public/private visibility, controlled return types and typed parameters. They are persisted, rendered in Apollon and synchronized collaboratively.
@@ -66,9 +66,10 @@ The concise frontend/backend capability contract is documented in [`docs/generat
 Current interoperability profile:
 
 - XMI 2.1 import/export through the isolated local `crunch_uml` bridge.
-- Supported: independent classes, scalar attributes, stable element IDs, positions when available, and association `1 ↔ 0..*` in both orientations with endpoint roles.
-- Explicitly deferred: attribute visibility, abstract classes, enumerations, generalization, aggregation, composition, 1:1, N:M, methods, and nested-package semantics.
-- Real Enterprise Architect acceptance: pending because EA is not available in the current environment.
+- Import preserves classes, scalar attributes (including `tipo = null` when EA provides no type), stable element IDs, abstract classes, positions when available, canonical association multiplicities, endpoint roles, aggregation, composition, and generalization. Incomplete attributes remain editable and are reported with one summarized warning.
+- Export remains intentionally narrower: the verified round-trip profile is independent classes, scalar typed attributes and association `1 ↔ 0..*` with endpoint roles.
+- Attribute visibility, enumerations, methods, arbitrary multiplicity bounds outside the canonical vocabulary, nested-package semantics, and style fidelity remain deferred.
+- A real EA-produced model has been imported successfully; complete bidirectional Enterprise Architect acceptance remains pending.
 
 ## Open acceptance gates
 
@@ -105,7 +106,7 @@ Implemented and internally verified:
 - Assisted attributes reuse the controlled UML type profile, default to private visibility when it is omitted, and accept the conventional explicit identity `id: Long`; a different type for `id` is rejected without mutation.
 - Text and voice commands can create, modify and delete method signatures and their parameters. Methods default to public and `void`; method bodies remain outside the modeled semantics.
 - Propagation of applied changes through the existing Apollon/Yjs collaboration path.
-- Relationship instructions use business-readable counts and are translated to UML association-end multiplicities; for example, one `Persona` with zero/many `Auto` instances is stored and rendered as `Persona 1 — 0..* Auto`.
+- Relationship instructions support association, aggregation, composition and generalization through the same canonical conventions as the manual editor. Whole/Part and Subclass/Superclass are explicit structured fields; association cardinalities remain business-readable counts translated to UML association ends.
 
 Real Groq acceptance passed and [`GROQ-AI-001`](docs/quality/PENDING_ACCEPTANCE_GATES.md) is closed. The backend proof confirmed strict structured output and semantic validation with `openai/gpt-oss-20b`; the browser E2E remains separate and uses the deterministic provider. Configure `GROQ_API_KEY` only in the backend environment, optionally set `GROQ_MODEL`, and never expose either through `VITE_*` variables.
 
@@ -137,7 +138,7 @@ Streaming speech, continuous listening, wake words, audio history, language-sele
 - CU05 accepts one PNG or JPEG image per request, with a 10 MB application limit and MIME plus signature validation.
 - Groq vision runs only in the backend; image bytes are processed in memory and are not stored permanently.
 - Default vision model: `qwen/qwen3.8-27b`, with a conservative `max_tokens: 512` required by the verified account/tier behavior; `GROQ_VISION_MODEL` can override the model explicitly.
-- Analysis produces a semantic candidate containing visible classes, attributes and supported associations. It does not mutate the active diagram.
+- Analysis produces a semantic candidate containing visible classes, attributes and supported associations. CU05 deliberately remains a reduced visual-input profile: this CU04 relationship expansion does not add visual extraction of aggregation, composition or generalization. Analysis does not mutate the active diagram.
 - A visible `id: Long` remains importable as explicit identity; another visible type for `id` is preserved honestly and rejected during canonical validation rather than silently repaired.
 - All detected attributes remain visible in the preview. Missing or CU08-unsupported types are marked as non-importable and omitted on confirmation without inventing a replacement type.
 - The user reviews the candidate and must explicitly select **Agregar al diagrama**. **Cancelar** performs no mutation.

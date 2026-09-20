@@ -35,6 +35,26 @@ describe("EjecutorComandosUML frontend", () => {
     expect(resultado.relaciones).toEqual(modelo.relaciones)
   })
 
+  it("materializa asociación, agregación, composición y generalización con los extremos canónicos", () => {
+    const clases = ["Persona", "Auto", "Equipo", "Jugador", "Pedido", "DetallePedido", "Cliente"].map((nombre, indice) => ({
+      id: nombre.toLowerCase(), nombre, abstracta: false, posicion: { x: indice * 100, y: 0 }, atributos: [],
+    }))
+    const base: ModeloUMLCanonico = { id: "relaciones", nombre: "Relaciones", version: "4.2.0", clases, relaciones: [] }
+    const resultado = ejecutarComandosUML(base, [
+      { tipo: "crear_relacion", refTemporal: "tmp_asociacion", tipoRelacion: "asociacion", claseOrigenRef: "persona", claseDestinoRef: "auto", cantidadDestinoPorOrigen: null, cantidadOrigenPorDestino: null, rolOrigen: null, rolDestino: null },
+      { tipo: "crear_relacion", refTemporal: "tmp_agregacion", tipoRelacion: "agregacion", parteRef: "jugador", todoRef: "equipo", cantidadPartesPorTodo: null, cantidadTodosPorParte: null, rolParte: null, rolTodo: null },
+      { tipo: "crear_relacion", refTemporal: "tmp_composicion", tipoRelacion: "composicion", parteRef: "detallepedido", todoRef: "pedido", cantidadPartesPorTodo: null, cantidadTodosPorParte: null, rolParte: null, rolTodo: null },
+      { tipo: "crear_relacion", refTemporal: "tmp_generalizacion", tipoRelacion: "generalizacion", subclaseRef: "cliente", superclaseRef: "persona" },
+    ], generador())
+
+    expect(resultado.relaciones).toEqual([
+      expect.objectContaining({ tipo: "asociacion", claseOrigenId: "persona", claseDestinoId: "auto", multiplicidadOrigen: null, multiplicidadDestino: null }),
+      expect.objectContaining({ tipo: "agregacion", claseOrigenId: "jugador", claseDestinoId: "equipo" }),
+      expect.objectContaining({ tipo: "composicion", claseOrigenId: "detallepedido", claseDestinoId: "pedido" }),
+      expect.objectContaining({ tipo: "generalizacion", claseOrigenId: "cliente", claseDestinoId: "persona", multiplicidadOrigen: null, multiplicidadDestino: null }),
+    ])
+  })
+
   it("elimina relaciones colgantes al eliminar una clase", () => {
     const resultado = ejecutarComandosUML(modelo, [{ tipo: "eliminar_clase", claseId: "cliente" }], generador())
     expect(resultado.relaciones).toEqual([])

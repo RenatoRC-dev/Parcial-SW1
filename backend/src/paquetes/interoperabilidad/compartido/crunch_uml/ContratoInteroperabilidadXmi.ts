@@ -28,7 +28,9 @@ export interface ClaseIntercambio {
 export interface RelacionIntercambio {
   id: string
   tipo: "asociacion" | "agregacion" | "composicion" | "generalizacion"
+  /** Parte en agregacion/composicion; subclase en generalizacion. */
   claseOrigenId: string
+  /** Todo en agregacion/composicion; superclase en generalizacion. */
   claseDestinoId: string
   multiplicidadOrigen: MultiplicidadIntercambio
   multiplicidadDestino: MultiplicidadIntercambio

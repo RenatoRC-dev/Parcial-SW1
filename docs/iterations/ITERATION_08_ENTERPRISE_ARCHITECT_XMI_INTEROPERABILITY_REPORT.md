@@ -27,17 +27,20 @@ The professor requires class-model exchange with Enterprise Architect through XM
 ## 5. Supported Interoperability Profile
 
 - UML classes, names, and stable element IDs.
-- Scalar attribute names and types.
+- Scalar attribute names and types; an absent EA type is preserved as canonical `null`.
 - Independent classes.
-- Association exactly `1 ↔ 0..*`, in either orientation.
+- Import of associations with canonical multiplicities `1`, `0..1`, `0..*`, `1..*` or an incomplete end when the EA bound cannot be represented safely.
+- Import of aggregation, composition and generalization without pretending they are Spring-generable.
 - Endpoint roles when present.
+- Abstract class state declared in XMI.
 - Class positions from real diagram geometry when available; otherwise deterministic positions.
+- Export remains limited to the previously verified `1 ↔ 0..*` association profile.
 
 The imported canonical `version` is the application/editor model version `4.2.0`; it is not labeled as a UML or XMI version. The exchange file rendered by the current `crunch_uml` version declares XMI 2.1 and UML 2.1 namespaces; no UML 2.5 compatibility is claimed.
 
 ## 6. Explicitly Unsupported Semantics
 
-Attribute visibility, abstract classes, methods, enumerations, generalization, aggregation, composition, 1:1, N:M, `1..*`, nested packages, arbitrary stereotypes, notes, and style fidelity are outside this iteration. Import reports omissions; export rejects unsupported canonical semantics rather than silently truncating them.
+Attribute visibility, methods, enumerations, arbitrary multiplicity bounds outside the canonical vocabulary, nested packages, arbitrary stereotypes, notes, and style fidelity remain outside the verified exchange profile. The broader import support does not broaden export or Spring generation: export continues to reject unsupported canonical semantics rather than silently truncating them, and CU09 reports its own readiness limits.
 
 ## 7. crunch_uml Source Findings
 
@@ -201,26 +204,32 @@ No tracked source modification was detected in the read-only `crunch_uml` or Apo
 | Browser import | PASS |
 | Browser export | PASS |
 | Real EA imports our XMI | BLOCKED |
-| Tool imports real EA XMI | BLOCKED |
+| Tool imports real EA XMI | PASS — real EA model loaded (approximately 37 classes, 315 attributes and 37 relationships) |
 
 ## 27. Risks / Technical Debt
 
 - Full interoperability remains unaccepted until a real EA test passes both directions.
 - This external acceptance remains traceable as [`EA-XMI-001`](../quality/PENDING_ACCEPTANCE_GATES.md); it may only be closed with real Enterprise Architect evidence.
 - The bridge depends on the read-only sibling repository and an ignored Python environment.
-- Abstraction and attribute visibility are excluded because verified crunch models do not preserve them reliably.
+- Attribute visibility remains excluded because the verified crunch model does not preserve it reliably.
 - Only the first imported diagram contributes positions.
+
+### Post-iteration import stabilization
+
+A real EA-produced conceptual model exposed a distinction that the original profile blurred. CU08 now treats absent attribute types as one summarized completeness warning and preserves each `tipo = null`; CU09 alone rejects missing or unsupported types for Spring generation. Import no longer discards representable association multiplicities, aggregation, composition, generalization, or abstraction merely because the generator cannot consume them. Warning text uses semantic class/attribute names rather than raw `EAID_*` identifiers. The property inspector lists relationships compactly and opens one editor on demand, avoiding dozens of permanently expanded forms.
+
+The real EA import is evidence for the EA → SW1 direction only. `EA-XMI-001` remains open until the documented SW1 → EA direction and complete bidirectional semantic checks also pass.
 
 ## 28. Deviations
 
-Automated and browser paths are complete, but real Enterprise Architect acceptance could not execute because EA is unavailable. The iteration therefore cannot be marked PASS.
+Automated and browser paths are complete, and an EA-produced conceptual model has now been imported. The reverse SW1 → EA acceptance direction and the complete bidirectional semantic checklist have not yet been recorded, so the iteration cannot be marked PASS.
 
 ## 29. Recommended Next Iteration
 
-Before another product feature, execute both documented real EA acceptance directions and make only evidence-driven compatibility corrections if needed. Do not broaden the XMI profile at the same time.
+Complete the remaining SW1 → EA acceptance direction and record the full bidirectional semantic checklist. Make only evidence-driven compatibility corrections if needed.
 
 ## 30. Final Status
 
 **PARTIAL — REAL ENTERPRISE ARCHITECT ROUND-TRIP PENDING**
 
-Conditions 1–27 are internally verified. Conditions 28–29 remain blocked by the absence of a real Enterprise Architect installation and EA-produced fixture.
+Internal automation and the EA → SW1 import direction are verified. The SW1 → EA direction and final bidirectional acceptance evidence remain pending under `EA-XMI-001`.

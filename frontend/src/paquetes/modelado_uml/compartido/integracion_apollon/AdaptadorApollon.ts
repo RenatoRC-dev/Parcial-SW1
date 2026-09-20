@@ -303,6 +303,26 @@ export function convertirAModeloCanonico(
   return convertirAModeloCanonicoConAdvertencias(modeloApollon).modelo
 }
 
+/**
+ * El modelo canonico no representa navegabilidad. Una asociacion creada por
+ * Apollon como unidireccional se normaliza a la arista publica sin flecha para
+ * que el lienzo no conserve una semantica que SW1 no puede almacenar.
+ */
+export function normalizarAsociacionesSinNavegabilidad(modeloApollon: UMLModel): UMLModel {
+  if (!modeloApollon.edges.some((arista) => arista.type === "ClassUnidirectional")) {
+    return modeloApollon
+  }
+
+  return {
+    ...modeloApollon,
+    edges: modeloApollon.edges.map((arista) =>
+      arista.type === "ClassUnidirectional"
+        ? { ...arista, type: "ClassBidirectional" }
+        : arista
+    ),
+  }
+}
+
 function notacionAtributo(atributo: AtributoUML): string {
   const visibilidad = atributo.visibilidad === "privada" ? "- " : atributo.visibilidad === "publica" ? "+ " : ""
   const tipo = atributo.tipo?.trim()

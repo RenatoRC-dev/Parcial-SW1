@@ -39,7 +39,7 @@ def extremos(valor):
 
 def importar(entrada: Path, salida: Path):
     from lxml import etree
-    from crunch_uml import db
+    from crunch_uml import const, db
     import crunch_uml.schema as sch
     from crunch_uml.parsers.eaxmiparser import EAXMIParser
 
@@ -60,39 +60,51 @@ def importar(entrada: Path, salida: Path):
 
     advertencias = []
     ns_xmi = "{http://schema.omg.org/spec/XMI/2.1}"
-    asociaciones_no_soportadas = set()
+    tipos_asociacion = {}
+    todos_asociacion = {}
+    clases_abstractas = set()
     visibilidad_omitida = False
     for elemento in raiz.iter():
+        nombre_local = etree.QName(elemento).localname if isinstance(elemento.tag, str) else ""
         if elemento.get("isAbstract") == "true":
-            advertencias.append({
-                "codigo": "CLASE_ABSTRACTA_NO_SOPORTADA",
-                "mensaje": "La abstracción de clase no se importa porque crunch_uml no la conserva en su modelo interno.",
-                "elementoId": elemento.get(ns_xmi + "id"),
-            })
+            clase_id = elemento.get(ns_xmi + "id")
+            if clase_id:
+                clases_abstractas.add(clase_id)
         if elemento.tag == "ownedAttribute" and elemento.get("association") is None and elemento.get("visibility"):
             visibilidad_omitida = True
         if elemento.get("association") and elemento.get("aggregation") in ("shared", "composite"):
             asociacion_id = elemento.get("association")
             if asociacion_id:
-                asociaciones_no_soportadas.add(asociacion_id)
+                tipo = "composicion" if elemento.get("aggregation") == "composite" else "agregacion"
+                if tipos_asociacion.get(asociacion_id) != "composicion":
+                    tipos_asociacion[asociacion_id] = tipo
+                tipo_extremo = next(
+                    (hijo for hijo in elemento if etree.QName(hijo).localname == "type"),
+                    None,
+                )
+                if tipo_extremo is not None and tipo_extremo.get(ns_xmi + "idref"):
+                    todos_asociacion[asociacion_id] = tipo_extremo.get(ns_xmi + "idref")
+        # EA tambien puede declarar aggregation dentro de la extension del
+        # conector. El idref del contenedor identifica la clase del extremo Todo.
+        if nombre_local == "type" and elemento.get("aggregation") in ("shared", "composite"):
+            extremo = elemento.getparent()
+            conector = extremo.getparent() if extremo is not None else None
+            asociacion_id = conector.get(ns_xmi + "idref") if conector is not None else None
+            todo_id = extremo.get(ns_xmi + "idref") if extremo is not None else None
+            if asociacion_id:
+                tipo = "composicion" if elemento.get("aggregation") == "composite" else "agregacion"
+                if tipos_asociacion.get(asociacion_id) != "composicion":
+                    tipos_asociacion[asociacion_id] = tipo
+                if todo_id:
+                    todos_asociacion[asociacion_id] = todo_id
 
     if visibilidad_omitida:
         advertencias.append({
             "codigo": "VISIBILIDAD_ATRIBUTO_OMITIDA",
             "mensaje": "La visibilidad de atributos no se conserva porque no forma parte del perfil comprobado.",
         })
-    for asociacion_id in sorted(asociaciones_no_soportadas):
-        advertencias.append({
-            "codigo": "TIPO_RELACION_NO_SOPORTADO",
-            "mensaje": "La agregación o composición se omitió; no se reinterpreta como asociación.",
-            "elementoId": asociacion_id,
-        })
-
     if schema.count_enumeratie() > 0:
         advertencias.append({"codigo": "ENUMERACION_OMITIDA", "mensaje": "Las enumeraciones están fuera del perfil XMI soportado."})
-    if schema.count_generalizations() > 0:
-        advertencias.append({"codigo": "GENERALIZACION_OMITIDA", "mensaje": "Las generalizaciones están fuera del perfil XMI soportado."})
-
     paquetes = sorted(schema.get_all_packages(), key=lambda item: item.id)
     identificador = paquetes[0].id if paquetes else "modelo-xmi-" + hashlib.sha256(entrada.read_bytes()).hexdigest()[:16]
     nombre = paquetes[0].name if paquetes and paquetes[0].name else "Modelo importado"
@@ -108,7 +120,7 @@ def importar(entrada: Path, salida: Path):
     clases = []
     ids_clases = set()
     for indice, clase in enumerate(sorted(schema.get_all_classes(), key=lambda item: item.id)):
-        if clase.name == "ORPHAN_CLASS":
+        if clase.name == const.ORPHAN_CLASS:
             continue
         ids_clases.add(clase.id)
         posicion = posiciones.get(clase.id, {"x": 100 + (indice % 3) * 350, "y": 100 + (indice // 3) * 250})
@@ -123,36 +135,67 @@ def importar(entrada: Path, salida: Path):
             "nombre": clase.name or "",
             "atributos": atributos,
             "posicion": posicion,
-            "abstracta": False,
+            "abstracta": clase.id in clases_abstractas,
+        })
+
+    atributos_sin_tipo = [
+        f'{clase["nombre"]}.{atributo["nombre"]}'
+        for clase in clases for atributo in clase["atributos"] if atributo["tipo"] is None
+    ]
+    if atributos_sin_tipo:
+        advertencias.append({
+            "codigo": "ATRIBUTOS_SIN_TIPO",
+            "mensaje": f"{len(atributos_sin_tipo)} atributos sin tipo definido. Se conservaron como incompletos para su edición.",
         })
 
     relaciones = []
     for asociacion in sorted(schema.get_all_associations(), key=lambda item: item.id):
-        if asociacion.id in asociaciones_no_soportadas:
-            continue
         origen = multiplicidad(asociacion.src_mult_start, asociacion.src_mult_end)
         destino = multiplicidad(asociacion.dst_mult_start, asociacion.dst_mult_end)
-        soportada = ((origen, destino) == ("1", "0..*") or (origen, destino) == ("0..*", "1"))
-        if not soportada or asociacion.src_class_id not in ids_clases or asociacion.dst_class_id not in ids_clases:
+        if asociacion.src_class_id not in ids_clases or asociacion.dst_class_id not in ids_clases:
+            raise ValueError("ENTRADA: Una relación referencia clases inexistentes en el modelo importado.")
+        nombre_origen = next(clase["nombre"] for clase in clases if clase["id"] == asociacion.src_class_id)
+        nombre_destino = next(clase["nombre"] for clase in clases if clase["id"] == asociacion.dst_class_id)
+        if origen is None or destino is None:
             advertencias.append({
-                "codigo": "ASOCIACION_OMITIDA",
-                "mensaje": "La asociación no usa el perfil soportado 1 ↔ 0..* o no conecta dos clases importadas.",
-                "elementoId": asociacion.id,
+                "codigo": "MULTIPLICIDAD_RELACION_INCOMPLETA",
+                "mensaje": f"La relación {nombre_origen} → {nombre_destino} tiene una multiplicidad no representable por el perfil canónico y se conservó como incompleta.",
             })
-            continue
+        clase_origen_id = asociacion.src_class_id
+        clase_destino_id = asociacion.dst_class_id
+        rol_origen = asociacion.src_role
+        rol_destino = asociacion.dst_role
+        tipo_relacion = tipos_asociacion.get(asociacion.id, "asociacion")
+        todo_id = todos_asociacion.get(asociacion.id)
+        if tipo_relacion in ("agregacion", "composicion") and todo_id == clase_origen_id:
+            clase_origen_id, clase_destino_id = clase_destino_id, clase_origen_id
+            origen, destino = destino, origen
+            rol_origen, rol_destino = rol_destino, rol_origen
         relacion = {
             "id": asociacion.id,
-            "tipo": "asociacion",
-            "claseOrigenId": asociacion.src_class_id,
-            "claseDestinoId": asociacion.dst_class_id,
+            "tipo": tipo_relacion,
+            "claseOrigenId": clase_origen_id,
+            "claseDestinoId": clase_destino_id,
             "multiplicidadOrigen": origen,
             "multiplicidadDestino": destino,
         }
-        if asociacion.src_role:
-            relacion["rolOrigen"] = asociacion.src_role
-        if asociacion.dst_role:
-            relacion["rolDestino"] = asociacion.dst_role
+        if rol_origen:
+            relacion["rolOrigen"] = rol_origen
+        if rol_destino:
+            relacion["rolDestino"] = rol_destino
         relaciones.append(relacion)
+
+    for generalizacion in sorted(schema.get_all_generalizations(), key=lambda item: item.id):
+        if generalizacion.subclass_id not in ids_clases or generalizacion.superclass_id not in ids_clases:
+            raise ValueError("ENTRADA: Una generalización referencia clases inexistentes en el modelo importado.")
+        relaciones.append({
+            "id": generalizacion.id,
+            "tipo": "generalizacion",
+            "claseOrigenId": generalizacion.subclass_id,
+            "claseDestinoId": generalizacion.superclass_id,
+            "multiplicidadOrigen": None,
+            "multiplicidadDestino": None,
+        })
 
     resultado = {
         "modelo": {"id": identificador, "nombre": nombre, "version": "4.2.0", "clases": clases, "relaciones": relaciones},

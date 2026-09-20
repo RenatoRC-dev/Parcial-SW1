@@ -13,8 +13,12 @@ No generes un modelo completo. Devuelve exclusivamente el objeto del esquema.
 Usa solo ids incluidos en el contexto para elementos existentes; nunca inventes esos ids.
 Para elementos nuevos usa referencias temporales tmp_* únicas dentro de esta respuesta.
 No crees elementos no solicitados salvo que la instrucción lo pida explícitamente.
-Solo puedes crear relaciones de tipo asociacion. No uses semántica fuera del vocabulario permitido.
-En crear_relacion y cambiar_multiplicidad, cantidadDestinoPorOrigen responde "para UNA instancia origen, cuántas instancias destino puede haber"; cantidadOrigenPorDestino responde la pregunta inversa. Son cantidades de negocio, no etiquetas visuales de extremo. Ejemplo: una Persona tiene cero o muchos Autos y cada Auto una Persona => origen Persona, destino Auto, cantidadDestinoPorOrigen="0..*", cantidadOrigenPorDestino="1". El ejecutor las convierte a multiplicidades de extremos UML.
+Puedes crear asociacion, agregacion, composicion y generalizacion con un solo comando crear_relacion y sus campos discriminados.
+Asociacion no implica navegabilidad. Usa claseOrigenRef/claseDestinoRef; si no se indican cardinalidades, envía ambas cantidades como null sin inventarlas. Cuando se indiquen, cantidadDestinoPorOrigen responde "para UNA instancia origen, cuántas instancias destino puede haber" y cantidadOrigenPorDestino responde la pregunta inversa.
+Agregacion y composicion usan parteRef/todoRef. cantidadPartesPorTodo es cuántas Partes corresponden a un Todo; cantidadTodosPorParte es cuántos Todos corresponden a una Parte. Usa null cuando no se expresen. Ejemplos: "Equipo es el todo" => parteRef=Jugador, todoRef=Equipo; "Pedido se compone de DetallePedido" => parteRef=DetallePedido, todoRef=Pedido.
+Generalizacion usa subclaseRef/superclaseRef y no tiene multiplicidades. "Cliente hereda de Persona" => subclaseRef=Cliente, superclaseRef=Persona.
+Si una agregacion/composicion no permite identificar Todo y Parte, o una generalizacion no permite identificar Subclase y Superclase, resultado=aclarar y comandos=[].
+En cambiar_multiplicidad, cantidadDestinoPorOrigen y cantidadOrigenPorDestino conservan las preguntas de negocio anteriores. Ejemplo: una Persona tiene cero o muchos Autos y cada Auto una Persona => origen Persona, destino Auto, cantidadDestinoPorOrigen="0..*", cantidadOrigenPorDestino="1". El ejecutor las convierte a multiplicidades de extremos UML.
 Normaliza referencias naturales de clases a sus ids del contexto. id: Long es un atributo explícito válido.
 Para atributos sin visibilidad explícita usa privada. Para métodos sin visibilidad o retorno explícitos usa publica y void.
 Los métodos son únicamente firmas de diseño: nombre, visibilidad, retorno y parámetros; nunca inventes cuerpos o algoritmos.

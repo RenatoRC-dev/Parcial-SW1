@@ -74,11 +74,14 @@ async function ejecutarPuente(
       throw new ErrorInteroperabilidadXmi("La operación XMI excedió el tiempo permitido.", "interno")
     }
     const mensaje = detalle.stderr?.trim()
-    if (mensaje?.startsWith("ENTRADA:")) {
-      throw new ErrorInteroperabilidadXmi(mensaje.slice("ENTRADA:".length).trim())
+    const lineas = mensaje?.split(/\r?\n/).map((linea) => linea.trim()) ?? []
+    const errorEntrada = lineas.find((linea) => linea.startsWith("ENTRADA:"))
+    const errorConfiguracion = lineas.find((linea) => linea.startsWith("CONFIGURACION:"))
+    if (errorEntrada) {
+      throw new ErrorInteroperabilidadXmi(errorEntrada.slice("ENTRADA:".length).trim())
     }
-    if (mensaje?.startsWith("CONFIGURACION:")) {
-      throw new ErrorInteroperabilidadXmi(mensaje.slice("CONFIGURACION:".length).trim(), "configuracion")
+    if (errorConfiguracion) {
+      throw new ErrorInteroperabilidadXmi(errorConfiguracion.slice("CONFIGURACION:".length).trim(), "configuracion")
     }
     if (mensaje) console.error(`Puente XMI: ${mensaje}`)
     throw new ErrorInteroperabilidadXmi("El puente XMI no pudo completar la operación.", "interno")

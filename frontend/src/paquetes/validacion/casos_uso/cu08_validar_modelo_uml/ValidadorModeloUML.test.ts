@@ -165,7 +165,6 @@ describe("ValidadorModeloUML", () => {
 
   it.each([
     ["class", "ATRIBUTO_IDENTIFICADOR_INVALIDO"],
-    ["id", "ATRIBUTO_ID_TIPO_INVALIDO"],
   ])("rechaza el campo reservado %s", (nombre, codigo) => {
     const resultado = validarModelo(
       modelo([clase("cliente", "Cliente", [atributo("a1", nombre, "String")])])
@@ -178,6 +177,14 @@ describe("ValidadorModeloUML", () => {
   it("acepta el identificador convencional id de tipo Long", () => {
     const resultado = validarModelo(
       modelo([clase("cliente", "Cliente", [atributo("a1", "id", "Long")])])
+    )
+
+    expect(resultado.valido).toBe(true)
+  })
+
+  it("deja la convención id: Long al evaluador de generación", () => {
+    const resultado = validarModelo(
+      modelo([clase("cliente", "Cliente", [atributo("a1", "id", "String")])])
     )
 
     expect(resultado.valido).toBe(true)
@@ -197,22 +204,34 @@ describe("ValidadorModeloUML", () => {
     expect(codigos(resultado)).toContain("ATRIBUTO_NOMBRE_DUPLICADO")
   })
 
-  it.each([null, ""])("rechaza un atributo sin tipo: %j", (tipo) => {
+  it.each([null, ""])("mantiene editable un atributo sin tipo y lo resume como incompleto: %j", (tipo) => {
     const resultado = validarModelo(
       modelo([clase("cliente", "Cliente", [atributo("a1", "nombre", tipo)])])
     )
 
-    expect(resultado.valido).toBe(false)
-    expect(codigos(resultado)).toContain("ATRIBUTO_TIPO_REQUERIDO")
+    expect(resultado.valido).toBe(true)
+    expect(resultado.diagnosticos).toEqual([
+      expect.objectContaining({ codigo: "ATRIBUTOS_SIN_TIPO", severidad: "advertencia", mensaje: expect.stringContaining("Cliente.nombre") }),
+    ])
   })
 
-  it("rechaza un tipo desconocido sin convertirlo a String", () => {
+  it("mantiene estructuralmente válido un tipo ajeno al perfil Spring sin convertirlo a String", () => {
     const resultado = validarModelo(
       modelo([clase("cliente", "Cliente", [atributo("a1", "saldo", "Money")])])
     )
 
-    expect(resultado.valido).toBe(false)
-    expect(codigos(resultado)).toContain("ATRIBUTO_TIPO_NO_SOPORTADO")
+    expect(resultado).toEqual({ valido: true, diagnosticos: [] })
+  })
+
+  it("resume muchos atributos incompletos sin exponer ids técnicos", () => {
+    const atributos = Array.from({ length: 8 }, (_, indice) => atributo(`EAID_${indice}`, `campo${indice}`, null))
+    const resultado = validarModelo(modelo([clase("EAID_CLASE", "Cliente", atributos)]))
+
+    expect(resultado.diagnosticos).toHaveLength(1)
+    expect(resultado.diagnosticos[0].mensaje).toContain("8 atributos sin tipo definido")
+    expect(resultado.diagnosticos[0].mensaje).toContain("Cliente.campo0")
+    expect(resultado.diagnosticos[0].mensaje).toContain("y 3 más")
+    expect(resultado.diagnosticos[0].mensaje).not.toContain("EAID_")
   })
 
   it.each(["String", "int", "BigDecimal", "LocalDate", "UUID"])(
@@ -275,6 +294,21 @@ describe("ValidadorModeloUML", () => {
           multiplicidadDestino: "0..*",
         },
       ])
+    )
+
+    expect(resultado).toEqual({ valido: true, diagnosticos: [] })
+  })
+
+  it("acepta una generalización estructural sin multiplicidades", () => {
+    const resultado = validarModelo(
+      modelo([clase("persona", "Persona"), clase("cliente", "Cliente")], [{
+        id: "g1",
+        tipo: "generalizacion",
+        claseOrigenId: "cliente",
+        claseDestinoId: "persona",
+        multiplicidadOrigen: null,
+        multiplicidadDestino: null,
+      }])
     )
 
     expect(resultado).toEqual({ valido: true, diagnosticos: [] })

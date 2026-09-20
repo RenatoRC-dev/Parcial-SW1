@@ -1,5 +1,5 @@
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
-import type { ResultadoValidacion } from "../../../validacion/casos_uso/cu08_validar_modelo_uml/ValidadorModeloUML"
+import { TIPOS_GENERACION_SOPORTADOS, type ResultadoValidacion } from "../../../validacion/casos_uso/cu08_validar_modelo_uml/ValidadorModeloUML"
 
 export interface ResultadoAptitudGeneracion {
   apto: boolean
@@ -21,6 +21,12 @@ const palabrasReservadasJava = new Set([
   "synchronized", "this", "throw", "throws", "transient", "try", "void",
   "volatile", "while",
 ])
+const tiposSoportados = new Set<string>(TIPOS_GENERACION_SOPORTADOS)
+
+function resumir(referencias: string[]): string {
+  const visibles = referencias.slice(0, 5).join(", ")
+  return referencias.length > 5 ? `${visibles} y ${referencias.length - 5} más` : visibles
+}
 
 function convertirAVariable(nombreClase: string): string {
   return nombreClase.charAt(0).toLowerCase() + nombreClase.slice(1)
@@ -39,6 +45,22 @@ export function evaluarAptitudGeneracionSpring(
       motivos.push(`El nombre de entidad ${clase.nombre} entra en conflicto con un tipo Java.`)
     }
   }
+
+  const atributosSinTipo: string[] = []
+  const atributosTipoNoSoportado: string[] = []
+  const identificadoresExplicitosInvalidos: string[] = []
+  for (const clase of modelo.clases) {
+    for (const atributo of clase.atributos) {
+      const referencia = `${clase.nombre}.${atributo.nombre}`
+      const tipo = atributo.tipo?.trim()
+      if (!tipo) atributosSinTipo.push(referencia)
+      else if (!tiposSoportados.has(tipo)) atributosTipoNoSoportado.push(`${referencia} (${tipo})`)
+      if (atributo.nombre.trim() === "id" && tipo !== "Long") identificadoresExplicitosInvalidos.push(referencia)
+    }
+  }
+  if (atributosSinTipo.length > 0) motivos.push(`${atributosSinTipo.length} atributos no tienen tipo para generar: ${resumir(atributosSinTipo)}.`)
+  if (atributosTipoNoSoportado.length > 0) motivos.push(`${atributosTipoNoSoportado.length} atributos usan tipos no soportados para generar: ${resumir(atributosTipoNoSoportado)}.`)
+  if (identificadoresExplicitosInvalidos.length > 0) motivos.push(`El identificador explícito id debe usar Long: ${resumir(identificadoresExplicitosInvalidos)}.`)
 
   const clasesPorId = new Map(modelo.clases.map((clase) => [clase.id, clase]))
   const camposPorClase = new Map(

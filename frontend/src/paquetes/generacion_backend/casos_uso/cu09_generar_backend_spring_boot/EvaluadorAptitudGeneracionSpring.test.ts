@@ -109,4 +109,20 @@ describe("evaluarAptitudGeneracionSpring", () => {
     modelo.clases[1].id = modelo.clases[0].id
     expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).apto).toBe(false)
   })
+
+  it("separa un borrador UML editable de la aptitud Spring cuando falta el tipo", () => {
+    const modelo = crearModelo({ clases: [{ ...crearModelo().clases[0], atributos: [{ id: "nombre", nombre: "nombre", tipo: null }] }] })
+    const validacion = validarModelo(modelo)
+    const aptitud = evaluarAptitudGeneracionSpring(modelo, validacion)
+
+    expect(validacion.valido).toBe(true)
+    expect(aptitud.apto).toBe(false)
+    expect(aptitud.motivos.join(" ")).toContain("Cliente.nombre")
+  })
+
+  it("mantiene editable un tipo conceptual y lo bloquea sólo para generación", () => {
+    const modelo = crearModelo({ clases: [{ ...crearModelo().clases[0], atributos: [{ id: "saldo", nombre: "saldo", tipo: "Money" }] }] })
+    expect(validarModelo(modelo).valido).toBe(true)
+    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).motivos.join(" ")).toContain("Cliente.saldo (Money)")
+  })
 })

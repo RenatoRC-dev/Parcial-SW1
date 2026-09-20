@@ -24,6 +24,20 @@ describe("PanelGeneracionSpring", () => {
     expect(screen.getByText("El modelo contiene errores de validación UML.")).toBeVisible()
   })
 
+  it("distingue UML editable de generación no apta por atributo incompleto", () => {
+    const incompleto: ModeloUMLCanonico = {
+      ...modelo,
+      clases: [{ ...modelo.clases[0], atributos: [{ id: "a", nombre: "nombre", tipo: null }] }],
+    }
+    const validacion = validarModelo(incompleto)
+    render(<PanelGeneracionSpring modelo={incompleto} validacion={validacion} aptitud={evaluarAptitudGeneracionSpring(incompleto, validacion)} />)
+
+    expect(screen.getByText("Válido")).toBeVisible()
+    expect(screen.getByText("No apto")).toBeVisible()
+    expect(screen.getByRole("button", { name: "Generar backend Spring Boot" })).toBeDisabled()
+    expect(screen.getByText(/Cliente.nombre/)).toBeVisible()
+  })
+
   it("muestra el error del servicio", async () => {
     const validacion = validarModelo(modelo)
     render(<PanelGeneracionSpring modelo={modelo} validacion={validacion} aptitud={evaluarAptitudGeneracionSpring(modelo, validacion)} alGenerar={() => Promise.reject(new Error("servicio no disponible"))} />)

@@ -3,6 +3,7 @@ import type { ApollonEditor, UMLModel } from "@tumaet/apollon"
 import {
   convertirAModeloCanonicoConAdvertencias,
   convertirDesdeModeloCanonico,
+  normalizarAsociacionesSinNavegabilidad,
 } from "../../compartido/integracion_apollon/AdaptadorApollon"
 import { validarModelo } from "../../../validacion/casos_uso/cu08_validar_modelo_uml/ValidadorModeloUML"
 import { evaluarAptitudGeneracionSpring } from "../../../generacion_backend/casos_uso/cu09_generar_backend_spring_boot/EvaluadorAptitudGeneracionSpring"
@@ -33,7 +34,11 @@ export function PaginaModeladoClases({ proyectoId, modeloInicial, alCambiarModel
   const revisionActual = useRef(0)
 
   const recibirCambioModelo = useCallback((modeloActualizado: UMLModel) => {
-    establecerModelo(modeloActualizado)
+    const modeloNormalizado = normalizarAsociacionesSinNavegabilidad(modeloActualizado)
+    establecerModelo(modeloNormalizado)
+    if (modeloNormalizado !== modeloActualizado) {
+      establecerModeloImportado(modeloNormalizado)
+    }
     revisionActual.current += 1
     establecerRevisionModelo(revisionActual.current)
     establecerErrorEditor(null)

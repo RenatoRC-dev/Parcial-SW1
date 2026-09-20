@@ -47,6 +47,12 @@ export interface RelacionUML {
   id: string
   nombre?: string
   tipo: TipoRelacionUML
+  /**
+   * Convencion direccional canonica:
+   * - asociacion: extremos A/B sin navegabilidad;
+   * - agregacion/composicion: origen = parte, destino = todo;
+   * - generalizacion: origen = subclase, destino = superclase.
+   */
   claseOrigenId: string
   claseDestinoId: string
   /** Multiplicidad UML anotada junto a la clase origen. */

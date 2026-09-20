@@ -32,6 +32,26 @@ describe("interpretarInstruccionModelado", () => {
     expect(resultado.comandos).toEqual([])
   })
 
+  it("una relación semánticamente ambigua solicita aclaración sin mutar el modelo", async () => {
+    const original = structuredClone(modelo)
+    const proveedor: ProveedorModeloLenguaje = {
+      interpretarCambiosUML: vi.fn(async () => ({
+        resultado: "aclarar",
+        mensaje: "¿Cuál clase es el Todo y cuál es la Parte?",
+        comandos: [],
+      })),
+    }
+
+    const resultado = await interpretarInstruccionModelado({
+      instruccion: "Agrega una agregación entre dos clases.",
+      modelo,
+      revision: 3,
+    }, proveedor)
+
+    expect(resultado).toMatchObject({ resultado: "aclarar", comandos: [] })
+    expect(modelo).toEqual(original)
+  })
+
   it("bloquea una eliminación cuya intención no es explícita", async () => {
     const proveedor: ProveedorModeloLenguaje = { interpretarCambiosUML: vi.fn(async () => ({ resultado: "aplicar", mensaje: "", comandos: [{ tipo: "eliminar_clase", claseId: "cliente" }] })) }
     const resultado = await interpretarInstruccionModelado({ instruccion: "Ya no necesito algo de clientes", modelo, revision: 2 }, proveedor)

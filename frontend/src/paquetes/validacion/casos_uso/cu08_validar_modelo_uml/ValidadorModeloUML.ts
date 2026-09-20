@@ -109,40 +109,12 @@ function validarAtributo(
     )
   }
 
-  const tipo = atributo.tipo?.trim() ?? ""
-  if (nombre === "id" && tipo !== "Long") {
-    diagnosticos.push(
-      crearDiagnostico(
-        "ATRIBUTO_ID_TIPO_INVALIDO",
-        "error",
-        "El identificador explícito `id` debe utilizar el tipo Long.",
-        "atributo",
-        atributo.id
-      )
-    )
-  }
+}
 
-  if (tipo === "") {
-    diagnosticos.push(
-      crearDiagnostico(
-        "ATRIBUTO_TIPO_REQUERIDO",
-        "error",
-        `El atributo "${atributo.nombre || atributo.id}" debe declarar un tipo.`,
-        "atributo",
-        atributo.id
-      )
-    )
-  } else if (!tiposSoportados.has(tipo)) {
-    diagnosticos.push(
-      crearDiagnostico(
-        "ATRIBUTO_TIPO_NO_SOPORTADO",
-        "error",
-        `El tipo "${tipo}" no está soportado por el perfil inicial de generación.`,
-        "atributo",
-        atributo.id
-      )
-    )
-  }
+function resumirReferencias(referencias: string[]): string {
+  const visibles = referencias.slice(0, 5).join(", ")
+  const restantes = referencias.length - 5
+  return restantes > 0 ? `${visibles} y ${restantes} más` : visibles
 }
 
 function validarClase(
@@ -226,6 +198,7 @@ export function validarModelo(
   modelo: ModeloUMLCanonico
 ): ResultadoValidacion {
   const diagnosticos: DiagnosticoValidacion[] = []
+  const atributosSinTipo: string[] = []
 
   if (modelo.id.trim() === "") {
     diagnosticos.push(
@@ -281,6 +254,9 @@ export function validarModelo(
     }
 
     for (const atributo of clase.atributos) {
+      if (!atributo.tipo?.trim()) {
+        atributosSinTipo.push(`${clase.nombre || "(clase sin nombre)"}.${atributo.nombre || "(atributo sin nombre)"}`)
+      }
       if (atributo.id.trim() === "") {
         diagnosticos.push(
           crearDiagnostico(
@@ -327,6 +303,18 @@ export function validarModelo(
     if (clave !== "") nombresClases.add(clave)
   }
 
+  if (atributosSinTipo.length > 0) {
+    diagnosticos.push(
+      crearDiagnostico(
+        "ATRIBUTOS_SIN_TIPO",
+        "advertencia",
+        `${atributosSinTipo.length} ${atributosSinTipo.length === 1 ? "atributo sin tipo definido" : "atributos sin tipo definido"}: ${resumirReferencias(atributosSinTipo)}.`,
+        "modelo",
+        modelo.id
+      )
+    )
+  }
+
   const idsClases = new Set(modelo.clases.map((clase) => clase.id))
   const idsRelacionesVistos = new Set<string>()
   for (const relacion of modelo.relaciones) {
@@ -369,8 +357,8 @@ export function validarModelo(
     }
 
     if (
-      relacion.multiplicidadOrigen === null ||
-      relacion.multiplicidadDestino === null
+      relacion.tipo !== "generalizacion" &&
+      (relacion.multiplicidadOrigen === null || relacion.multiplicidadDestino === null)
     ) {
       diagnosticos.push(
         crearDiagnostico(

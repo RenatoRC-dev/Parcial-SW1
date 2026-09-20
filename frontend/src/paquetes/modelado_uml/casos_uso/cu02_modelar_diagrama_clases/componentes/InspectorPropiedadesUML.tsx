@@ -405,8 +405,21 @@ function EditorRelaciones({ modelo, seleccion, alAplicar }: { modelo: ModeloUMLC
   const [rolOrigen, establecerRolOrigen] = useState("")
   const [rolDestino, establecerRolDestino] = useState("")
   const [nombreRelacion, establecerNombreRelacion] = useState("")
+  const [relacionEditadaId, establecerRelacionEditadaId] = useState<string | null>(null)
   const relacionSeleccionada = modelo.relaciones.find((relacion) => seleccion.includes(relacion.id))
-  const relacionesVisibles = relacionSeleccionada ? [relacionSeleccionada] : modelo.relaciones
+  const relacionEditada = modelo.relaciones.find((relacion) => relacion.id === relacionEditadaId) ?? relacionSeleccionada
+  const esGeneralizacion = tipo === "generalizacion"
+  const esTodoParte = tipo === "agregacion" || tipo === "composicion"
+
+  useEffect(() => {
+    if (relacionSeleccionada) establecerRelacionEditadaId(relacionSeleccionada.id)
+  }, [relacionSeleccionada])
+
+  useEffect(() => {
+    if (relacionEditadaId && !modelo.relaciones.some((relacion) => relacion.id === relacionEditadaId)) {
+      establecerRelacionEditadaId(null)
+    }
+  }, [modelo.relaciones, relacionEditadaId])
 
   const cancelar = () => {
     establecerCreando(false)
@@ -421,17 +434,17 @@ function EditorRelaciones({ modelo, seleccion, alAplicar }: { modelo: ModeloUMLC
   }
 
   const agregar = () => {
-    if (!origen || !destino || origen === destino || !cantidadDestinoPorOrigen || !cantidadOrigenPorDestino) return
+    if (!origen || !destino || origen === destino || (!esGeneralizacion && (!cantidadDestinoPorOrigen || !cantidadOrigenPorDestino))) return
     const relacion: RelacionUML = {
       id: idNuevo("relacion"),
       tipo,
       claseOrigenId: origen,
       claseDestinoId: destino,
-      multiplicidadOrigen: cantidadOrigenPorDestino as Multiplicidad,
-      multiplicidadDestino: cantidadDestinoPorOrigen as Multiplicidad,
+      multiplicidadOrigen: esGeneralizacion ? null : cantidadOrigenPorDestino as Multiplicidad,
+      multiplicidadDestino: esGeneralizacion ? null : cantidadDestinoPorOrigen as Multiplicidad,
       ...(nombreRelacion.trim() ? { nombre: nombreRelacion.trim() } : {}),
-      ...(rolOrigen.trim() ? { rolOrigen: rolOrigen.trim() } : {}),
-      ...(rolDestino.trim() ? { rolDestino: rolDestino.trim() } : {}),
+      ...(!esGeneralizacion && rolOrigen.trim() ? { rolOrigen: rolOrigen.trim() } : {}),
+      ...(!esGeneralizacion && rolDestino.trim() ? { rolDestino: rolDestino.trim() } : {}),
     }
     alAplicar({ ...modelo, relaciones: [...modelo.relaciones, relacion] })
     cancelar()
@@ -440,29 +453,55 @@ function EditorRelaciones({ modelo, seleccion, alAplicar }: { modelo: ModeloUMLC
   return (
     <section className="relationship-editor">
       <h3>{t("propiedades.relaciones")}</h3>
-      {relacionSeleccionada ? <p className="property-selection-note">{t("propiedades.relacionSeleccionada")}</p> : null}
-      {relacionesVisibles.map((relacion) => (
+      {modelo.relaciones.length > 0 ? (
+        <div className="compact-relationship-list" aria-label={t("propiedades.listaRelaciones")}>
+          <span>{modelo.relaciones.length} {t("propiedades.relacionesRegistradas")}</span>
+          {modelo.relaciones.map((relacion) => (
+            <button
+              type="button"
+              className={relacionEditada?.id === relacion.id ? "active" : ""}
+              key={relacion.id}
+              onClick={() => establecerRelacionEditadaId(relacion.id)}
+            >
+              {nombreClase(modelo, relacion.claseOrigenId)} → {nombreClase(modelo, relacion.claseDestinoId)}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {relacionSeleccionada?.id === relacionEditada?.id ? <p className="property-selection-note">{t("propiedades.relacionSeleccionada")}</p> : null}
+      {relacionEditada ? (
         <RelacionExistente
-          key={relacion.id}
-          relacion={relacion}
+          key={relacionEditada.id}
+          relacion={relacionEditada}
           modelo={modelo}
           alActualizar={(actualizada) => alAplicar({ ...modelo, relaciones: modelo.relaciones.map((item) => item.id === actualizada.id ? actualizada : item) })}
-          alEliminar={() => alAplicar({ ...modelo, relaciones: modelo.relaciones.filter((item) => item.id !== relacion.id) })}
+          alEliminar={() => {
+            alAplicar({ ...modelo, relaciones: modelo.relaciones.filter((item) => item.id !== relacionEditada.id) })
+            establecerRelacionEditadaId(null)
+          }}
         />
-      ))}
+      ) : null}
       {modelo.clases.length >= 2 && !creando ? <button type="button" className="compact-add-button" onClick={() => establecerCreando(true)}>{t("propiedades.mostrarNuevaRelacion")}</button> : null}
       {creando ? (
         <div className="compact-new-relation" role="group" aria-label={t("propiedades.nuevaRelacion")}>
           <label>{t("propiedades.tipoRelacion")}<select value={tipo} onChange={(evento) => establecerTipo(evento.target.value as TipoRelacionUML)}>{TIPOS_RELACION_UML.map((valor) => <option key={valor} value={valor}>{t(`relacion.${valor}`)}</option>)}</select></label>
           <label>{t("propiedades.nombreRelacion")}<input value={nombreRelacion} onChange={(evento) => establecerNombreRelacion(evento.target.value)} /></label>
-          <ExtremoRelacion titulo={t("propiedades.claseA")} clases={modelo.clases} claseId={origen} setClase={establecerOrigen} rol={rolOrigen} setRol={establecerRolOrigen} />
-          <ExtremoRelacion titulo={t("propiedades.claseB")} clases={modelo.clases} claseId={destino} setClase={establecerDestino} rol={rolDestino} setRol={establecerRolDestino} />
-          {origen && destino && origen !== destino ? <div className="relationship-business-cardinalities">
+          {esGeneralizacion ? <>
+            <SelectorClaseRelacion titulo={t("propiedades.subclase")} clases={modelo.clases} claseId={origen} setClase={establecerOrigen} />
+            <SelectorClaseRelacion titulo={t("propiedades.superclase")} clases={modelo.clases} claseId={destino} setClase={establecerDestino} />
+          </> : esTodoParte ? <>
+            <ExtremoRelacion titulo={t("propiedades.todo")} clases={modelo.clases} claseId={destino} setClase={establecerDestino} rol={rolDestino} setRol={establecerRolDestino} />
+            <ExtremoRelacion titulo={t("propiedades.parte")} clases={modelo.clases} claseId={origen} setClase={establecerOrigen} rol={rolOrigen} setRol={establecerRolOrigen} />
+          </> : <>
+            <ExtremoRelacion titulo={t("propiedades.claseA")} clases={modelo.clases} claseId={origen} setClase={establecerOrigen} rol={rolOrigen} setRol={establecerRolOrigen} />
+            <ExtremoRelacion titulo={t("propiedades.claseB")} clases={modelo.clases} claseId={destino} setClase={establecerDestino} rol={rolDestino} setRol={establecerRolDestino} />
+          </>}
+          {!esGeneralizacion && origen && destino && origen !== destino ? <div className="relationship-business-cardinalities">
             <SelectorCantidadRelacion pregunta={preguntaCantidad(t("propiedades.cantidadDestinoPorOrigen"), nombreClase(modelo, origen), nombreClase(modelo, destino))} valor={cantidadDestinoPorOrigen} alCambiar={establecerCantidadDestinoPorOrigen} />
             <SelectorCantidadRelacion pregunta={preguntaCantidad(t("propiedades.cantidadOrigenPorDestino"), nombreClase(modelo, origen), nombreClase(modelo, destino))} valor={cantidadOrigenPorDestino} alCambiar={establecerCantidadOrigenPorDestino} />
           </div> : null}
           <div className="compact-form-actions">
-            <button type="button" disabled={!origen || !destino || origen === destino || !cantidadDestinoPorOrigen || !cantidadOrigenPorDestino} onClick={agregar}>{t("propiedades.crearRelacion")}</button>
+            <button type="button" disabled={!origen || !destino || origen === destino || (!esGeneralizacion && (!cantidadDestinoPorOrigen || !cantidadOrigenPorDestino))} onClick={agregar}>{t("propiedades.crearRelacion")}</button>
             <button type="button" className="secondary" onClick={cancelar}>{t("propiedades.cancelar")}</button>
           </div>
         </div>
@@ -502,6 +541,16 @@ function ExtremoRelacion({ titulo, clases, claseId, setClase, rol, setRol }: {
   )
 }
 
+function SelectorClaseRelacion({ titulo, clases, claseId, setClase }: {
+  titulo: string
+  clases: ModeloUMLCanonico["clases"]
+  claseId: string
+  setClase: (valor: string) => void
+}) {
+  const { t } = usarPreferenciasUI()
+  return <label>{titulo}<select aria-label={titulo} value={claseId} onChange={(evento) => setClase(evento.target.value)}><option value="">{t("propiedades.seleccionar")}</option>{clases.map((clase) => <option key={clase.id} value={clase.id}>{clase.nombre}</option>)}</select></label>
+}
+
 function RelacionExistente({ relacion, modelo, alActualizar, alEliminar }: {
   relacion: RelacionUML
   modelo: ModeloUMLCanonico
@@ -537,16 +586,32 @@ function RelacionExistente({ relacion, modelo, alActualizar, alEliminar }: {
     const valor = nombreRelacion.trim()
     actualizar({ nombre: valor || undefined })
   }
+  const cambiarTipo = (tipo: TipoRelacionUML) => {
+    actualizar(tipo === "generalizacion"
+      ? { tipo, multiplicidadOrigen: null, multiplicidadDestino: null, rolOrigen: undefined, rolDestino: undefined }
+      : { tipo })
+  }
+  const esGeneralizacion = actual.tipo === "generalizacion"
+  const esTodoParte = actual.tipo === "agregacion" || actual.tipo === "composicion"
 
   return (
     <div className="compact-existing-relation" role="group" aria-label={`${t("propiedades.relacion")} ${nombre(relacion.claseOrigenId)} → ${nombre(relacion.claseDestinoId)}`}>
       <div className="compact-relation-heading"><strong>{nombre(relacion.claseOrigenId)} → {nombre(relacion.claseDestinoId)}</strong><button type="button" className="compact-delete-text" onClick={alEliminar}>{t("propiedades.eliminarRelacion")}</button></div>
-      <label>{t("propiedades.tipoRelacion")}<select value={actual.tipo} onChange={(evento) => actualizar({ tipo: evento.target.value as TipoRelacionUML })}>{TIPOS_RELACION_UML.map((valor) => <option key={valor} value={valor}>{t(`relacion.${valor}`)}</option>)}</select></label>
+      <label>{t("propiedades.tipoRelacion")}<select value={actual.tipo} onChange={(evento) => cambiarTipo(evento.target.value as TipoRelacionUML)}>{TIPOS_RELACION_UML.map((valor) => <option key={valor} value={valor}>{t(`relacion.${valor}`)}</option>)}</select></label>
       <label>{t("propiedades.nombreRelacion")}<input value={nombreRelacion} onChange={(evento) => establecerNombreRelacion(evento.target.value)} onBlur={confirmarNombre} onKeyDown={confirmarConEnter} /></label>
+      {esGeneralizacion ? <div className="compact-relation-endpoints">
+        <SelectorClaseRelacion titulo={t("propiedades.subclase")} clases={modelo.clases} claseId={actual.claseOrigenId} setClase={(claseOrigenId) => actualizar({ claseOrigenId })} />
+        <SelectorClaseRelacion titulo={t("propiedades.superclase")} clases={modelo.clases} claseId={actual.claseDestinoId} setClase={(claseDestinoId) => actualizar({ claseDestinoId })} />
+      </div> : <>
+      {esTodoParte ? <div className="compact-relation-endpoints">
+        <SelectorClaseRelacion titulo={t("propiedades.todo")} clases={modelo.clases} claseId={actual.claseDestinoId} setClase={(claseDestinoId) => actualizar({ claseDestinoId })} />
+        <SelectorClaseRelacion titulo={t("propiedades.parte")} clases={modelo.clases} claseId={actual.claseOrigenId} setClase={(claseOrigenId) => actualizar({ claseOrigenId })} />
+      </div> : null}
       <div className="compact-relation-endpoints">
         <div><strong>{nombre(actual.claseOrigenId)}</strong><label>{t("propiedades.multiplicidadExtremo")}<select aria-label={`${t("propiedades.multiplicidadExtremo")} ${nombre(actual.claseOrigenId)}`} value={actual.multiplicidadOrigen ?? ""} onChange={(evento) => actualizar({ multiplicidadOrigen: (evento.target.value || null) as Multiplicidad | null })}><option value="">{t("propiedades.seleccionar")}</option>{MULTIPLICIDADES_UML.map((valor) => <option key={valor} value={valor}>{t(`multiplicidad.${valor}`)}</option>)}</select></label><small>{preguntaCantidad(t("propiedades.explicacionExtremoOrigen"), nombre(actual.claseOrigenId), nombre(actual.claseDestinoId))}</small><input aria-label={`${t("propiedades.rolOpcional")} ${nombre(actual.claseOrigenId)}`} value={rolOrigen} onChange={(evento) => establecerRolOrigen(evento.target.value)} onBlur={() => confirmarRol("origen")} onKeyDown={confirmarConEnter} /></div>
         <div><strong>{nombre(actual.claseDestinoId)}</strong><label>{t("propiedades.multiplicidadExtremo")}<select aria-label={`${t("propiedades.multiplicidadExtremo")} ${nombre(actual.claseDestinoId)}`} value={actual.multiplicidadDestino ?? ""} onChange={(evento) => actualizar({ multiplicidadDestino: (evento.target.value || null) as Multiplicidad | null })}><option value="">{t("propiedades.seleccionar")}</option>{MULTIPLICIDADES_UML.map((valor) => <option key={valor} value={valor}>{t(`multiplicidad.${valor}`)}</option>)}</select></label><small>{preguntaCantidad(t("propiedades.explicacionExtremoDestino"), nombre(actual.claseOrigenId), nombre(actual.claseDestinoId))}</small><input aria-label={`${t("propiedades.rolOpcional")} ${nombre(actual.claseDestinoId)}`} value={rolDestino} onChange={(evento) => establecerRolDestino(evento.target.value)} onBlur={() => confirmarRol("destino")} onKeyDown={confirmarConEnter} /></div>
       </div>
+      </>}
     </div>
   )
 }
