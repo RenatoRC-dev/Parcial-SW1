@@ -19,6 +19,7 @@
     "proof:ia:groq": "tsx src/paquetes/asistencia_ia/pruebas/probarGroqReal.ts",
     "proof:voz:groq": "tsx src/paquetes/asistencia_ia/pruebas/probarVozGroqReal.ts",
     "proof:imagen:groq": "tsx src/paquetes/asistencia_ia/pruebas/probarVisionGroqReal.ts",
+    "proof:contexto:groq": "tsx src/paquetes/asistencia_contextual/pruebas/probarContextoGroqReal.ts",
     "proof:proyectos": "tsx src/paquetes/gestion_proyectos/pruebas_runtime/probarPersistenciaProyectos.ts"
   },
   "dependencies": {

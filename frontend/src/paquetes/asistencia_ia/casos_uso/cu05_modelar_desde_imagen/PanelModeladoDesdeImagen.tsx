@@ -12,9 +12,10 @@ const MAXIMO_ANALISIS = 4
 interface PropiedadesPanelModeladoDesdeImagen {
   modelo: ModeloUMLCanonico
   alAplicarModelo: (modelo: ModeloUMLCanonico) => void
+  alCambiarEstadoCandidato?: (pendiente: boolean) => void
 }
 
-export function PanelModeladoDesdeImagen({ modelo, alAplicarModelo }: PropiedadesPanelModeladoDesdeImagen) {
+export function PanelModeladoDesdeImagen({ modelo, alAplicarModelo, alCambiarEstadoCandidato }: PropiedadesPanelModeladoDesdeImagen) {
   const { t } = usarPreferenciasUI()
   const [imagen, establecerImagen] = useState<File | null>(null)
   const [urlVistaPrevia, establecerUrlVistaPrevia] = useState<string | null>(null)
@@ -22,6 +23,10 @@ export function PanelModeladoDesdeImagen({ modelo, alAplicarModelo }: Propiedade
   const [imagenesAnalizadas, establecerImagenesAnalizadas] = useState(0)
   const [estado, establecerEstado] = useState<"idle" | "selected" | "analizando" | "candidato" | "sin_modelo" | "error" | "aplicando">("idle")
   const [mensaje, establecerMensaje] = useState<string | null>(null)
+
+  useEffect(() => {
+    alCambiarEstadoCandidato?.(candidato !== null)
+  }, [candidato, alCambiarEstadoCandidato])
 
   useEffect(() => {
     if (!imagen || typeof URL.createObjectURL !== "function") {

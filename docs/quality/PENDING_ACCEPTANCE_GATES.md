@@ -139,3 +139,30 @@ No API key, organization identifier, secret value or local fixture path is recor
 ### PASS condition
 
 Satisfied. The real proof used `qwen/qwen3.8-27b` with the application's bounded `max_tokens: 512` configuration and confirmed `Factura`, `numero: String` and `total: Double`, including both exact trimmed types.
+
+## GROQ-CONTEXT-001 — Real Groq contextual-assistant acceptance
+
+- **Related package:** Asistencia Contextual
+- **Related use case:** CU12 — Asistir contextualmente al usuario
+- **Origin:** Iteration 14
+- **Current status:** **CLOSED — REAL GROQ CONTEXTUAL ACCEPTANCE PASS**
+
+### External acceptance evidence
+
+- `npm run proof:contexto:groq` completed successfully with the production CU12 provider against real Groq.
+- `realGroqContextUsed = true`.
+- `model = openai/gpt-oss-20b`.
+- `structuredOutput = true`.
+- `responseReceived = true`.
+- `explainsGenerationBlocked = true`.
+- `mentionsManyToManyOrAssociativeClass = true`.
+- `doesNotClaimUmlInvalid = true`.
+- `suggestedActionIsWhitelisted = true`.
+- `noModelMutation = true`.
+- `semanticCondition = true`.
+
+No API key, authorization header, or secret value is recorded.
+
+### PASS condition
+
+Satisfied. Real Groq explained the actual direct N:M generation blocker from authoritative application context, suggested an allowed action, preserved the UML-valid distinction, and did not mutate product state.

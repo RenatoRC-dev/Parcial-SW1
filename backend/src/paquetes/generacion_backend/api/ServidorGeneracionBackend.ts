@@ -22,11 +22,15 @@ import { registrarRutaAnalisisImagen } from "../../asistencia_ia/casos_uso/cu05_
 import type { RepositorioProyectos } from "../../gestion_proyectos/compartido/RepositorioProyectos.js"
 import { RepositorioProyectosArchivos } from "../../gestion_proyectos/infraestructura/RepositorioProyectosArchivos.js"
 import { registrarRutasProyectos } from "../../gestion_proyectos/api/registrarRutasProyectos.js"
+import type { ProveedorAsistenteContextual } from "../../asistencia_contextual/compartido/ProveedorAsistenteContextual.js"
+import { ProveedorAsistenteContextualGroq } from "../../asistencia_contextual/compartido/proveedores/groq/ProveedorAsistenteContextualGroq.js"
+import { registrarRutaAsistenteContextual } from "../../asistencia_contextual/casos_uso/cu12_asistir_usuario/registrarRutaAsistenteContextual.js"
 
 export function crearAplicacionGeneracionBackend(dependencias: {
   proveedorIA?: ProveedorModeloLenguaje
   proveedorTranscripcion?: ProveedorTranscripcionAudio
   proveedorVision?: ProveedorVisionUML
+  proveedorAsistenteContextual?: ProveedorAsistenteContextual
   repositorioProyectos?: RepositorioProyectos
 } = {}) {
   const aplicacion = express()
@@ -34,6 +38,7 @@ export function crearAplicacionGeneracionBackend(dependencias: {
   registrarRutaInterpretacionIA(aplicacion, dependencias.proveedorIA ?? new ProveedorGroq())
   registrarRutaTranscripcionVoz(aplicacion, dependencias.proveedorTranscripcion ?? new ProveedorTranscripcionGroq())
   registrarRutaAnalisisImagen(aplicacion, dependencias.proveedorVision ?? new ProveedorVisionGroq())
+  registrarRutaAsistenteContextual(aplicacion, dependencias.proveedorAsistenteContextual ?? new ProveedorAsistenteContextualGroq())
   registrarRutasProyectos(aplicacion, dependencias.repositorioProyectos ?? new RepositorioProyectosArchivos())
 
   aplicacion.get("/api/health", (_solicitud, respuesta) => {

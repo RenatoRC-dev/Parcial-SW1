@@ -481,6 +481,24 @@ summary {
   background: #fff;
 }
 
+.contextual-assistant-panel {
+  padding: 20px;
+  border: 1px solid #d8deea;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.contextual-assistant-panel h2 { margin: 0 0 12px; font-size: 1rem; text-transform: uppercase; }
+.contextual-assistant-panel label { display: block; margin: 10px 0 6px; color: #4d586d; font-size: 0.82rem; }
+.contextual-assistant-panel input { box-sizing: border-box; width: 100%; padding: 9px 10px; border: 1px solid #c9d1df; border-radius: 7px; font: inherit; }
+.contextual-assistant-panel button { margin-top: 8px; padding: 8px 10px; border: 0; border-radius: 7px; color: #fff; background: #304e96; cursor: pointer; }
+.contextual-assistant-panel button:disabled { opacity: 0.55; cursor: not-allowed; }
+.contextual-hint { padding: 9px; border-left: 3px solid #415a9b; background: #f6f8fc; font-size: 0.8rem; line-height: 1.4; }
+.contextual-conversation { max-height: 190px; overflow-y: auto; font-size: 0.78rem; line-height: 1.4; }
+.contextual-conversation [role="alert"] { color: #8f1d20; }
+.contextual-quick-prompts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.contextual-quick-prompts button { flex: 1 1 130px; margin-top: 0; color: #304e96; border: 1px solid #9aa8c7; background: transparent; font-size: 0.75rem; }
+
 .image-ai-panel {
   padding: 20px;
   border: 1px solid #d8deea;

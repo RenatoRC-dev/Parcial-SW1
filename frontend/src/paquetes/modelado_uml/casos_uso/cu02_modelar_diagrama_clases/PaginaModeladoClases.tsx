@@ -18,10 +18,14 @@ import { PanelModeladoDesdeImagen } from "../../../asistencia_ia/casos_uso/cu05_
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
 import { etiquetasApollon, usarPreferenciasUI } from "../../../../configuracion/PreferenciasUI"
 import { InspectorPropiedadesUML } from "./componentes/InspectorPropiedadesUML"
+import { construirContextoAsistente } from "../../../asistencia_contextual/casos_uso/cu12_asistir_usuario/ContextoAsistente"
+import { PanelAsistenteContextual } from "../../../asistencia_contextual/casos_uso/cu12_asistir_usuario/PanelAsistenteContextual"
 
-export function PaginaModeladoClases({ proyectoId, modeloInicial, alCambiarModeloCanonico }: {
+export function PaginaModeladoClases({ proyectoId, proyectoNombre, modeloInicial, cambiosSinGuardar = false, alCambiarModeloCanonico }: {
   proyectoId: string
+  proyectoNombre?: string
   modeloInicial: ModeloUMLCanonico
+  cambiosSinGuardar?: boolean
   alCambiarModeloCanonico: (modelo: ModeloUMLCanonico) => void
 }) {
   const { idioma, temaAplicado, t } = usarPreferenciasUI()
@@ -31,6 +35,7 @@ export function PaginaModeladoClases({ proyectoId, modeloInicial, alCambiarModel
   const [editor, establecerEditor] = useState<ApollonEditor | null>(null)
   const [revisionModelo, establecerRevisionModelo] = useState(0)
   const [modeloInicialAplicado, establecerModeloInicialAplicado] = useState(false)
+  const [candidatoImagenPendiente, establecerCandidatoImagenPendiente] = useState(false)
   const revisionActual = useRef(0)
 
   const recibirCambioModelo = useCallback((modeloActualizado: UMLModel) => {
@@ -90,7 +95,7 @@ export function PaginaModeladoClases({ proyectoId, modeloInicial, alCambiarModel
     <main className="app-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">SW1 · CU02 / CU03 / CU04 / CU05 / CU08</p>
+          <p className="eyebrow">SW1 · CU02 / CU03 / CU04 / CU05 / CU08 / CU12</p>
           <h1>{t("modelado.titulo")}</h1>
         </div>
         <p className="iteration-goal">
@@ -132,6 +137,7 @@ export function PaginaModeladoClases({ proyectoId, modeloInicial, alCambiarModel
               <PanelModeladoDesdeImagen
                 modelo={resultadoCanonico.modelo}
                 alAplicarModelo={(modeloCanonico) => establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico))}
+                alCambiarEstadoCandidato={establecerCandidatoImagenPendiente}
               />
             </>
           ) : null}
@@ -152,6 +158,15 @@ export function PaginaModeladoClases({ proyectoId, modeloInicial, alCambiarModel
                 validacion={resultadoValidacion}
                 aptitud={aptitudGeneracion}
               />
+              <PanelAsistenteContextual contexto={construirContextoAsistente({
+                proyectoId,
+                proyectoNombre,
+                modelo: resultadoCanonico.modelo,
+                validacion: resultadoValidacion,
+                aptitud: aptitudGeneracion,
+                cambiosSinGuardar,
+                candidatoImagenPendiente,
+              })} />
             </>
           ) : null}
         </div>

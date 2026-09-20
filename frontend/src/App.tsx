@@ -43,7 +43,7 @@ function Aplicacion() {
   return <>
     <ControlesPreferencias />
     <BarraProyectoActivo nombre={proyecto.nombre} sucio={sucio} guardando={guardando} mensaje={mensaje} alGuardar={guardar} alVolver={volver} />
-    <PaginaModeladoClases key={proyecto.id} proyectoId={proyecto.id} modeloInicial={proyecto.modelo} alCambiarModeloCanonico={establecerModeloActual} />
+    <PaginaModeladoClases key={proyecto.id} proyectoId={proyecto.id} proyectoNombre={proyecto.nombre} modeloInicial={proyecto.modelo} cambiosSinGuardar={sucio} alCambiarModeloCanonico={establecerModeloActual} />
   </>
 }
 
