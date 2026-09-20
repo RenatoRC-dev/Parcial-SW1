@@ -49,6 +49,10 @@ export async function generarProyectoSpring(
       ruta: "src/main/resources/application.properties",
     },
     {
+      plantilla: "RecursoNoEncontradoException.java.ejs",
+      ruta: `${raizJava}/error/RecursoNoEncontradoException.java`,
+    },
+    {
       plantilla: "maven-wrapper.properties.ejs",
       ruta: ".mvn/wrapper/maven-wrapper.properties",
     },

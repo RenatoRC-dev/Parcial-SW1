@@ -48,6 +48,7 @@ describe("GeneradorSpringBoot", () => {
       expect.arrayContaining([
         "pom.xml",
         "src/main/java/com/sw1/generated/BackendGeneradoApplication.java",
+        "src/main/java/com/sw1/generated/error/RecursoNoEncontradoException.java",
         "src/main/java/com/sw1/generated/modelo/Cliente.java",
         "src/main/java/com/sw1/generated/repositorio/ClienteRepository.java",
         "src/main/java/com/sw1/generated/servicio/ClienteService.java",
@@ -124,10 +125,18 @@ describe("GeneradorSpringBoot", () => {
       salida,
       "src/main/java/com/sw1/generated/controlador/ClienteController.java"
     )
+    const noEncontrado = await leer(
+      salida,
+      "src/main/java/com/sw1/generated/error/RecursoNoEncontradoException.java"
+    )
 
     expect(repository).toContain("extends JpaRepository<Cliente, Long>")
     expect(servicio).toContain("List<Cliente> listar()")
     expect(implementacion).toContain("implements ClienteService")
+    expect(implementacion).toContain('new RecursoNoEncontradoException("Cliente")')
+    expect(implementacion).not.toContain("IllegalArgumentException")
+    expect(noEncontrado).toContain("@ResponseStatus(HttpStatus.NOT_FOUND)")
+    expect(noEncontrado).not.toContain(" + id")
     expect(controlador).toContain('@RequestMapping("/api/cliente")')
     expect(controlador).toContain("@PostMapping")
     expect(controlador).toContain("@GetMapping")
@@ -193,6 +202,6 @@ describe("GeneradorSpringBoot", () => {
           },
         ],
       })
-    ).toThrow("multiplicidades 1 y 0..*")
+    ).toThrow("Actualmente se soportan 1 ↔ 0..* y 1 ↔ 1..*")
   })
 })

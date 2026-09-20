@@ -181,27 +181,41 @@ function nombreDeRol(rol: string | undefined, nombrePredeterminado: string): str
   return rol === undefined ? nombrePredeterminado : rol.trim()
 }
 
+function describirRelacion(
+  relacion: ModeloUMLCanonicoEntrada["relaciones"][number],
+  clasesPorId: ReadonlyMap<string, ModeloUMLCanonicoEntrada["clases"][number]>,
+): string {
+  const origen = clasesPorId.get(relacion.claseOrigenId)?.nombre ?? "clase origen inexistente"
+  const destino = clasesPorId.get(relacion.claseDestinoId)?.nombre ?? "clase destino inexistente"
+  const extremos = `${origen} (${relacion.multiplicidadOrigen ?? "sin multiplicidad"}) ↔ ${destino} (${relacion.multiplicidadDestino ?? "sin multiplicidad"})`
+  return relacion.nombre?.trim() ? `«${relacion.nombre.trim()}» — ${extremos}` : extremos
+}
+
 export function prepararRelacionUnoAMuchos(
   relacion: ModeloUMLCanonicoEntrada["relaciones"][number],
   clasesPorId: ReadonlyMap<string, ModeloUMLCanonicoEntrada["clases"][number]>
 ): RelacionUnoAMuchosPreparada {
-  if (relacion.tipo !== "asociacion") {
-    throw new Error(`La relación ${relacion.id} de tipo ${relacion.tipo} no está soportada.`)
-  }
-  if (relacion.claseOrigenId === relacion.claseDestinoId) {
-    throw new Error(`La relación ${relacion.id} es autorreferente y todavía no está soportada.`)
-  }
-
   const claseOrigen = clasesPorId.get(relacion.claseOrigenId)
   const claseDestino = clasesPorId.get(relacion.claseDestinoId)
-  if (!claseOrigen || !claseDestino) {
-    throw new Error(`La relación ${relacion.id} referencia una clase inexistente.`)
+  const descripcion = describirRelacion(relacion, clasesPorId)
+  if (relacion.tipo !== "asociacion") {
+    throw new Error(`La relación ${descripcion} usa el tipo ${relacion.tipo}, que todavía no pertenece al perfil de generación Spring.`)
+  }
+  if (relacion.claseOrigenId === relacion.claseDestinoId) {
+    throw new Error(`La relación ${descripcion} es autorreferente y todavía no pertenece al perfil de generación Spring.`)
   }
 
-  const origenEsUno = relacion.multiplicidadOrigen === "1" && relacion.multiplicidadDestino === "0..*"
-  const destinoEsUno = relacion.multiplicidadOrigen === "0..*" && relacion.multiplicidadDestino === "1"
+  if (!claseOrigen || !claseDestino) {
+    throw new Error(`La relación ${descripcion} referencia una clase inexistente.`)
+  }
+
+  const origenEsUno = relacion.multiplicidadOrigen === "1" && (relacion.multiplicidadDestino === "0..*" || relacion.multiplicidadDestino === "1..*")
+  const destinoEsUno = (relacion.multiplicidadOrigen === "0..*" || relacion.multiplicidadOrigen === "1..*") && relacion.multiplicidadDestino === "1"
   if (!origenEsUno && !destinoEsUno) {
-    throw new Error(`La relación ${relacion.id} debe ser una asociación con multiplicidades 1 y 0..*.`)
+    if (relacion.multiplicidadOrigen === "0..*" && relacion.multiplicidadDestino === "0..*") {
+      throw new Error(`La relación ${descripcion} representa un N:M directo. El generador Spring de SW1 requiere convertirla explícitamente en una clase asociativa antes de generar.`)
+    }
+    throw new Error(`La relación ${descripcion} es UML válida, pero todavía no pertenece al perfil de generación Spring. Actualmente se soportan 1 ↔ 0..* y 1 ↔ 1..*.`)
   }
 
   const claseUno = origenEsUno ? claseOrigen : claseDestino
@@ -271,7 +285,7 @@ function prepararRelaciones(
         preparadas.push(preparada)
       }
     } catch (error) {
-      errores.push(error instanceof Error ? error.message : `Relación ${relacion.id} no soportada.`)
+      errores.push(error instanceof Error ? error.message : "Una relación no pertenece al perfil de generación Spring.")
     }
   }
   return preparadas
@@ -321,13 +335,13 @@ function validarPerfilesAsociativos(modelo: ModeloUMLCanonicoEntrada): string[] 
       const multiplicidadAsociativa = asociativaEsOrigen ? relacion.multiplicidadOrigen : relacion.multiplicidadDestino
       const multiplicidadPrincipal = asociativaEsOrigen ? relacion.multiplicidadDestino : relacion.multiplicidadOrigen
       if (relacion.tipo !== "asociacion" || multiplicidadAsociativa !== "0..*" || multiplicidadPrincipal !== "1") {
-        errores.push(`La relación ${relacion.id} debe ubicar a ${asociativa.nombre} en el extremo 0..* y a su clase principal en el extremo 1.`)
+        errores.push(`La relación ${describirRelacion(relacion, clasesPorId)} debe ubicar a ${asociativa.nombre} en el extremo 0..* y a su clase principal en el extremo 1.`)
         continue
       }
       const principalId = asociativaEsOrigen ? relacion.claseDestinoId : relacion.claseOrigenId
       const principal = clasesPorId.get(principalId)
       if (!principal) {
-        errores.push(`La relación ${relacion.id} referencia una clase principal inexistente.`)
+        errores.push(`La relación ${describirRelacion(relacion, clasesPorId)} referencia una clase principal inexistente.`)
       } else if (principal.tipoClase === "asociativa") {
         errores.push(`La clase principal ${principal.nombre} de ${asociativa.nombre} no puede ser otra clase asociativa.`)
       } else {

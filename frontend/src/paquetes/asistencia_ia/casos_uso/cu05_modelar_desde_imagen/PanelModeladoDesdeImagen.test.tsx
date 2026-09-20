@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
 import { ProveedorPreferenciasUI } from "../../../../configuracion/PreferenciasUI"
@@ -105,13 +105,37 @@ describe("PanelModeladoDesdeImagen", () => {
     expect(aplicar).not.toHaveBeenCalled()
   })
 
-  it("seleccionar otra imagen descarta el candidato anterior", async () => {
-    render(<PanelModeladoDesdeImagen modelo={modelo} alAplicarModelo={vi.fn()} />)
+  it("acumula otra imagen en el candidato sin aplicar cambios canónicos", async () => {
+    const aplicar = vi.fn()
+    render(<PanelModeladoDesdeImagen modelo={modelo} alAplicarModelo={aplicar} />)
     await seleccionarYAnalizar()
     const nueva = new File([new Uint8Array([0xff, 0xd8, 0xff])], "otra.jpg", { type: "image/jpeg" })
+    const segundaRespuesta = {
+      ...respuesta,
+      candidato: { clases: [{ refTemporal: "tmp_cliente", nombre: "Cliente", atributos: [] }], relaciones: [], advertencias: [] },
+    }
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify(segundaRespuesta), { status: 200 }))
     fireEvent.change(screen.getByLabelText("Seleccionar imagen"), { target: { files: [nueva] } })
-    await waitFor(() => expect(screen.queryByRole("region", { name: "Modelo UML candidato" })).not.toBeInTheDocument())
+    expect(screen.getByRole("region", { name: "Modelo UML candidato" })).toBeInTheDocument()
     expect(screen.getByText(/otra.jpg/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Analizar otra imagen" }))
+    expect(await screen.findByText("Cliente")).toBeInTheDocument()
+    expect(screen.getByText(/Imágenes analizadas: 2 \/ 4/)).toBeInTheDocument()
+    expect(aplicar).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole("button", { name: "Agregar al diagrama" }))
+    expect(aplicar).toHaveBeenCalledOnce()
+    expect(aplicar.mock.calls[0]?.[0].clases.map((clase: ModeloUMLCanonico["clases"][number]) => clase.nombre)).toEqual(["Factura", "Cliente"])
+  })
+
+  it("limita una sesión progresiva a cuatro análisis visibles", async () => {
+    render(<PanelModeladoDesdeImagen modelo={modelo} alAplicarModelo={vi.fn()} />)
+    for (let indice = 1; indice <= 4; indice += 1) {
+      fireEvent.change(screen.getByLabelText("Seleccionar imagen"), { target: { files: [archivo] } })
+      fireEvent.click(screen.getByRole("button", { name: indice === 1 ? "Analizar imagen" : "Analizar otra imagen" }))
+      await screen.findByText(new RegExp(`Imágenes analizadas: ${indice} / 4`))
+    }
+    expect(screen.getByLabelText("Seleccionar imagen")).toBeDisabled()
+    expect(screen.getByRole("button", { name: "Analizar otra imagen" })).toBeDisabled()
   })
 
   it("presenta en inglés la semántica estática del candidato sin mutar el modelo", async () => {

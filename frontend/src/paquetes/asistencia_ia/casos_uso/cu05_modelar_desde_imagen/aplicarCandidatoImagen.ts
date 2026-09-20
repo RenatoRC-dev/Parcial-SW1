@@ -16,6 +16,16 @@ export function aplicarCandidatoImagen(
   const colision = candidato.clases.find((clase) => nombresActuales.has(clase.nombre.trim().toLowerCase()))
   if (colision) throw new ErrorIntegracionCandidato(`No se puede agregar el candidato porque ya existe la clase ${colision.nombre}.`)
 
+  for (const clase of candidato.clases) {
+    const identificadorInvalido = clase.atributos.find((atributo) => {
+      const tipo = atributo.tipoDato?.trim() ?? ""
+      return atributo.nombre.trim().toLowerCase() === "id" && tipo !== "" && tipo !== "Long"
+    })
+    if (identificadorInvalido) {
+      throw new ErrorIntegracionCandidato(`El atributo "id" de la clase ${clase.nombre} debe utilizar el tipo Long.`)
+    }
+  }
+
   const referencias = new Map<string, string>()
   const maximoX = actual.clases.length > 0 ? Math.max(...actual.clases.map((clase) => clase.posicion.x)) : -250
   const inicioX = maximoX + 350

@@ -102,8 +102,16 @@ export async function importarXmi(textoXmi: string): Promise<ResultadoImportacio
   }
 }
 
-function multiplicidadesUnoAMuchos(origen: string | null, destino: string | null): boolean {
-  return (origen === "1" && destino === "0..*") || (origen === "0..*" && destino === "1")
+const MULTIPLICIDADES_XMI = new Set(["1", "0..1", "0..*", "1..*"])
+
+function describirRelacionXmi(
+  relacion: ModeloUMLCanonicoIntercambio["relaciones"][number],
+  clasesPorId: ReadonlyMap<string, ModeloUMLCanonicoIntercambio["clases"][number]>,
+): string {
+  const origen = clasesPorId.get(relacion.claseOrigenId)?.nombre ?? "clase origen inexistente"
+  const destino = clasesPorId.get(relacion.claseDestinoId)?.nombre ?? "clase destino inexistente"
+  const extremos = `${origen} (${relacion.multiplicidadOrigen ?? "sin multiplicidad"}) ↔ ${destino} (${relacion.multiplicidadDestino ?? "sin multiplicidad"})`
+  return relacion.nombre?.trim() ? `«${relacion.nombre.trim()}» — ${extremos}` : extremos
 }
 
 export function validarAptitudExportacionXmi(modelo: ModeloUMLCanonicoIntercambio): string[] {
@@ -133,14 +141,16 @@ export function validarAptitudExportacionXmi(modelo: ModeloUMLCanonicoIntercambi
     errores.push("Los ids de relación deben ser únicos y no vacíos.")
   }
   const conjuntoClases = new Set(idsClases)
+  const clasesPorId = new Map(modelo.clases.map((clase) => [clase.id, clase]))
   for (const relacion of modelo.relaciones) {
+    const descripcion = describirRelacionXmi(relacion, clasesPorId)
     if (!conjuntoClases.has(relacion.claseOrigenId) || !conjuntoClases.has(relacion.claseDestinoId)) {
-      errores.push(`La relación ${relacion.id} no conecta dos clases existentes.`)
+      errores.push(`La relación ${descripcion} no conecta dos clases existentes.`)
     }
     if (relacion.tipo !== "asociacion") {
-      errores.push(`La relación ${relacion.id} usa el tipo no soportado ${relacion.tipo}.`)
-    } else if (!multiplicidadesUnoAMuchos(relacion.multiplicidadOrigen, relacion.multiplicidadDestino)) {
-      errores.push(`La relación ${relacion.id} no usa multiplicidad 1 ↔ 0..*.`)
+      errores.push(`La relación ${descripcion} usa el tipo ${relacion.tipo}, que no pertenece al perfil XMI exportable actual.`)
+    } else if (!MULTIPLICIDADES_XMI.has(relacion.multiplicidadOrigen ?? "") || !MULTIPLICIDADES_XMI.has(relacion.multiplicidadDestino ?? "")) {
+      errores.push(`La relación ${descripcion} necesita multiplicidades representables por XMI en ambos extremos: 1, 0..1, 0..* o 1..*.`)
     }
   }
   return errores

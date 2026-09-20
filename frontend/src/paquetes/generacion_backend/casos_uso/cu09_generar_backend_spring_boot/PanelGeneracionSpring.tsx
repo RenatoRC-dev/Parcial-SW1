@@ -40,6 +40,11 @@ export function PanelGeneracionSpring({ modelo, validacion, aptitud, alGenerar =
         <div><dt>{t("generacion.generador")}</dt><dd>{aptitud.apto ? t("generacion.apto") : t("generacion.noApto")}</dd></div>
       </dl>
       {aptitud.motivos.length > 0 ? <ul className="generation-reasons">{aptitud.motivos.map((motivo) => <li key={motivo}>{motivo}</li>)}</ul> : null}
+      {aptitud.advertencias.length > 0 ? <ul className="generation-warnings">{aptitud.advertencias.map((advertencia) => (
+        <li key={`${advertencia.codigo}-${advertencia.relacion}`}>
+          {t("generacion.minimoColeccionPrefijo")} {advertencia.relacion} {t("generacion.minimoColeccionSufijo")}
+        </li>
+      ))}</ul> : null}
       <button type="button" onClick={generar} disabled={!aptitud.apto || estado === "generando"}>
         {estado === "generando" ? t("generacion.generando") : t("generacion.generar")}
       </button>

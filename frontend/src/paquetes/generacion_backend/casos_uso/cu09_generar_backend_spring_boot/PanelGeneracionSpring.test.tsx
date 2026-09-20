@@ -38,6 +38,27 @@ describe("PanelGeneracionSpring", () => {
     expect(screen.getByText(/Cliente.nombre/)).toBeVisible()
   })
 
+  it("mantiene apto 1 a 1..* y muestra la advertencia mínima sin bloquear", () => {
+    const conMinimo: ModeloUMLCanonico = {
+      ...modelo,
+      clases: [
+        { ...modelo.clases[0], id: "factura", nombre: "Factura" },
+        { id: "detalle", nombre: "DetalleFactura", abstracta: false, posicion: { x: 300, y: 0 }, atributos: [{ id: "numero", nombre: "numero", tipo: "String" }] },
+      ],
+      relaciones: [{
+        id: "relacion-uuid-interna", nombre: "contiene", tipo: "asociacion", claseOrigenId: "factura", claseDestinoId: "detalle",
+        multiplicidadOrigen: "1", multiplicidadDestino: "1..*", rolOrigen: "factura", rolDestino: "detalles",
+      }],
+    }
+    const validacion = validarModelo(conMinimo)
+    render(<PanelGeneracionSpring modelo={conMinimo} validacion={validacion} aptitud={evaluarAptitudGeneracionSpring(conMinimo, validacion)} />)
+    expect(screen.getByText("Válido")).toBeVisible()
+    expect(screen.getByText("Apto")).toBeVisible()
+    expect(screen.getByRole("button", { name: "Generar backend Spring Boot" })).toBeEnabled()
+    expect(screen.getByText(/«contiene» — Factura \(1\) ↔ DetalleFactura \(1\.\.\*\).*regla de negocio/)).toBeVisible()
+    expect(screen.queryByText(/relacion-uuid-interna/)).not.toBeInTheDocument()
+  })
+
   it("muestra el error del servicio", async () => {
     const validacion = validarModelo(modelo)
     render(<PanelGeneracionSpring modelo={modelo} validacion={validacion} aptitud={evaluarAptitudGeneracionSpring(modelo, validacion)} alGenerar={() => Promise.reject(new Error("servicio no disponible"))} />)

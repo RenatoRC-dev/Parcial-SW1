@@ -30,7 +30,7 @@ function crearModeloRelacionado(
 describe("evaluarAptitudGeneracionSpring", () => {
   it("acepta un modelo válido con entidades independientes", () => {
     const modelo = crearModelo()
-    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo))).toEqual({ apto: true, motivos: [] })
+    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo))).toEqual({ apto: true, motivos: [], advertencias: [] })
   })
 
   it("rechaza errores de validación UML", () => {
@@ -40,7 +40,7 @@ describe("evaluarAptitudGeneracionSpring", () => {
 
   it("acepta una asociación 1 a 0..*", () => {
     const modelo = crearModeloRelacionado()
-    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo))).toEqual({ apto: true, motivos: [] })
+    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo))).toEqual({ apto: true, motivos: [], advertencias: [] })
   })
 
   it("acepta la orientación invertida 0..* a 1", () => {
@@ -54,15 +54,35 @@ describe("evaluarAptitudGeneracionSpring", () => {
 
   it("rechaza multiplicidades no soportadas", () => {
     const modelo = crearModeloRelacionado({ multiplicidadDestino: "1" })
-    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).motivos[0]).toContain("multiplicidades 1 y 0..*")
+    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).motivos[0]).toContain("Actualmente se soportan 1 ↔ 0..* y 1 ↔ 1..*")
+  })
+
+  it("acepta Factura 1 a 1..* DetalleFactura y advierte la regla de negocio mínima", () => {
+    const modelo = crearModeloRelacionado({ id: "relacion-uuid-interna", nombre: "contiene", multiplicidadDestino: "1..*", rolOrigen: "factura", rolDestino: "detalles" })
+    modelo.clases[0]!.nombre = "Factura"
+    modelo.clases[1]!.nombre = "DetalleFactura"
+    const validacion = validarModelo(modelo)
+    const resultado = evaluarAptitudGeneracionSpring(modelo, validacion)
+    expect(validacion.valido).toBe(true)
+    expect(resultado.apto).toBe(true)
+    expect(resultado.motivos).toEqual([])
+    expect(resultado.advertencias).toEqual([{
+      codigo: "CARDINALIDAD_MINIMA_COLECCION",
+      relacion: "«contiene» — Factura (1) ↔ DetalleFactura (1..*)",
+    }])
   })
 
   it("rechaza asociación muchos a muchos 0..* a 0..*", () => {
     const modelo = crearModeloRelacionado({
+      id: "relacion-uuid-interna",
       multiplicidadOrigen: "0..*",
       multiplicidadDestino: "0..*",
     })
-    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).apto).toBe(false)
+    const resultado = evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo))
+    expect(resultado.apto).toBe(false)
+    expect(resultado.motivos.join(" ")).toContain("Cliente (0..*) ↔ Pedido (0..*) representa un N:M directo")
+    expect(resultado.motivos.join(" ")).toContain("convertirla explícitamente en una clase asociativa")
+    expect(resultado.motivos.join(" ")).not.toContain("relacion-uuid-interna")
   })
 
   it.each(["agregacion", "composicion", "generalizacion"] as const)(
@@ -119,7 +139,7 @@ describe("evaluarAptitudGeneracionSpring", () => {
       ],
     }
     expect(validarModelo(modelo).valido).toBe(true)
-    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo))).toEqual({ apto: true, motivos: [] })
+    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo))).toEqual({ apto: true, motivos: [], advertencias: [] })
   })
 
   it("rechaza nombres que colisionan con tipos Java", () => {

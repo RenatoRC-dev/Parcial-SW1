@@ -74,6 +74,45 @@ describe("generación determinista de asociación uno-a-muchos", () => {
     expect(pedido.relacionesMuchosAUno[0].nombreCampo).toBe("cliente")
   })
 
+  it("deriva propiedades y FK desde las clases, nunca desde el nombre de asociación", async () => {
+    const clase = (id: string, nombre: string) => ({
+      id, nombre, abstracta: false, atributos: [{ id: `${id}-id`, nombre: "id", tipo: "Long" as const }],
+    })
+    const modelo: ModeloUMLCanonicoEntrada = {
+      id: "ventas", nombre: "Ventas", version: "1",
+      clases: [
+        clase("cliente", "Cliente"), clase("metodo", "MetodoPago"), clase("factura", "Factura"),
+        clase("detalle", "DetalleFactura"), clase("categoria", "Categoria"), clase("producto", "Producto"),
+      ],
+      relaciones: [
+        { id: "r1", nombre: "tiene", tipo: "asociacion", claseOrigenId: "cliente", claseDestinoId: "factura", multiplicidadOrigen: "1", multiplicidadDestino: "0..*" },
+        { id: "r2", nombre: "utiliza", tipo: "asociacion", claseOrigenId: "metodo", claseDestinoId: "factura", multiplicidadOrigen: "1", multiplicidadDestino: "0..*" },
+        { id: "r3", nombre: "contiene", tipo: "asociacion", claseOrigenId: "factura", claseDestinoId: "detalle", multiplicidadOrigen: "1", multiplicidadDestino: "1..*" },
+        { id: "r4", nombre: "clasifica", tipo: "asociacion", claseOrigenId: "categoria", claseDestinoId: "producto", multiplicidadOrigen: "1", multiplicidadDestino: "0..*" },
+        { id: "r5", nombre: "apareceEn", tipo: "asociacion", claseOrigenId: "producto", claseDestinoId: "detalle", multiplicidadOrigen: "1", multiplicidadDestino: "0..*" },
+      ],
+    }
+    const salida = await mkdtemp(join(tmpdir(), "sw1-nombres-relacion-"))
+    temporales.push(salida)
+    await generarProyectoSpring(modelo, salida)
+    const factura = await readFile(join(salida, "src/main/java/com/sw1/generated/modelo/Factura.java"), "utf8")
+    const detalle = await readFile(join(salida, "src/main/java/com/sw1/generated/modelo/DetalleFactura.java"), "utf8")
+    const producto = await readFile(join(salida, "src/main/java/com/sw1/generated/modelo/Producto.java"), "utf8")
+    const fuentes = `${factura}\n${detalle}\n${producto}`
+
+    expect(factura).toContain("private Cliente cliente;")
+    expect(factura).toContain("private MetodoPago metodoPago;")
+    expect(detalle).toContain("private Factura factura;")
+    expect(detalle).toContain("private Producto producto;")
+    expect(producto).toContain("private Categoria categoria;")
+    expect(fuentes).toContain('@JoinColumn(name = "cliente_id", nullable = false)')
+    expect(fuentes).toContain('@JoinColumn(name = "metodo_pago_id", nullable = false)')
+    expect(fuentes).toContain('@JoinColumn(name = "factura_id", nullable = false)')
+    expect(fuentes).toContain('@JoinColumn(name = "producto_id", nullable = false)')
+    expect(fuentes).toContain('@JoinColumn(name = "categoria_id", nullable = false)')
+    expect(fuentes).not.toMatch(/(?:tiene|contiene|aparece_en|clasifica)_id/)
+  })
+
   it("renderiza ManyToOne, JoinColumn, OneToMany y JsonIgnore sin cascada", async () => {
     const salida = await mkdtemp(join(tmpdir(), "sw1-relacion-"))
     temporales.push(salida)
@@ -90,6 +129,33 @@ describe("generación determinista de asociación uno-a-muchos", () => {
     expect(`${cliente}\n${pedido}`).not.toContain("orphanRemoval")
   })
 
+  it("genera Factura 1 — 1..* DetalleFactura con la FK en DetalleFactura", async () => {
+    const modelo = conRelacion({
+      id: "relacion-uuid-interna", nombre: "contiene", multiplicidadDestino: "1..*",
+      rolOrigen: "factura", rolDestino: "detalles",
+    })
+    modelo.clases = modelo.clases.map((clase) => clase.id === "cliente"
+      ? { ...clase, nombre: "Factura" }
+      : { ...clase, nombre: "DetalleFactura" })
+    const proyecto = prepararProyectoSpring(modelo)
+    expect(proyecto.entidades.find((entidad) => entidad.nombreClase === "Factura")?.relacionesUnoAMuchos).toEqual([{
+      nombreCampo: "detalles", entidadObjetivo: "DetalleFactura", mappedBy: "factura",
+    }])
+    expect(proyecto.entidades.find((entidad) => entidad.nombreClase === "DetalleFactura")?.relacionesMuchosAUno).toEqual([{
+      nombreCampo: "factura", entidadObjetivo: "Factura", nombreColumna: "factura_id",
+    }])
+
+    const salida = await mkdtemp(join(tmpdir(), "sw1-factura-detalle-"))
+    temporales.push(salida)
+    await generarProyectoSpring(modelo, salida)
+    const factura = await readFile(join(salida, "src/main/java/com/sw1/generated/modelo/Factura.java"), "utf8")
+    const detalle = await readFile(join(salida, "src/main/java/com/sw1/generated/modelo/DetalleFactura.java"), "utf8")
+    expect(factura).toContain('@OneToMany(mappedBy = "factura")')
+    expect(factura).toContain("private List<DetalleFactura> detalles = new ArrayList<>();")
+    expect(detalle).toContain("@ManyToOne(optional = false)")
+    expect(detalle).toContain('@JoinColumn(name = "factura_id", nullable = false)')
+  })
+
   it("actualiza la relación propietaria en el servicio del lado muchos", async () => {
     const salida = await mkdtemp(join(tmpdir(), "sw1-relacion-servicio-"))
     temporales.push(salida)
@@ -100,15 +166,24 @@ describe("generación determinista de asociación uno-a-muchos", () => {
 
   it.each([
     ["uno a uno", conRelacion({ multiplicidadDestino: "1" })],
-    ["muchos a muchos", conRelacion({ multiplicidadOrigen: "0..*" })],
-    ["mínimo uno", conRelacion({ multiplicidadDestino: "1..*" })],
   ])("rechaza multiplicidad no soportada: %s", (_nombre, modelo) => {
-    expect(() => prepararProyectoSpring(modelo)).toThrow("multiplicidades 1 y 0..*")
+    expect(() => prepararProyectoSpring(modelo)).toThrow("Actualmente se soportan 1 ↔ 0..* y 1 ↔ 1..*")
+  })
+
+  it("explica un N:M directo sin exponer el id interno", () => {
+    const modelo = conRelacion({ id: "relacion-uuid-interna", multiplicidadOrigen: "0..*", multiplicidadDestino: "0..*" })
+    expect(() => prepararProyectoSpring(modelo)).toThrow("Cliente (0..*) ↔ Pedido (0..*) representa un N:M directo")
+    try {
+      prepararProyectoSpring(modelo)
+    } catch (error) {
+      expect(String(error)).toContain("convertirla explícitamente en una clase asociativa")
+      expect(String(error)).not.toContain("relacion-uuid-interna")
+    }
   })
 
   it.each(["agregacion", "composicion", "generalizacion"] as const)(
     "rechaza el tipo %s",
-    (tipo) => expect(() => prepararProyectoSpring(conRelacion({ tipo }))).toThrow("no está soportada")
+    (tipo) => expect(() => prepararProyectoSpring(conRelacion({ tipo }))).toThrow("no pertenece al perfil de generación Spring")
   )
 
   it("rechaza autorrelaciones", () => {

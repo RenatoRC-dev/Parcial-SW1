@@ -1,7 +1,7 @@
 import request from "supertest"
 import { describe, expect, it } from "vitest"
 import { crearAplicacionGeneracionBackend } from "../../../generacion_backend/api/ServidorGeneracionBackend.js"
-import { exportarXmi, importarXmi } from "./AdaptadorCrunchUML.js"
+import { exportarXmi, importarXmi, validarAptitudExportacionXmi } from "./AdaptadorCrunchUML.js"
 import { fixtureInteroperabilidad } from "./fixtureInteroperabilidad.js"
 
 function leerBinario(respuesta: NodeJS.ReadableStream, callback: (error: Error | null, body?: Buffer) => void) {
@@ -44,9 +44,44 @@ describe("AdaptadorCrunchUML", () => {
   }, 30_000)
 
   it("rechaza semántica canónica no soportada al exportar", async () => {
+    const modelo = { ...fixtureInteroperabilidad, relaciones: [{ ...fixtureInteroperabilidad.relaciones[0], id: "relacion-uuid-interna", tipo: "composicion" as const }] }
+    const mensaje = validarAptitudExportacionXmi(modelo).join(" ")
+    expect(mensaje).toMatch(/Cliente \(1\) ↔ Pedido \(0\.\.\*\).*perfil XMI/)
+    expect(mensaje).not.toContain("relacion-uuid-interna")
     await expect(
-      exportarXmi({ ...fixtureInteroperabilidad, relaciones: [{ ...fixtureInteroperabilidad.relaciones[0], tipo: "composicion" }] }),
-    ).rejects.toThrow(/no soportado/)
+      exportarXmi(modelo),
+    ).rejects.toThrow(/Cliente \(1\) ↔ Pedido \(0\.\.\*\).*perfil XMI/)
+  }, 30_000)
+
+  it("exporta e importa Factura 1 — 1..* DetalleFactura sin aplicar el perfil Spring", async () => {
+    const modelo = {
+      ...fixtureInteroperabilidad,
+      clases: fixtureInteroperabilidad.clases.map((clase) => clase.id === "EAID_CLIENTE"
+        ? { ...clase, nombre: "Factura" }
+        : { ...clase, nombre: "DetalleFactura" }),
+      relaciones: [{
+        ...fixtureInteroperabilidad.relaciones[0],
+        nombre: "contiene",
+        multiplicidadOrigen: "1" as const,
+        multiplicidadDestino: "1..*" as const,
+      }],
+    }
+    const resultado = await importarXmi((await exportarXmi(modelo)).toString("utf8"))
+    expect(resultado.modelo.relaciones[0]).toMatchObject({
+      claseOrigenId: "EAID_CLIENTE",
+      claseDestinoId: "EAID_PEDIDO",
+      multiplicidadOrigen: "1",
+      multiplicidadDestino: "1..*",
+    })
+  }, 30_000)
+
+  it("mantiene exportable un N:M directo aunque CU09 no lo genere", async () => {
+    const modelo = {
+      ...fixtureInteroperabilidad,
+      relaciones: [{ ...fixtureInteroperabilidad.relaciones[0], multiplicidadOrigen: "0..*" as const }],
+    }
+    const resultado = await importarXmi((await exportarXmi(modelo)).toString("utf8"))
+    expect(resultado.modelo.relaciones[0]).toMatchObject({ multiplicidadOrigen: "0..*", multiplicidadDestino: "0..*" })
   }, 30_000)
 
   it("importa una clase independiente", async () => {

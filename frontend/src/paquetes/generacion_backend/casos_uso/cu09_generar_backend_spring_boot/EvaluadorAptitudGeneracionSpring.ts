@@ -4,6 +4,10 @@ import { TIPOS_GENERACION_SOPORTADOS, type ResultadoValidacion } from "../../../
 export interface ResultadoAptitudGeneracion {
   apto: boolean
   motivos: string[]
+  advertencias: Array<{
+    codigo: "CARDINALIDAD_MINIMA_COLECCION"
+    relacion: string
+  }>
 }
 
 const nombresEnConflicto = new Set([
@@ -32,11 +36,22 @@ function convertirAVariable(nombreClase: string): string {
   return nombreClase.charAt(0).toLowerCase() + nombreClase.slice(1)
 }
 
+function describirRelacion(
+  relacion: ModeloUMLCanonico["relaciones"][number],
+  clasesPorId: ReadonlyMap<string, ModeloUMLCanonico["clases"][number]>,
+): string {
+  const origen = clasesPorId.get(relacion.claseOrigenId)?.nombre ?? "clase origen inexistente"
+  const destino = clasesPorId.get(relacion.claseDestinoId)?.nombre ?? "clase destino inexistente"
+  const extremos = `${origen} (${relacion.multiplicidadOrigen ?? "sin multiplicidad"}) ↔ ${destino} (${relacion.multiplicidadDestino ?? "sin multiplicidad"})`
+  return relacion.nombre?.trim() ? `«${relacion.nombre.trim()}» — ${extremos}` : extremos
+}
+
 export function evaluarAptitudGeneracionSpring(
   modelo: ModeloUMLCanonico,
   validacion: ResultadoValidacion
 ): ResultadoAptitudGeneracion {
   const motivos: string[] = []
+  const advertencias: ResultadoAptitudGeneracion["advertencias"] = []
   if (!validacion.valido) motivos.push("El modelo contiene errores de validación UML.")
 
   for (const clase of modelo.clases) {
@@ -74,7 +89,7 @@ export function evaluarAptitudGeneracionSpring(
       const multiplicidadAsociativa = asociativaEsOrigen ? relacion.multiplicidadOrigen : relacion.multiplicidadDestino
       const multiplicidadPrincipal = asociativaEsOrigen ? relacion.multiplicidadDestino : relacion.multiplicidadOrigen
       if (relacion.tipo !== "asociacion" || multiplicidadAsociativa !== "0..*" || multiplicidadPrincipal !== "1") {
-        motivos.push(`La relación ${relacion.id} debe ubicar a ${asociativa.nombre} en el extremo 0..* y a su clase principal en el extremo 1.`)
+        motivos.push(`La relación ${describirRelacion(relacion, clasesPorId)} debe ubicar a ${asociativa.nombre} en el extremo 0..* y a su clase principal en el extremo 1.`)
       }
       const principalId = asociativaEsOrigen ? relacion.claseDestinoId : relacion.claseOrigenId
       return clasesPorId.get(principalId)
@@ -96,23 +111,33 @@ export function evaluarAptitudGeneracionSpring(
     ])
   )
   for (const relacion of modelo.relaciones) {
+    const descripcion = describirRelacion(relacion, clasesPorId)
     if (relacion.tipo !== "asociacion") {
-      motivos.push(`La relación ${relacion.id} de tipo ${relacion.tipo} no está soportada.`)
+      motivos.push(`La relación ${descripcion} usa el tipo ${relacion.tipo}, que todavía no pertenece al perfil de generación Spring.`)
       continue
     }
     if (relacion.claseOrigenId === relacion.claseDestinoId) {
-      motivos.push(`La relación ${relacion.id} es autorreferente y todavía no está soportada.`)
+      motivos.push(`La relación ${descripcion} es autorreferente y todavía no pertenece al perfil de generación Spring.`)
       continue
     }
     const origen = clasesPorId.get(relacion.claseOrigenId)
     const destino = clasesPorId.get(relacion.claseDestinoId)
     if (!origen || !destino) continue
 
-    const origenEsUno = relacion.multiplicidadOrigen === "1" && relacion.multiplicidadDestino === "0..*"
-    const destinoEsUno = relacion.multiplicidadOrigen === "0..*" && relacion.multiplicidadDestino === "1"
+    const origenEsUno = relacion.multiplicidadOrigen === "1" && (relacion.multiplicidadDestino === "0..*" || relacion.multiplicidadDestino === "1..*")
+    const destinoEsUno = (relacion.multiplicidadOrigen === "0..*" || relacion.multiplicidadOrigen === "1..*") && relacion.multiplicidadDestino === "1"
     if (!origenEsUno && !destinoEsUno) {
-      motivos.push(`La relación ${relacion.id} debe ser una asociación con multiplicidades 1 y 0..*.`)
+      if (relacion.multiplicidadOrigen === "0..*" && relacion.multiplicidadDestino === "0..*") {
+        motivos.push(`La relación ${descripcion} representa un N:M directo. El generador Spring de SW1 requiere convertirla explícitamente en una clase asociativa antes de generar.`)
+      } else {
+        motivos.push(`La relación ${descripcion} es UML válida, pero todavía no pertenece al perfil de generación Spring. Actualmente se soportan 1 ↔ 0..* y 1 ↔ 1..*.`)
+      }
       continue
+    }
+
+    const multiplicidadMuchos = origenEsUno ? relacion.multiplicidadDestino : relacion.multiplicidadOrigen
+    if (multiplicidadMuchos === "1..*") {
+      advertencias.push({ codigo: "CARDINALIDAD_MINIMA_COLECCION", relacion: descripcion })
     }
 
     const claseUno = origenEsUno ? origen : destino
@@ -148,5 +173,5 @@ export function evaluarAptitudGeneracionSpring(
     }
   }
 
-  return { apto: motivos.length === 0, motivos }
+  return { apto: motivos.length === 0, motivos, advertencias }
 }

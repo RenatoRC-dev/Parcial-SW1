@@ -71,7 +71,7 @@ describe("generación de clase asociativa", () => {
       clases: fixtureUsuarioRol.clases.filter((clase) => clase.tipoClase !== "asociativa"),
       relaciones: [{ id: "usuario-rol-directa", tipo: "asociacion" as const, claseOrigenId: "usuario", claseDestinoId: "rol", multiplicidadOrigen: "0..*" as const, multiplicidadDestino: "0..*" as const }],
     }
-    expect(() => prepararProyectoSpring(directa)).toThrow("multiplicidades 1 y 0..*")
+    expect(() => prepararProyectoSpring(directa)).toThrow("convertirla explícitamente en una clase asociativa")
   })
 
   it("explica identidades, tipos y colisiones no soportadas", () => {

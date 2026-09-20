@@ -226,7 +226,7 @@ def exportar(entrada: Path, salida: Path):
         origen_inicio, origen_fin = extremos(relacion["multiplicidadOrigen"])
         destino_inicio, destino_fin = extremos(relacion["multiplicidadDestino"])
         schema.save(db.Association(
-            id=relacion["id"], name="", src_class_id=relacion["claseOrigenId"],
+            id=relacion["id"], name=relacion.get("nombre", ""), src_class_id=relacion["claseOrigenId"],
             dst_class_id=relacion["claseDestinoId"], src_mult_start=origen_inicio,
             src_mult_end=origen_fin, dst_mult_start=destino_inicio, dst_mult_end=destino_fin,
             src_role=relacion.get("rolOrigen"), dst_role=relacion.get("rolDestino"),

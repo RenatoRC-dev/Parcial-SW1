@@ -51,10 +51,15 @@ export function registrarRutaAnalisisImagen(aplicacion: Express, proveedor: Prov
         }, proveedor))
       } catch (errorProveedor) {
         if (errorProveedor instanceof ErrorProveedorVision) {
-          const estado = errorProveedor.tipo === "limite" ? 429 : 503
+          const estado = errorProveedor.tipo === "limite" ? 429 : errorProveedor.tipo === "respuesta_incompleta" ? 422 : 503
+          if (errorProveedor.diagnostico) {
+            console.warn("[CU05 Vision] Respuesta rechazada", { tipo: errorProveedor.tipo, ...errorProveedor.diagnostico })
+          }
           respuesta.status(estado).json({
             error: errorProveedor.tipo === "modelo_no_disponible"
               ? "El modelo de visión configurado no existe o no está disponible para esta cuenta."
+              : errorProveedor.tipo === "respuesta_incompleta"
+              ? "El análisis produjo más información de la que puede procesarse en una sola imagen. Prueba con una sección más pequeña."
               : estado === 429
               ? "El servicio de análisis de imagen alcanzó temporalmente su límite de uso."
               : "El servicio de análisis de imagen no está disponible temporalmente.",

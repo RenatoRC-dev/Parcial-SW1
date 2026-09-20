@@ -11,7 +11,11 @@ export interface ProveedorVisionUML {
 }
 
 export class ErrorProveedorVision extends Error {
-  constructor(public readonly tipo: "limite" | "modelo_no_disponible" | "no_disponible" | "respuesta_invalida", mensaje: string) {
+  constructor(
+    public readonly tipo: "limite" | "modelo_no_disponible" | "no_disponible" | "respuesta_invalida" | "respuesta_incompleta",
+    mensaje: string,
+    public readonly diagnostico?: Readonly<Record<string, string | number | boolean | null>>,
+  ) {
     super(mensaje)
   }
 }
