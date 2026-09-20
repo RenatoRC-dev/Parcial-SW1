@@ -95,6 +95,7 @@ describe("AdaptadorApollon", () => {
         metodos: [],
         posicion: { x: 125, y: 240 },
         abstracta: true,
+        tipoClase: "normal",
       },
     ])
   })
@@ -289,6 +290,20 @@ describe("AdaptadorApollon", () => {
       nombre: "dato",
       tipo: null,
     })
+  })
+
+  it("preserva tipoClase asociativa y normaliza una clase legacy como normal", () => {
+    const asociativa = {
+      id: "modelo-asociativo", nombre: "Accesos", version: "4.2.0",
+      clases: [{ id: "usuario-rol", nombre: "UsuarioRol", tipoClase: "asociativa" as const, abstracta: false, posicion: { x: 10, y: 20 }, atributos: [] }],
+      relaciones: [],
+    }
+    const apollon = convertirDesdeModeloCanonico(asociativa)
+    expect(apollon.nodes[0].data).toMatchObject({ sw1TipoClase: "asociativa" })
+    expect(convertirAModeloCanonico(apollon).clases[0].tipoClase).toBe("asociativa")
+
+    const legacy = crearModelo([crearClase("legacy", "Legacy")])
+    expect(convertirAModeloCanonico(legacy).clases[0].tipoClase).toBe("normal")
   })
 
   it("preserva la asociación soportada en canonical → Apollon → canonical", () => {

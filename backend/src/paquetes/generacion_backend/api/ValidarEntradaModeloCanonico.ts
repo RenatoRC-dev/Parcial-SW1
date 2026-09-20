@@ -70,6 +70,7 @@ export function esModeloUMLCanonicoEntrada(valor: unknown): valor is ModeloUMLCa
       return typeof candidata.id === "string" &&
         typeof candidata.nombre === "string" &&
         typeof candidata.abstracta === "boolean" &&
+        (candidata.tipoClase === undefined || candidata.tipoClase === "normal" || candidata.tipoClase === "asociativa") &&
         Array.isArray(candidata.atributos) &&
         candidata.atributos.every(esAtributoEntrada) &&
         (candidata.metodos === undefined || (Array.isArray(candidata.metodos) && candidata.metodos.every(esMetodoEntrada)))

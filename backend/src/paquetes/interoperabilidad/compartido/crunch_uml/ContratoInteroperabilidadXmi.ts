@@ -23,6 +23,8 @@ export interface ClaseIntercambio {
   metodos?: MetodoIntercambio[]
   posicion: { x: number; y: number }
   abstracta: boolean
+  /** Ausente en datos legacy; el repositorio lo normaliza como normal. */
+  tipoClase?: "normal" | "asociativa"
 }
 
 export interface RelacionIntercambio {

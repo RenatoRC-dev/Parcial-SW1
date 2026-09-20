@@ -25,6 +25,28 @@ describe("EjecutorComandosUML backend", () => {
     expect(resultado.clases.at(-1)).toMatchObject({ id: "clase-1", nombre: "Factura" })
   })
 
+  it("crea y convierte clases asociativas con el contrato estructurado", () => {
+    const creada = ejecutar([{
+      tipo: "crear_clase_asociativa", refTemporal: "tmp_cliente_pedido", nombre: "ClientePedido",
+      claseARef: "cliente", claseBRef: "pedido",
+    }])
+    const clase = creada.clases.find((item) => item.nombre === "ClientePedido")!
+    expect(clase).toMatchObject({ tipoClase: "asociativa", atributos: [], metodos: [] })
+    expect(creada.relaciones.slice(-2)).toEqual([
+      expect.objectContaining({ claseOrigenId: "cliente", claseDestinoId: clase.id, multiplicidadOrigen: "1", multiplicidadDestino: "0..*" }),
+      expect.objectContaining({ claseOrigenId: clase.id, claseDestinoId: "pedido", multiplicidadOrigen: "0..*", multiplicidadDestino: "1" }),
+    ])
+
+    const nm = { ...modeloBase, relaciones: [{ ...modeloBase.relaciones[0], multiplicidadOrigen: "0..*" as const }] }
+    let secuencia = 0
+    const convertida = ejecutarComandosUML(nm, [{
+      tipo: "convertir_relacion_en_clase_asociativa", refTemporal: "tmp_cliente_pedido",
+      nombre: "ClientePedido", relacionId: "r1",
+    }], (categoria) => `${categoria}-${++secuencia}`)
+    expect(convertida.relaciones.some((relacion) => relacion.id === "r1")).toBe(false)
+    expect(convertida.clases.at(-1)).toMatchObject({ tipoClase: "asociativa", atributos: [] })
+  })
+
   it("agrega un atributo por id canónico y preserva contenido no relacionado", () => {
     const resultado = ejecutar([{ tipo: "agregar_atributo", claseRef: "cliente", refTemporal: "tmp_correo", nombre: "correo", tipoDato: "String", visibilidad: "privada" }])
     expect(resultado.clases[0].atributos.at(-1)).toMatchObject({ id: "atributo-1", nombre: "correo", tipo: "String" })

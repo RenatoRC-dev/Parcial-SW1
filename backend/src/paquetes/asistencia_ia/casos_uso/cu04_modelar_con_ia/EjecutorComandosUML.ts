@@ -37,6 +37,42 @@ export function ejecutarComandosUML(
     if (!parametro) throw new ErrorPlanCambiosUML(`No existe el parámetro ${id}.`)
     return parametro
   }
+  const crearClaseAsociativa = (nombreSolicitado: string, claseARef: string, claseBRef: string, refTemporal: string, relacionReemplazadaId?: string) => {
+    const nombre = nombreSolicitado.trim()
+    if (!/^[A-Z][A-Za-z0-9]*$/.test(nombre) || modelo.clases.some((clase) => clase.nombre.trim().toLowerCase() === nombre.toLowerCase())) {
+      throw new ErrorPlanCambiosUML(`El nombre de clase asociativa ${nombreSolicitado} no es válido o ya existe.`)
+    }
+    const claseA = obtenerClase(claseARef)
+    const claseB = obtenerClase(claseBRef)
+    if (claseA.id === claseB.id) throw new ErrorPlanCambiosUML("La clase asociativa requiere dos clases distintas.")
+    if (relacionReemplazadaId) {
+      const existente = obtenerRelacion(relacionReemplazadaId)
+      const mismosExtremos = [existente.claseOrigenId, existente.claseDestinoId].every((id) => id === claseA.id || id === claseB.id)
+      if (existente.tipo !== "asociacion" || existente.multiplicidadOrigen !== "0..*" || existente.multiplicidadDestino !== "0..*" || !mismosExtremos) {
+        throw new ErrorPlanCambiosUML("La relación seleccionada no es una asociación N:M convertible.")
+      }
+    }
+    const claseId = generarId("clase")
+    const relacionAId = generarId("relacion")
+    const relacionBId = generarId("relacion")
+    registrarTemporal(refTemporal, claseId)
+    const ids = new Set([
+      ...modelo.clases.flatMap((clase) => [clase.id, ...clase.atributos.map((atributo) => atributo.id)]),
+      ...modelo.relaciones.map((relacion) => relacion.id),
+    ])
+    if ([claseId, relacionAId, relacionBId].some((id) => ids.has(id)) || new Set([claseId, relacionAId, relacionBId]).size !== 3) {
+      throw new ErrorPlanCambiosUML("Los ids generados para la clase asociativa no son únicos.")
+    }
+    modelo.clases.push({
+      id: claseId, nombre, tipoClase: "asociativa", abstracta: false, atributos: [], metodos: [],
+      posicion: { x: (claseA.posicion.x + claseB.posicion.x) / 2, y: (claseA.posicion.y + claseB.posicion.y) / 2 + 140 },
+    })
+    if (relacionReemplazadaId) modelo.relaciones = modelo.relaciones.filter((relacion) => relacion.id !== relacionReemplazadaId)
+    modelo.relaciones.push(
+      { id: relacionAId, tipo: "asociacion", claseOrigenId: claseA.id, claseDestinoId: claseId, multiplicidadOrigen: "1", multiplicidadDestino: "0..*" },
+      { id: relacionBId, tipo: "asociacion", claseOrigenId: claseId, claseDestinoId: claseB.id, multiplicidadOrigen: "0..*", multiplicidadDestino: "1" },
+    )
+  }
 
   for (const comando of comandos) {
     switch (comando.tipo) {
@@ -48,10 +84,19 @@ export function ejecutarComandosUML(
           id,
           nombre: comando.nombre,
           abstracta: comando.abstracta,
+          tipoClase: "normal",
           atributos: [],
           metodos: [],
           posicion: { x: 100 + (indice % 3) * 350, y: 100 + Math.floor(indice / 3) * 250 },
         })
+        break
+      }
+      case "crear_clase_asociativa":
+        crearClaseAsociativa(comando.nombre, comando.claseARef, comando.claseBRef, comando.refTemporal)
+        break
+      case "convertir_relacion_en_clase_asociativa": {
+        const relacion = obtenerRelacion(comando.relacionId)
+        crearClaseAsociativa(comando.nombre, relacion.claseOrigenId, relacion.claseDestinoId, comando.refTemporal, relacion.id)
         break
       }
       case "renombrar_clase":

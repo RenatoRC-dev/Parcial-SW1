@@ -121,6 +121,11 @@ function validarClase(
   clase: ClaseUML,
   diagnosticos: DiagnosticoValidacion[]
 ) {
+  if (clase.tipoClase !== undefined && clase.tipoClase !== "normal" && clase.tipoClase !== "asociativa") {
+    diagnosticos.push(crearDiagnostico(
+      "CLASE_TIPO_INVALIDO", "error", "El tipo de clase no está soportado.", "clase", clase.id
+    ))
+  }
   const nombre = clase.nombre.trim()
   if (nombre === "") {
     diagnosticos.push(

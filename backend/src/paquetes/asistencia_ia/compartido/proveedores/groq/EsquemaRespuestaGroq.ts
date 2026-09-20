@@ -27,6 +27,8 @@ export const ESQUEMA_RESPUESTA_GROQ = {
       items: {
         anyOf: [
           comando({ tipo: { const: "crear_clase" }, refTemporal: { type: "string" }, nombre: { type: "string" }, abstracta: { type: "boolean" } }, ["tipo", "refTemporal", "nombre", "abstracta"]),
+          comando({ tipo: { const: "crear_clase_asociativa" }, refTemporal: { type: "string" }, nombre: { type: "string" }, claseARef: { type: "string" }, claseBRef: { type: "string" } }, ["tipo", "refTemporal", "nombre", "claseARef", "claseBRef"]),
+          comando({ tipo: { const: "convertir_relacion_en_clase_asociativa" }, refTemporal: { type: "string" }, nombre: { type: "string" }, relacionId: { type: "string" } }, ["tipo", "refTemporal", "nombre", "relacionId"]),
           comando({ tipo: { const: "renombrar_clase" }, claseId: { type: "string" }, nuevoNombre: { type: "string" } }, ["tipo", "claseId", "nuevoNombre"]),
           comando({ tipo: { const: "eliminar_clase" }, claseId: { type: "string" } }, ["tipo", "claseId"]),
           comando({ tipo: { const: "agregar_atributo" }, claseRef: { type: "string" }, refTemporal: { type: "string" }, nombre: { type: "string" }, tipoDato: { type: "string" }, visibilidad: visibilidadNullable }, ["tipo", "claseRef", "refTemporal", "nombre", "tipoDato", "visibilidad"]),

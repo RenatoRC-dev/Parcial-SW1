@@ -19,6 +19,7 @@ export function esModeloUMLPersistible(valor: unknown): valor is ModeloUMLCanoni
   const idsElementos = new Set<string>()
   for (const clase of valor.clases) {
     if (!objeto(clase) || !texto(clase.id) || !texto(clase.nombre) || typeof clase.abstracta !== "boolean"
+      || !(clase.tipoClase === undefined || clase.tipoClase === "normal" || clase.tipoClase === "asociativa")
       || !objeto(clase.posicion) || typeof clase.posicion.x !== "number" || !Number.isFinite(clase.posicion.x)
       || typeof clase.posicion.y !== "number" || !Number.isFinite(clase.posicion.y) || !Array.isArray(clase.atributos)
       || idsClases.has(clase.id) || idsElementos.has(clase.id)) return false

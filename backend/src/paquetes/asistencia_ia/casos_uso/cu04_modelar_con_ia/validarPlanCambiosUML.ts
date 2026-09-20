@@ -42,6 +42,10 @@ export function esComandoModeloUML(valor: unknown): valor is ComandoModeloUML {
   switch (valor.tipo) {
     case "crear_clase":
       return cadena(valor.refTemporal) && cadena(valor.nombre) && typeof valor.abstracta === "boolean"
+    case "crear_clase_asociativa":
+      return cadena(valor.refTemporal) && cadena(valor.nombre) && cadena(valor.claseARef) && cadena(valor.claseBRef)
+    case "convertir_relacion_en_clase_asociativa":
+      return cadena(valor.refTemporal) && cadena(valor.nombre) && cadena(valor.relacionId)
     case "renombrar_clase":
       return cadena(valor.claseId) && cadena(valor.nuevoNombre)
     case "eliminar_clase":
@@ -96,6 +100,7 @@ function validarModeloResultado(modelo: ModeloUMLCanonicoIA): void {
   const idsAtributos = new Set<string>()
   const idsMetodos = new Set<string>()
   for (const clase of modelo.clases) {
+    if (clase.tipoClase !== undefined && clase.tipoClase !== "normal" && clase.tipoClase !== "asociativa") errores.push(`Tipo de clase no soportado: ${String(clase.tipoClase)}.`)
     const clave = clase.nombre.trim().toLowerCase()
     if (!CLASE.test(clase.nombre.trim())) errores.push(`Nombre de clase inválido: ${clase.nombre}.`)
     if (nombresClases.has(clave)) errores.push(`Nombre de clase duplicado: ${clase.nombre}.`)

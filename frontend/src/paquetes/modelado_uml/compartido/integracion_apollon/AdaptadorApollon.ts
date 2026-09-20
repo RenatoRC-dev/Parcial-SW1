@@ -39,6 +39,7 @@ interface DatosClaseApollon {
   methods: ElementoClaseApollon[]
   isAbstract?: boolean
   stereotype?: unknown
+  sw1TipoClase?: unknown
 }
 
 interface ResultadoInterpretacionAtributo {
@@ -73,6 +74,7 @@ function leerDatosClase(valor: Record<string, unknown>): DatosClaseApollon | nul
     isAbstract:
       typeof valor.isAbstract === "boolean" ? valor.isAbstract : undefined,
     stereotype: valor.stereotype,
+    sw1TipoClase: valor.sw1TipoClase,
   }
 }
 
@@ -213,6 +215,7 @@ function convertirClase(
     metodos,
     posicion: { x: nodo.position.x, y: nodo.position.y },
     abstracta: datos.isAbstract === true,
+    tipoClase: datos.sw1TipoClase === "asociativa" ? "asociativa" : "normal",
   }
 }
 
@@ -387,6 +390,7 @@ export function convertirDesdeModeloCanonico(modelo: ModeloUMLCanonico): UMLMode
         attributes: clase.atributos.map((atributo) => ({ id: atributo.id, name: notacionAtributo(atributo) })),
         methods: (clase.metodos ?? []).map((metodo) => ({ id: metodo.id, name: notacionMetodo(metodo) })),
         isAbstract: clase.abstracta,
+        sw1TipoClase: clase.tipoClase === "asociativa" ? "asociativa" : "normal",
       },
     })),
     edges: modelo.relaciones.map((relacion) => ({

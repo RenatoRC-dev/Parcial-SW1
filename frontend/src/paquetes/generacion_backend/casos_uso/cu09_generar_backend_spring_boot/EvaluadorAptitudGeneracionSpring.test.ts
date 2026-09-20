@@ -99,6 +99,14 @@ describe("evaluarAptitudGeneracionSpring", () => {
     expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).motivos[0]).toContain("abstracta")
   })
 
+  it("mantiene la clase asociativa como UML válido pero fuera del perfil Spring actual", () => {
+    const modelo = crearModelo({ clases: [{ ...crearModelo().clases[0], nombre: "ClientePedido", tipoClase: "asociativa", atributos: [] }] })
+    expect(validarModelo(modelo).valido).toBe(true)
+    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).motivos).toContain(
+      "Clase asociativa detectada (ClientePedido); la generación de clave compuesta todavía no forma parte del perfil actual."
+    )
+  })
+
   it("rechaza nombres que colisionan con tipos Java", () => {
     const modelo = crearModelo({ clases: [{ ...crearModelo().clases[0], nombre: "String" }] })
     expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).motivos).toContain("El nombre de entidad String entra en conflicto con un tipo Java.")

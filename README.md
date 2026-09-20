@@ -48,7 +48,7 @@ Application functionality follows the mandatory hierarchy `paquetes/<paquete>/ca
 - The compact SW1 UML inspector creates classes and edits properties with guided selectors for attribute type, visibility and relationship multiplicity, without exposing Apollon's unrestricted property popup.
 - New attributes use separate controls for name, the authoritative CU08-supported type list, and visibility; private (`-`) is the default.
 - Relationships are real selectable Apollon edges with canonical type and endpoint multiplicity selectors (`1`, `0..1`, `0..*`, `1..*`); association names and endpoint roles are separate optional semantics. Associations are non-navigable plain lines; aggregation/composition use `Part → Whole` so the diamond is beside the Whole, and generalization uses `Subclass → Superclass` so the triangle points to the Superclass.
-- The model accepts valid many-to-many UML multiplicities, but the current Spring profile still rejects them with controlled readiness feedback; no association class or `@ManyToMany` is invented.
+- The model accepts valid many-to-many UML multiplicities. A designer may explicitly create an empty associative class or atomically replace a direct `0..*`/`0..*` association with that class and two `1`/`0..*` associations; no ID, PK or FK attribute is invented. Composite-key and `@ManyToMany` generation remain outside the current Spring profile.
 - A conventional explicit `id: Long` is a normal canonical attribute. The generator reuses it as its single generated JPA identity; when absent, the existing implicit `Long id` fallback remains.
 - The full UML modeling profile includes operations with public/private visibility, controlled return types and typed parameters. They are persisted, rendered in Apollon and synchronized collaboratively.
 - UML operations are design semantics: the deterministic Spring generator does not infer method bodies, REST endpoints or service algorithms from a signature.
@@ -107,6 +107,7 @@ Implemented and internally verified:
 - Text and voice commands can create, modify and delete method signatures and their parameters. Methods default to public and `void`; method bodies remain outside the modeled semantics.
 - Propagation of applied changes through the existing Apollon/Yjs collaboration path.
 - Relationship instructions support association, aggregation, composition and generalization through the same canonical conventions as the manual editor. Whole/Part and Subclass/Superclass are explicit structured fields; association cardinalities remain business-readable counts translated to UML association ends.
+- Text and voice can explicitly create an associative class between two named classes or convert an existing direct N:M association; both reuse the same deterministic canonical transformation used by the manual inspector.
 
 Real Groq acceptance passed and [`GROQ-AI-001`](docs/quality/PENDING_ACCEPTANCE_GATES.md) is closed. The backend proof confirmed strict structured output and semantic validation with `openai/gpt-oss-20b`; the browser E2E remains separate and uses the deterministic provider. Configure `GROQ_API_KEY` only in the backend environment, optionally set `GROQ_MODEL`, and never expose either through `VITE_*` variables.
 

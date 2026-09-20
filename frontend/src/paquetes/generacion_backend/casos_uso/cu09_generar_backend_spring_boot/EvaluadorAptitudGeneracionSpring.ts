@@ -40,6 +40,9 @@ export function evaluarAptitudGeneracionSpring(
   if (!validacion.valido) motivos.push("El modelo contiene errores de validación UML.")
 
   for (const clase of modelo.clases) {
+    if (clase.tipoClase === "asociativa") {
+      motivos.push(`Clase asociativa detectada (${clase.nombre}); la generación de clave compuesta todavía no forma parte del perfil actual.`)
+    }
     if (clase.abstracta) motivos.push(`La clase abstracta ${clase.nombre} no puede generarse todavía.`)
     if (nombresEnConflicto.has(clase.nombre.trim())) {
       motivos.push(`El nombre de entidad ${clase.nombre} entra en conflicto con un tipo Java.`)

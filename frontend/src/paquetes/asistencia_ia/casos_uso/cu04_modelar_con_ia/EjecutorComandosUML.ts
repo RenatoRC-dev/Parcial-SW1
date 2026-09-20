@@ -1,5 +1,6 @@
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
 import type { ComandoModeloUML } from "./ComandoModeloUML"
+import { crearEstructuraClaseAsociativa } from "../../../modelado_uml/compartido/clases_asociativas/crearEstructuraClaseAsociativa"
 
 export class ErrorEjecucionComandosUML extends Error {}
 
@@ -8,7 +9,7 @@ export function ejecutarComandosUML(
   comandos: ComandoModeloUML[],
   generarId: (categoria: "clase" | "atributo" | "metodo" | "parametro" | "relacion") => string = (categoria) => `${categoria}-${crypto.randomUUID()}`,
 ): ModeloUMLCanonico {
-  const modelo = structuredClone(original)
+  let modelo = structuredClone(original)
   const temporales = new Map<string, string>()
   const registrar = (ref: string, id: string) => {
     if (!/^tmp_[A-Za-z0-9_]+$/.test(ref)) throw new ErrorEjecucionComandosUML(`Referencia temporal inválida: ${ref}.`)
@@ -43,7 +44,31 @@ export function ejecutarComandosUML(
         const id = generarId("clase")
         registrar(comando.refTemporal, id)
         const indice = modelo.clases.length
-        modelo.clases.push({ id, nombre: comando.nombre, abstracta: comando.abstracta, atributos: [], metodos: [], posicion: { x: 100 + (indice % 3) * 350, y: 100 + Math.floor(indice / 3) * 250 } })
+        modelo.clases.push({ id, nombre: comando.nombre, abstracta: comando.abstracta, tipoClase: "normal", atributos: [], metodos: [], posicion: { x: 100 + (indice % 3) * 350, y: 100 + Math.floor(indice / 3) * 250 } })
+        break
+      }
+      case "crear_clase_asociativa": {
+        const claseId = generarId("clase")
+        registrar(comando.refTemporal, claseId)
+        modelo = crearEstructuraClaseAsociativa(modelo, {
+          nombre: comando.nombre,
+          claseAId: clase(comando.claseARef).id,
+          claseBId: clase(comando.claseBRef).id,
+          ids: { clase: claseId, relacionA: generarId("relacion"), relacionB: generarId("relacion") },
+        })
+        break
+      }
+      case "convertir_relacion_en_clase_asociativa": {
+        const existente = relacion(comando.relacionId)
+        const claseId = generarId("clase")
+        registrar(comando.refTemporal, claseId)
+        modelo = crearEstructuraClaseAsociativa(modelo, {
+          nombre: comando.nombre,
+          claseAId: existente.claseOrigenId,
+          claseBId: existente.claseDestinoId,
+          relacionReemplazadaId: existente.id,
+          ids: { clase: claseId, relacionA: generarId("relacion"), relacionB: generarId("relacion") },
+        })
         break
       }
       case "renombrar_clase":

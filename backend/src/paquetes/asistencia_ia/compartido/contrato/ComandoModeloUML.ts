@@ -35,6 +35,7 @@ export interface ClaseModeloIA {
   metodos?: MetodoModeloIA[]
   posicion: { x: number; y: number }
   abstracta: boolean
+  tipoClase?: "normal" | "asociativa"
 }
 
 export interface RelacionModeloIA {
@@ -65,6 +66,8 @@ type ComandoCrearRelacion =
 
 export type ComandoModeloUML =
   | { tipo: "crear_clase"; refTemporal: string; nombre: string; abstracta: boolean }
+  | { tipo: "crear_clase_asociativa"; refTemporal: string; nombre: string; claseARef: string; claseBRef: string }
+  | { tipo: "convertir_relacion_en_clase_asociativa"; refTemporal: string; nombre: string; relacionId: string }
   | { tipo: "renombrar_clase"; claseId: string; nuevoNombre: string }
   | { tipo: "eliminar_clase"; claseId: string }
   | { tipo: "agregar_atributo"; claseRef: string; refTemporal: string; nombre: string; tipoDato: string; visibilidad: VisibilidadIA | null }

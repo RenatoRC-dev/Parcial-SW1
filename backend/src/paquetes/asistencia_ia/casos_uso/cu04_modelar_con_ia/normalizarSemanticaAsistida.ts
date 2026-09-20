@@ -50,6 +50,15 @@ export function normalizarComandosAsistidos(
     switch (comando.tipo) {
       case "crear_clase":
         return { ...comando, nombre: normalizarNombreClaseAsistido(comando.nombre) }
+      case "crear_clase_asociativa":
+        return {
+          ...comando,
+          nombre: normalizarNombreClaseAsistido(comando.nombre),
+          claseARef: resolverClase(modelo, comando.claseARef),
+          claseBRef: resolverClase(modelo, comando.claseBRef),
+        }
+      case "convertir_relacion_en_clase_asociativa":
+        return { ...comando, nombre: normalizarNombreClaseAsistido(comando.nombre) }
       case "renombrar_clase":
         return { ...comando, claseId: resolverClase(modelo, comando.claseId), nuevoNombre: normalizarNombreClaseAsistido(comando.nuevoNombre) }
       case "eliminar_clase":

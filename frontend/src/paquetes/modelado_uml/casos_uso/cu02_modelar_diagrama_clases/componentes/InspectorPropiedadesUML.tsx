@@ -12,10 +12,12 @@ import {
   type ParametroUML,
   type RelacionUML,
   type TipoRelacionUML,
+  type TipoClaseUML,
   type VisibilidadUML,
 } from "../../../../../nucleo/modelo_uml/ModeloUMLCanonico"
 import { TIPOS_GENERACION_SOPORTADOS, TIPOS_RETORNO_METODO, validarModelo } from "../../../../validacion/casos_uso/cu08_validar_modelo_uml/ValidadorModeloUML"
 import { usarPreferenciasUI } from "../../../../../configuracion/PreferenciasUI"
+import { crearEstructuraClaseAsociativa } from "../../../compartido/clases_asociativas/crearEstructuraClaseAsociativa"
 
 interface Props {
   editor: ApollonEditor | null
@@ -44,6 +46,7 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar }: Props) {
   const { t } = usarPreferenciasUI()
   const [seleccion, establecerSeleccion] = useState<string[]>([])
   const [nombreNuevaClase, establecerNombreNuevaClase] = useState("")
+  const [tipoNuevaClase, establecerTipoNuevaClase] = useState<TipoClaseUML>("normal")
   const [nombreClase, establecerNombreClase] = useState("")
   const [creandoAtributo, establecerCreandoAtributo] = useState(false)
   const [nombreAtributo, establecerNombreAtributo] = useState("")
@@ -108,8 +111,12 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar }: Props) {
       metodos: [],
       posicion: { x: 80 + modelo.clases.length * 40, y: 80 + modelo.clases.length * 40 },
       abstracta: false,
+      tipoClase: tipoNuevaClase,
     }
-    if (aplicar({ ...modelo, clases: [...modelo.clases, nuevaClase] }, nuevaClase.id)) establecerNombreNuevaClase("")
+    if (aplicar({ ...modelo, clases: [...modelo.clases, nuevaClase] }, nuevaClase.id)) {
+      establecerNombreNuevaClase("")
+      establecerTipoNuevaClase("normal")
+    }
   }
 
   const confirmarAtributo = () => {
@@ -150,6 +157,7 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar }: Props) {
       <fieldset className="compact-create-class">
         <legend>{t("propiedades.nuevaClase")}</legend>
         <label>{t("propiedades.nombreClase")}<input value={nombreNuevaClase} onChange={(evento) => establecerNombreNuevaClase(evento.target.value)} /></label>
+        <label>{t("propiedades.tipoClase")}<select value={tipoNuevaClase} onChange={(evento) => establecerTipoNuevaClase(evento.target.value as TipoClaseUML)}><option value="normal">{t("propiedades.normal")}</option><option value="asociativa">{t("propiedades.asociativa")}</option></select></label>
         <button type="button" onClick={crearClase}>{t("propiedades.crearClase")}</button>
       </fieldset>
 
@@ -157,6 +165,7 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar }: Props) {
         <section className="compact-class-editor" aria-label={t("propiedades.clase")}>
           <h3>{t("propiedades.clase")}</h3>
           <label>{t("propiedades.nombreClaseActual")}<input value={nombreClase} onChange={(evento) => establecerNombreClase(evento.target.value)} onBlur={renombrarClase} onKeyDown={confirmarConEnter} /></label>
+          <label>{t("propiedades.tipoClase")}<select value={clase.tipoClase === "asociativa" ? "asociativa" : "normal"} onChange={(evento) => aplicar({ ...modelo, clases: modelo.clases.map((item) => item.id === clase.id ? { ...item, tipoClase: evento.target.value as TipoClaseUML } : item) })}><option value="normal">{t("propiedades.normal")}</option><option value="asociativa">{t("propiedades.asociativa")}</option></select></label>
         </section>
 
         <section className="compact-attributes">
@@ -406,8 +415,13 @@ function EditorRelaciones({ modelo, seleccion, alAplicar }: { modelo: ModeloUMLC
   const [rolDestino, establecerRolDestino] = useState("")
   const [nombreRelacion, establecerNombreRelacion] = useState("")
   const [relacionEditadaId, establecerRelacionEditadaId] = useState<string | null>(null)
+  const [nombreClaseAsociativa, establecerNombreClaseAsociativa] = useState("")
+  const [errorClaseAsociativa, establecerErrorClaseAsociativa] = useState<string | null>(null)
   const relacionSeleccionada = modelo.relaciones.find((relacion) => seleccion.includes(relacion.id))
   const relacionEditada = modelo.relaciones.find((relacion) => relacion.id === relacionEditadaId) ?? relacionSeleccionada
+  const relacionMuchosAMuchos = relacionEditada?.tipo === "asociacion"
+    && relacionEditada.multiplicidadOrigen === "0..*"
+    && relacionEditada.multiplicidadDestino === "0..*"
   const esGeneralizacion = tipo === "generalizacion"
   const esTodoParte = tipo === "agregacion" || tipo === "composicion"
 
@@ -450,6 +464,25 @@ function EditorRelaciones({ modelo, seleccion, alAplicar }: { modelo: ModeloUMLC
     cancelar()
   }
 
+  const convertirEnClaseAsociativa = () => {
+    if (!relacionEditada || !relacionMuchosAMuchos) return
+    try {
+      const siguiente = crearEstructuraClaseAsociativa(modelo, {
+        nombre: nombreClaseAsociativa,
+        claseAId: relacionEditada.claseOrigenId,
+        claseBId: relacionEditada.claseDestinoId,
+        relacionReemplazadaId: relacionEditada.id,
+        ids: { clase: idNuevo("clase"), relacionA: idNuevo("relacion"), relacionB: idNuevo("relacion") },
+      })
+      alAplicar(siguiente)
+      establecerRelacionEditadaId(null)
+      establecerNombreClaseAsociativa("")
+      establecerErrorClaseAsociativa(null)
+    } catch (error) {
+      establecerErrorClaseAsociativa(error instanceof Error ? error.message : "No se pudo convertir la relación.")
+    }
+  }
+
   return (
     <section className="relationship-editor">
       <h3>{t("propiedades.relaciones")}</h3>
@@ -480,6 +513,14 @@ function EditorRelaciones({ modelo, seleccion, alAplicar }: { modelo: ModeloUMLC
             establecerRelacionEditadaId(null)
           }}
         />
+      ) : null}
+      {relacionEditada && relacionMuchosAMuchos ? (
+        <div className="compact-new-relation" role="group" aria-label={t("propiedades.convertirAsociativa")}>
+          <strong>{t("propiedades.convertirAsociativa")}</strong>
+          {errorClaseAsociativa ? <p className="property-error" role="alert">{errorClaseAsociativa}</p> : null}
+          <label>{t("propiedades.nombreClaseAsociativa")}<input value={nombreClaseAsociativa} onChange={(evento) => establecerNombreClaseAsociativa(evento.target.value)} /></label>
+          <button type="button" onClick={convertirEnClaseAsociativa}>{t("propiedades.confirmarConversionAsociativa")}</button>
+        </div>
       ) : null}
       {modelo.clases.length >= 2 && !creando ? <button type="button" className="compact-add-button" onClick={() => establecerCreando(true)}>{t("propiedades.mostrarNuevaRelacion")}</button> : null}
       {creando ? (

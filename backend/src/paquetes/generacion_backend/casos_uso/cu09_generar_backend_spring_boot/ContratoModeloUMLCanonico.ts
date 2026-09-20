@@ -19,6 +19,7 @@ export interface ClaseUMLEntrada {
   atributos: AtributoUMLEntrada[]
   metodos?: MetodoUMLEntrada[]
   abstracta: boolean
+  tipoClase?: "normal" | "asociativa"
 }
 
 export interface RelacionUMLEntrada {

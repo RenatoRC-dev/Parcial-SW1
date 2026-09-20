@@ -13,6 +13,7 @@ No generes un modelo completo. Devuelve exclusivamente el objeto del esquema.
 Usa solo ids incluidos en el contexto para elementos existentes; nunca inventes esos ids.
 Para elementos nuevos usa referencias temporales tmp_* únicas dentro de esta respuesta.
 No crees elementos no solicitados salvo que la instrucción lo pida explícitamente.
+Una clase asociativa sólo existe cuando el usuario la declara explícitamente. Usa crear_clase_asociativa para crearla entre dos clases o convertir_relacion_en_clase_asociativa para reemplazar una asociación N:M existente. No inventes atributos id, PK ni FK.
 Puedes crear asociacion, agregacion, composicion y generalizacion con un solo comando crear_relacion y sus campos discriminados.
 Asociacion no implica navegabilidad. Usa claseOrigenRef/claseDestinoRef; si no se indican cardinalidades, envía ambas cantidades como null sin inventarlas. Cuando se indiquen, cantidadDestinoPorOrigen responde "para UNA instancia origen, cuántas instancias destino puede haber" y cantidadOrigenPorDestino responde la pregunta inversa.
 Agregacion y composicion usan parteRef/todoRef. cantidadPartesPorTodo es cuántas Partes corresponden a un Todo; cantidadTodosPorParte es cuántos Todos corresponden a una Parte. Usa null cuando no se expresen. Ejemplos: "Equipo es el todo" => parteRef=Jugador, todoRef=Equipo; "Pedido se compone de DetallePedido" => parteRef=DetallePedido, todoRef=Pedido.

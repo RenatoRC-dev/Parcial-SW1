@@ -57,6 +57,16 @@ describe("InspectorPropiedadesUML compacto", () => {
     expect(clase).not.toHaveProperty("methods")
   })
 
+  it("crea explícitamente una clase asociativa vacía", () => {
+    const aplicar = renderizar({ ...modelo, clases: [], relaciones: [] })
+    const grupo = screen.getByRole("group", { name: "Nueva clase" })
+    fireEvent.change(within(grupo).getByLabelText("Nombre de clase"), { target: { value: "UsuarioRol" } })
+    fireEvent.change(within(grupo).getByLabelText("Tipo de clase"), { target: { value: "asociativa" } })
+    fireEvent.click(within(grupo).getByRole("button", { name: "Crear clase" }))
+
+    expect(aplicar.mock.calls[0][0].clases[0]).toMatchObject({ nombre: "UsuarioRol", tipoClase: "asociativa", atributos: [], metodos: [] })
+  })
+
   it("mantiene la validación manual de nombres sin aplicar normalización de lenguaje natural", () => {
     const aplicar = renderizar({ ...modelo, clases: [], relaciones: [] })
     const grupo = screen.getByRole("group", { name: "Nueva clase" })
@@ -373,6 +383,27 @@ describe("InspectorPropiedadesUML compacto", () => {
 
     expect(screen.getByText("Relación seleccionada")).toBeVisible()
     expect(screen.getByRole("group", { name: /Relación Factura/ })).toBeVisible()
+  })
+
+  it("convierte una asociación N:M en una clase asociativa sin dejar la relación original", () => {
+    const nm: ModeloUMLCanonico = {
+      ...modeloConRelacion,
+      relaciones: [{ ...modeloConRelacion.relaciones[0], multiplicidadOrigen: "0..*", multiplicidadDestino: "0..*" }],
+    }
+    const aplicar = renderizar(nm)
+    act(() => seleccionar(["relacion-1"]))
+    const grupo = screen.getByRole("group", { name: "Convertir en clase asociativa" })
+    fireEvent.change(within(grupo).getByLabelText("Nombre de clase asociativa"), { target: { value: "FacturaCliente" } })
+    fireEvent.click(within(grupo).getByRole("button", { name: "Convertir relación" }))
+
+    const resultado: ModeloUMLCanonico = aplicar.mock.calls[0][0]
+    const asociativa = resultado.clases.find((clase) => clase.nombre === "FacturaCliente")!
+    expect(asociativa).toMatchObject({ tipoClase: "asociativa", atributos: [] })
+    expect(resultado.relaciones.some((relacion) => relacion.id === "relacion-1")).toBe(false)
+    expect(resultado.relaciones).toEqual([
+      expect.objectContaining({ claseOrigenId: "factura", claseDestinoId: asociativa.id, multiplicidadOrigen: "1", multiplicidadDestino: "0..*" }),
+      expect.objectContaining({ claseOrigenId: asociativa.id, claseDestinoId: "cliente", multiplicidadOrigen: "0..*", multiplicidadDestino: "1" }),
+    ])
   })
 
   it("resume muchas relaciones y expande sólo la elegida", () => {

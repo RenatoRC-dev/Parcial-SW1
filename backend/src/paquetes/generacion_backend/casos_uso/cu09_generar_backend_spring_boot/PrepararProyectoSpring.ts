@@ -305,6 +305,12 @@ function prepararEntidad(
 export function prepararProyectoSpring(
   modelo: ModeloUMLCanonicoEntrada
 ): ModeloProyectoSpring {
+  const clasesAsociativas = modelo.clases.filter((clase) => clase.tipoClase === "asociativa")
+  if (clasesAsociativas.length > 0) {
+    throw new ErrorModeloNoGenerable(clasesAsociativas.map((clase) =>
+      `Clase asociativa detectada (${clase.nombre}); la generación de clave compuesta todavía no forma parte del perfil actual.`
+    ))
+  }
   const erroresIdentidad = validarIdentidades(modelo)
   if (erroresIdentidad.length > 0) {
     throw new ErrorModeloNoGenerable(erroresIdentidad)

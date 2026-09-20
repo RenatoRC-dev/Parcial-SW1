@@ -42,6 +42,24 @@ describe("normalización semántica asistida", () => {
     expect(comandos[0]).toEqual(expect.objectContaining({ claseRef: "factura-producto", tipoDato: "Double", visibilidad: "privada" }))
   })
 
+  it("normaliza una instrucción estructurada clara de clase asociativa", async () => {
+    const proveedor: ProveedorModeloLenguaje = {
+      interpretarCambiosUML: vi.fn(async () => ({
+        resultado: "aplicar", mensaje: "asociativa",
+        comandos: [{
+          tipo: "crear_clase_asociativa", refTemporal: "tmp_factura_item", nombre: "factura item",
+          claseARef: "FACTURA", claseBRef: "FACTURA_PRODUCTO",
+        }],
+      })),
+    }
+    const resultado = await interpretarInstruccionModelado({ instruccion: "Crea una clase asociativa FacturaItem", modelo, revision: 1 }, proveedor)
+
+    expect(resultado).toMatchObject({
+      resultado: "aplicar",
+      comandos: [expect.objectContaining({ nombre: "FacturaItem", claseARef: "factura", claseBRef: "factura-producto" })],
+    })
+  })
+
   it("acepta id Long, rechaza id String y no muta el modelo", async () => {
     const original = structuredClone(modelo)
     const proveedorLong: ProveedorModeloLenguaje = { interpretarCambiosUML: vi.fn(async () => ({ resultado: "aplicar", mensaje: "id", comandos: [{ tipo: "agregar_atributo", claseRef: "factura", refTemporal: "tmp_id", nombre: "id", tipoDato: "long", visibilidad: null }] })) }

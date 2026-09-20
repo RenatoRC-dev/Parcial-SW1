@@ -8,6 +8,7 @@ export function construirContextoModelo(modelo: ModeloUMLCanonicoIA) {
       id: clase.id,
       nombre: clase.nombre,
       abstracta: clase.abstracta,
+      tipoClase: clase.tipoClase === "asociativa" ? "asociativa" : "normal",
       atributos: clase.atributos.map((atributo) => ({
         id: atributo.id,
         nombre: atributo.nombre,

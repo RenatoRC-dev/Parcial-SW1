@@ -14,6 +14,19 @@ function esProyecto(valor: unknown): valor is ProyectoPersistido {
     && esModeloUMLPersistible(proyecto.modelo)
 }
 
+function normalizarProyecto(proyecto: ProyectoPersistido): ProyectoPersistido {
+  return {
+    ...proyecto,
+    modelo: {
+      ...proyecto.modelo,
+      clases: proyecto.modelo.clases.map((clase) => ({
+        ...clase,
+        tipoClase: clase.tipoClase === "asociativa" ? "asociativa" : "normal",
+      })),
+    },
+  }
+}
+
 export class RepositorioProyectosArchivos implements RepositorioProyectos {
   readonly directorio: string
 
@@ -34,8 +47,9 @@ export class RepositorioProyectosArchivos implements RepositorioProyectos {
     if (existentes.some((existente) => existente.nombre.localeCompare(proyecto.nombre, undefined, { sensitivity: "accent" }) === 0)) {
       throw new ErrorNombreProyectoDuplicado("Ya existe un proyecto con ese nombre.")
     }
-    await this.escribirAtomico(proyecto)
-    return structuredClone(proyecto)
+    const normalizado = normalizarProyecto(proyecto)
+    await this.escribirAtomico(normalizado)
+    return structuredClone(normalizado)
   }
 
   async obtenerPorId(id: string): Promise<ProyectoPersistido | null> {
@@ -50,7 +64,7 @@ export class RepositorioProyectosArchivos implements RepositorioProyectos {
   async guardarModelo(id: string, modelo: ModeloUMLCanonicoIntercambio, actualizadoEn: string): Promise<ProyectoPersistido | null> {
     const actual = await this.obtenerPorId(id)
     if (!actual) return null
-    const actualizado = { ...actual, actualizadoEn, modelo: structuredClone(modelo) }
+    const actualizado = normalizarProyecto({ ...actual, actualizadoEn, modelo: structuredClone(modelo) })
     await this.escribirAtomico(actualizado)
     return actualizado
   }
@@ -61,7 +75,7 @@ export class RepositorioProyectosArchivos implements RepositorioProyectos {
     try {
       const valor: unknown = JSON.parse(await readFile(ruta, "utf8"))
       if (!esProyecto(valor)) throw new ErrorDatosProyectoCorruptos("Los datos persistidos del proyecto no son válidos.")
-      return valor
+      return normalizarProyecto(valor)
     } catch (error) {
       if (error instanceof ErrorDatosProyectoCorruptos || (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT")) throw error
       if (error instanceof SyntaxError) throw new ErrorDatosProyectoCorruptos("Los datos persistidos del proyecto no son JSON válido.")

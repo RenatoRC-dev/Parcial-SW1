@@ -36,7 +36,17 @@ The inspector distinguishes Class A/Class B during atomic creation and displays 
 
 `RelacionUML.nombre` is a backward-compatible optional association name, distinct from endpoint roles. It round-trips through `data.label` in the Apollon model and persists as canonical JSON. The installed Apollon class-diagram renderer does not render its generic middle `data.label`; only other diagram edge renderers enable that label. SW1 therefore exposes and preserves the name in its inspector without abusing roles or patching Apollon internals. The existing crunch_uml profile does not preserve association names, so XMI name round-trip remains deferred; roles and multiplicities remain green.
 
-Many-to-many (`0..*`/`0..*` or `1..*`/`1..*`) is valid canonical modeling. It remains outside the current Spring generation profile and produces controlled “not ready” feedback. It does not imply an association class; association-class semantics and automatic join-entity/JPA ManyToMany generation are deferred.
+Many-to-many (`0..*`/`0..*` or `1..*`/`1..*`) is valid canonical modeling. It remains outside the current Spring generation profile and produces controlled “not ready” feedback. It does not imply an association class automatically: the designer must declare that semantic explicitly.
+
+## Associative Class — Patch A
+
+`ClaseUML.tipoClase` distinguishes `normal` from `asociativa`; absence in a legacy model normalizes to `normal`. An associative class remains a real class with stable ID, position, optional methods and normal relationships, and may intentionally have no visible attributes. SW1 never infers it from topology or from a small attribute count, and never invents `id`, PK or FK attributes.
+
+The manual inspector can create an empty associative class or atomically replace a selected direct `0..*`/`0..*` association. For `Usuario 0..* — 0..* Rol`, the result is `Usuario 1 — 0..* UsuarioRol` plus `UsuarioRol 0..* — 1 Rol`, with the original N:M relation removed only after every name, endpoint and ID check passes. CU04 exposes explicit create/convert commands and its frontend executor calls the same deterministic transformation; voice inherits it through the existing transcript pipeline. CU05 deliberately does not infer this ambiguous semantic from an image.
+
+The metadata round-trips inside the existing public Apollon class `data`, so the established canonical → Apollon → Yjs path propagates it without a new collaboration protocol. CU11 normalizes legacy classes and preserves explicit associative metadata and both relationship ends. The inspected crunch_uml bridge has no reliable formal AssociationClass discriminator in the supported profile, so XMI continues to exchange the structural classes and relationships and does not fabricate `tipoClase`.
+
+CU08 accepts an empty associative class as structurally valid/editable. CU09 rejects it separately with the controlled readiness reason that composite-key generation is not in the current profile. Composite PK, PK/FK metadata, `@EmbeddedId`, `@IdClass`, `@ManyToMany`, join-table and associative-entity generation remain explicitly deferred to Patch B.
 
 ## Association-End Multiplicity Semantic Correction
 
@@ -228,7 +238,7 @@ The E2E server command was made deterministic by running the backend `tsx` execu
 - Full typography/localization inside every third-party-rendered diagram element is bounded by Apollon's public label surface.
 - Apollon's class-diagram edge renderer does not visually render the generic middle association `data.label`; SW1 preserves and edits the association name in the canonical inspector instead of introducing a fake overlay.
 - crunch_uml currently preserves supported endpoints, multiplicities and roles, but not the new optional association name.
-- Association classes and M:N Spring/JPA generation remain separate future capabilities.
+- Composite-key, PK/FK and M:N Spring/JPA generation for the now-modeled associative class remain a future Patch B capability.
 - The crunch_uml bridge does not currently preserve UML operations, and Apollon exposes no stable parameter IDs separate from operation notation.
 - CU05 does not extract method signatures from images; its accepted visual profile remains classes, attributes and supported relationships.
 - The new method-command vocabulary is verified deterministically but has not been separately exercised against the real Groq provider; the historical Groq acceptance evidence is not overstated.
@@ -237,4 +247,4 @@ The E2E server command was made deterministic by running the backend `tsx` execu
 
 PASS
 
-The safe subset is implemented through public APIs and existing semantic boundaries. Clean manual class creation, deterministic assisted class/type normalization, unambiguous UML association-end multiplicities, real UML operations/parameters, relationship edges, canonical M:N modeling and conventional explicit `id: Long` are verified. Unit tests, both typechecks/builds, HTTP/relation/XMI proofs, the generated Persona/Auto Java 21 compilation and all 20 browser regressions pass. No method bodies, image-operation extraction, association classes, M:N generation or private Apollon customization were introduced.
+The safe subset is implemented through public APIs and existing semantic boundaries. Clean manual class creation, explicit associative-class semantics, deterministic assisted class/type normalization, unambiguous UML association-end multiplicities, real UML operations/parameters, relationship edges, canonical M:N modeling and conventional explicit `id: Long` are verified. The historical full-regression evidence remains recorded above; Patch A additionally passed its focused canonical, inspector, CU04, CU08, persistence and CU09 checks plus both affected typechecks. No composite-key/M:N generation, inferred image association class, method bodies or private Apollon customization was introduced.

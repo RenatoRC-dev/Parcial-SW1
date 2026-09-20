@@ -35,6 +35,34 @@ describe("EjecutorComandosUML frontend", () => {
     expect(resultado.relaciones).toEqual(modelo.relaciones)
   })
 
+  it("crea una clase asociativa vacía entre dos clases con la estructura canónica", () => {
+    const resultado = ejecutarComandosUML(modelo, [{
+      tipo: "crear_clase_asociativa", refTemporal: "tmp_cliente_pedido", nombre: "ClientePedido",
+      claseARef: "cliente", claseBRef: "pedido",
+    }], generador())
+    const asociativa = resultado.clases.find((clase) => clase.nombre === "ClientePedido")!
+
+    expect(asociativa).toMatchObject({ tipoClase: "asociativa", atributos: [], metodos: [] })
+    expect(resultado.relaciones.slice(-2)).toEqual([
+      expect.objectContaining({ claseOrigenId: "cliente", claseDestinoId: asociativa.id, multiplicidadOrigen: "1", multiplicidadDestino: "0..*" }),
+      expect.objectContaining({ claseOrigenId: asociativa.id, claseDestinoId: "pedido", multiplicidadOrigen: "0..*", multiplicidadDestino: "1" }),
+    ])
+  })
+
+  it("convierte una N:M con el mismo caso de uso y elimina la relación original", () => {
+    const nm: ModeloUMLCanonico = {
+      ...modelo,
+      relaciones: [{ ...modelo.relaciones[0], multiplicidadOrigen: "0..*", multiplicidadDestino: "0..*" }],
+    }
+    const resultado = ejecutarComandosUML(nm, [{
+      tipo: "convertir_relacion_en_clase_asociativa", refTemporal: "tmp_cliente_pedido",
+      nombre: "ClientePedido", relacionId: "r1",
+    }], generador())
+
+    expect(resultado.relaciones.some((relacion) => relacion.id === "r1")).toBe(false)
+    expect(resultado.clases.find((clase) => clase.nombre === "ClientePedido")).toMatchObject({ tipoClase: "asociativa", atributos: [] })
+  })
+
   it("materializa asociación, agregación, composición y generalización con los extremos canónicos", () => {
     const clases = ["Persona", "Auto", "Equipo", "Jugador", "Pedido", "DetallePedido", "Cliente"].map((nombre, indice) => ({
       id: nombre.toLowerCase(), nombre, abstracta: false, posicion: { x: indice * 100, y: 0 }, atributos: [],

@@ -7,6 +7,9 @@ export type TipoRelacionUML = (typeof TIPOS_RELACION_UML)[number]
 export const VISIBILIDADES_UML = ["privada", "publica"] as const
 export type VisibilidadUML = (typeof VISIBILIDADES_UML)[number]
 
+export const TIPOS_CLASE_UML = ["normal", "asociativa"] as const
+export type TipoClaseUML = (typeof TIPOS_CLASE_UML)[number]
+
 export interface PosicionUML {
   x: number
   y: number
@@ -41,6 +44,12 @@ export interface ClaseUML {
   metodos?: MetodoUML[]
   posicion: PosicionUML
   abstracta: boolean
+  /** Ausente en proyectos legacy; se interpreta siempre como normal. */
+  tipoClase?: TipoClaseUML
+}
+
+export function obtenerTipoClase(clase: Pick<ClaseUML, "tipoClase">): TipoClaseUML {
+  return clase.tipoClase === "asociativa" ? "asociativa" : "normal"
 }
 
 export interface RelacionUML {

@@ -37,6 +37,25 @@ describe("API CU01/CU11 de proyectos", () => {
     await request(app()).put(`/api/proyectos/${creado.body.id}/modelo`).send({ modelo: { ...creado.body.modelo, clases: [{ ...claseLegacy, metodos: [metodo] }] } }).expect(200)
     const recuperado = await request(app()).get(`/api/proyectos/${creado.body.id}`).expect(200)
     expect(recuperado.body.modelo.clases[0].metodos).toEqual([metodo])
+    expect(recuperado.body.modelo.clases[0].tipoClase).toBe("normal")
+  })
+
+  it("preserva la clase asociativa y sus extremos al guardar y reabrir", async () => {
+    const creado = await request(app()).post("/api/proyectos").send({ nombre: "Roles" }).expect(201)
+    const usuario = { id: "usuario", nombre: "Usuario", tipoClase: "normal", abstracta: false, posicion: { x: 0, y: 0 }, atributos: [] }
+    const rol = { id: "rol", nombre: "Rol", tipoClase: "normal", abstracta: false, posicion: { x: 400, y: 0 }, atributos: [] }
+    const usuarioRol = { id: "usuario-rol", nombre: "UsuarioRol", tipoClase: "asociativa", abstracta: false, posicion: { x: 200, y: 140 }, atributos: [] }
+    const relaciones = [
+      { id: "r-usuario", tipo: "asociacion", claseOrigenId: "usuario", claseDestinoId: "usuario-rol", multiplicidadOrigen: "1", multiplicidadDestino: "0..*" },
+      { id: "r-rol", tipo: "asociacion", claseOrigenId: "usuario-rol", claseDestinoId: "rol", multiplicidadOrigen: "0..*", multiplicidadDestino: "1" },
+    ]
+    await request(app()).put(`/api/proyectos/${creado.body.id}/modelo`).send({
+      modelo: { ...creado.body.modelo, clases: [usuario, usuarioRol, rol], relaciones },
+    }).expect(200)
+
+    const recuperado = await request(app()).get(`/api/proyectos/${creado.body.id}`).expect(200)
+    expect(recuperado.body.modelo.clases.find((clase: { id: string }) => clase.id === "usuario-rol")).toMatchObject({ tipoClase: "asociativa", atributos: [] })
+    expect(recuperado.body.modelo.relaciones).toEqual(relaciones)
   })
 
   it("rechaza nombre duplicado sin distinguir mayúsculas", async () => {

@@ -47,6 +47,12 @@ function codigos(resultado: ReturnType<typeof validarModelo>): string[] {
 }
 
 describe("ValidadorModeloUML", () => {
+  it("acepta una clase asociativa vacía y una clase legacy como normal", () => {
+    const asociativa = { ...clase("usuario-rol", "UsuarioRol"), tipoClase: "asociativa" as const }
+    const legacy = clase("usuario", "Usuario")
+    expect(validarModelo(modelo([asociativa, legacy])).valido).toBe(true)
+  })
+
   it("acepta operaciones UML válidas sin convertirlas en error de generación", () => {
     const persona = clase("persona", "Persona", [])
     persona.metodos = [{ id: "m1", nombre: "cambiarNombre", visibilidad: "publica", tipoRetorno: "void", parametros: [{ id: "p1", nombre: "nombre", tipo: "String" }] }]
