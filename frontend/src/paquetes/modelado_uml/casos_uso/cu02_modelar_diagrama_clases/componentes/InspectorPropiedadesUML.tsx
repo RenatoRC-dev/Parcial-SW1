@@ -23,6 +23,7 @@ interface Props {
   editor: ApollonEditor | null
   modelo: ModeloUMLCanonico
   alAplicar: (modelo: ModeloUMLCanonico) => void
+  alCambiarSeleccion?: (ids: string[]) => void
 }
 
 const CODIGOS_NOMBRE_ATRIBUTO = new Set([
@@ -42,7 +43,7 @@ function confirmarConEnter(evento: KeyboardEvent<HTMLInputElement>) {
   evento.currentTarget.blur()
 }
 
-export function InspectorPropiedadesUML({ editor, modelo, alAplicar }: Props) {
+export function InspectorPropiedadesUML({ editor, modelo, alAplicar, alCambiarSeleccion }: Props) {
   const { t } = usarPreferenciasUI()
   const [seleccion, establecerSeleccion] = useState<string[]>([])
   const [nombreNuevaClase, establecerNombreNuevaClase] = useState("")
@@ -58,11 +59,16 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar }: Props) {
   useEffect(() => {
     if (!editor) {
       establecerSeleccion([])
+      alCambiarSeleccion?.([])
       return
     }
-    const suscripcion = editor.subscribeToSelectionChange(establecerSeleccion)
+    const recibirSeleccion = (ids: string[]) => {
+      establecerSeleccion(ids)
+      alCambiarSeleccion?.(ids)
+    }
+    const suscripcion = editor.subscribeToSelectionChange(recibirSeleccion)
     return () => editor.unsubscribe(suscripcion)
-  }, [editor])
+  }, [editor, alCambiarSeleccion])
 
   useEffect(() => {
     establecerNombreClase(clase?.nombre ?? "")
@@ -199,7 +205,7 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar }: Props) {
           modelo={modelo}
           alAplicar={(siguiente, elementoId) => aplicar(siguiente, elementoId)}
         />
-      </> : <p>{t("propiedades.seleccione")}</p>}
+      </> : <p className="property-empty-state">{t("propiedades.seleccioneElemento")}</p>}
 
       <EditorRelaciones modelo={modelo} seleccion={seleccion} alAplicar={(siguiente) => aplicar(siguiente)} />
     </section>

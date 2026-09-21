@@ -5,7 +5,7 @@ import type { Proyecto } from "./paquetes/gestion_proyectos/compartido/Proyecto"
 import { PanelProyectos } from "./paquetes/gestion_proyectos/casos_uso/cu01_crear_abrir_proyecto/PanelProyectos"
 import { BarraProyectoActivo } from "./paquetes/gestion_proyectos/casos_uso/cu11_guardar_recuperar_trabajo/BarraProyectoActivo"
 import { guardarModeloProyecto } from "./paquetes/gestion_proyectos/compartido/clienteProyectos"
-import { ControlesPreferencias, ProveedorPreferenciasUI, usarPreferenciasUI } from "./configuracion/PreferenciasUI"
+import { ProveedorPreferenciasUI, usarPreferenciasUI } from "./configuracion/PreferenciasUI"
 
 function Aplicacion() {
   const { t } = usarPreferenciasUI()
@@ -39,12 +39,11 @@ function Aplicacion() {
     } catch (error) { establecerMensaje((error as Error).message) } finally { establecerGuardando(false) }
   }
 
-  if (!proyecto) return <><ControlesPreferencias /><PanelProyectos alAbrir={abrir} /></>
-  return <>
-    <ControlesPreferencias />
+  if (!proyecto) return <PanelProyectos alAbrir={abrir} />
+  return <div className="case-application">
     <BarraProyectoActivo nombre={proyecto.nombre} sucio={sucio} guardando={guardando} mensaje={mensaje} alGuardar={guardar} alVolver={volver} />
     <PaginaModeladoClases key={proyecto.id} proyectoId={proyecto.id} proyectoNombre={proyecto.nombre} modeloInicial={proyecto.modelo} cambiosSinGuardar={sucio} alCambiarModeloCanonico={establecerModeloActual} />
-  </>
+  </div>
 }
 
 function App() { return <ProveedorPreferenciasUI><Aplicacion /></ProveedorPreferenciasUI> }

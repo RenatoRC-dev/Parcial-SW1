@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises"
 import { expect, test } from "@playwright/test"
 import JSZip from "jszip"
 import { crearClaseNombradaE2E, crearProyectoE2E } from "./ayudas/proyectos"
+import { abrirDiagnosticoTecnico, abrirHerramienta } from "./ayudas/interfaz"
 
 test("genera y descarga un backend desde una clase editada en Apollon", async ({ page }) => {
   await crearProyectoE2E(page, "CU09")
@@ -26,7 +27,9 @@ test("genera y descarga un backend desde una clase editada en Apollon", async ({
   await operacion.getByLabel("Tipo de retorno").selectOption("void")
   await operacion.getByRole("button", { name: "Confirmar método" }).click()
 
+  await abrirDiagnosticoTecnico(page)
   await expect(page.getByTestId("resumen-validacion")).toContainText("Válido")
+  await abrirHerramienta(page, "Generar")
   await expect(page.getByTestId("panel-generacion")).toContainText("GeneradorApto")
 
   const descargaPendiente = page.waitForEvent("download")

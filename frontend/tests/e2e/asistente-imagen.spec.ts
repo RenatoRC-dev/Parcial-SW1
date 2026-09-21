@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test"
 import { abrirProyectoE2E, crearProyectoE2E } from "./ayudas/proyectos"
+import { abrirHerramienta } from "./ayudas/interfaz"
 
 const imagenPng = {
   name: "diagrama.png",
@@ -8,6 +9,7 @@ const imagenPng = {
 }
 
 async function analizar(page: Page) {
+  await abrirHerramienta(page, "Desde imagen")
   const panel = page.getByTestId("panel-modelado-imagen")
   await panel.getByLabel("Seleccionar imagen").setInputFiles(imagenPng)
   await panel.getByRole("button", { name: "Analizar imagen" }).click()

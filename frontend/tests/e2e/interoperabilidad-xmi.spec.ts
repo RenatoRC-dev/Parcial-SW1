@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { crearProyectoE2E } from "./ayudas/proyectos"
+import { abrirHerramienta, cerrarHerramienta } from "./ayudas/interfaz"
 
 const fixture = {
   id: "EAPK_SW1_E2E",
@@ -41,6 +42,7 @@ test("importa XMI al editor y exporta modelo.xmi", async ({ page, request }) => 
 
   await crearProyectoE2E(page, "XMI")
   await expect(page.locator(".react-flow")).toBeVisible()
+  await abrirHerramienta(page, "XMI")
   page.once("dialog", (dialog) => dialog.accept())
   await page.getByTestId("selector-xmi").setInputFiles({
     name: "cliente-pedido.xmi",
@@ -56,6 +58,7 @@ test("importa XMI al editor y exporta modelo.xmi", async ({ page, request }) => 
   await expect(page.getByText("Cliente", { exact: true }).first()).toBeVisible()
   await expect(page.getByText("Pedido", { exact: true }).first()).toBeVisible()
 
+  await cerrarHerramienta(page)
   await page.locator(".react-flow__node").filter({ hasText: "Cliente" }).click()
   const inspector = page.getByTestId("inspector-propiedades")
   const nombreClase = inspector.getByLabel("Nombre de la clase seleccionada")
@@ -63,6 +66,7 @@ test("importa XMI al editor y exporta modelo.xmi", async ({ page, request }) => 
   await nombreClase.press("Enter")
   await expect(page.getByText("ClienteImportado", { exact: true }).first()).toBeVisible()
 
+  await abrirHerramienta(page, "XMI")
   const [archivo] = await Promise.all([
     page.waitForEvent("download"),
     page.getByRole("button", { name: "Exportar XMI" }).click(),

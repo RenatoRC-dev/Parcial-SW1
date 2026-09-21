@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { abrirProyectoE2E, crearClaseNombradaE2E, crearProyectoE2E } from "./ayudas/proyectos"
+import { abrirDiagnosticoTecnico } from "./ayudas/interfaz"
 
 test("dos diseñadores colaboran, convergen y aíslan salas", async ({ browser }) => {
   const sufijo = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -51,6 +52,7 @@ test("dos diseñadores colaboran, convergen y aíslan salas", async ({ browser }
     await nuevaRelacion.getByLabel("Para un Pedido, ¿cuántas ClienteCompartido puede haber?").selectOption("1")
     await nuevaRelacion.getByRole("button", { name: "Crear relación" }).click()
     await expect(paginaB.locator(".react-flow__edge")).toHaveCount(1, { timeout: 15_000 })
+    await abrirDiagnosticoTecnico(paginaB)
     await paginaB.getByText("Modelo UML canónico (JSON)").click()
     await expect(paginaB.locator(".canonical-json pre")).toContainText('"multiplicidadOrigen": "1"')
     await expect(paginaB.locator(".canonical-json pre")).toContainText('"multiplicidadDestino": "0..*"')

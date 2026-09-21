@@ -1,15 +1,15 @@
 import { expect, test } from "@playwright/test"
 import { crearProyectoE2E } from "./ayudas/proyectos"
+import { abrirDiagnosticoTecnico } from "./ayudas/interfaz"
 
 test("el diseñador crea una clase y CU02 recibe el modelo estructurado", async ({
   page,
 }) => {
   await crearProyectoE2E(page, "CU02")
 
-  await expect(
-    page.getByRole("heading", { name: "Modelado manual de diagramas de clases" })
-  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Modelo", exact: true })).toBeVisible()
   await expect(page.locator(".react-flow")).toBeVisible()
+  await abrirDiagnosticoTecnico(page)
   await expect(
     page.getByRole("heading", { name: "Inspector de Modelo — Desarrollo" })
   ).toBeVisible()

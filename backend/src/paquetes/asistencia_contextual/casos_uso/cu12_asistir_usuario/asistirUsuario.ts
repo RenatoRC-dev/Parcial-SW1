@@ -1,7 +1,10 @@
 import { esRespuestaAsistenteContextual, type RespuestaAsistenteContextual, type SolicitudAsistenteContextual } from "../../compartido/ContratoAsistenteContextual.js"
 import { ErrorAsistenteContextual, type ProveedorAsistenteContextual } from "../../compartido/ProveedorAsistenteContextual.js"
+import { responderAyudaProductoDeterminista } from "./responderAyudaProductoDeterminista.js"
 
 export async function asistirUsuario(solicitud: SolicitudAsistenteContextual, proveedor: ProveedorAsistenteContextual): Promise<RespuestaAsistenteContextual> {
+  const determinista = responderAyudaProductoDeterminista(solicitud)
+  if (determinista) return determinista
   const respuesta = await proveedor.responder(solicitud)
   if (!esRespuestaAsistenteContextual(respuesta)) {
     throw new ErrorAsistenteContextual("respuesta_invalida", "La respuesta contextual no cumple el contrato permitido.")
@@ -19,5 +22,5 @@ export async function asistirUsuario(solicitud: SolicitudAsistenteContextual, pr
   if (respuesta.accionSugerida !== "NINGUNA" && !solicitud.contexto.accionesDisponibles.includes(respuesta.accionSugerida)) {
     throw new ErrorAsistenteContextual("respuesta_invalida", "La respuesta contextual sugiere una acción no disponible en el estado actual.")
   }
-  return respuesta
+  return { ...respuesta, origen: "groq" }
 }

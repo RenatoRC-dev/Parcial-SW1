@@ -1,7 +1,9 @@
 import { expect, test, type Page } from "@playwright/test"
 import { abrirProyectoE2E, crearProyectoE2E } from "./ayudas/proyectos"
+import { abrirHerramienta } from "./ayudas/interfaz"
 
 async function usarVoz(page: Page) {
+  await abrirHerramienta(page, "Asistente IA")
   const panel = page.getByTestId("panel-asistente-ia")
   await panel.getByRole("button", { name: /Hablar/ }).click()
   await expect(panel.getByText("Escuchando...")).toBeVisible()

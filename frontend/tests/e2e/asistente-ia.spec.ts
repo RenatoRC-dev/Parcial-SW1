@@ -1,7 +1,9 @@
 import { expect, test, type Page } from "@playwright/test"
 import { abrirProyectoE2E, crearProyectoE2E } from "./ayudas/proyectos"
+import { abrirDiagnosticoTecnico, abrirHerramienta } from "./ayudas/interfaz"
 
 async function instruir(page: Page, texto: string) {
+  await abrirHerramienta(page, "Asistente IA")
   const panel = page.getByTestId("panel-asistente-ia")
   await panel.getByLabel("Instrucción UML").fill(texto)
   await panel.getByRole("button", { name: "Enviar" }).click()
@@ -64,6 +66,7 @@ test("CU04 normaliza clase, id y operaciones desde lenguaje natural", async ({ p
   await instruir(page, "Agrega al método cobrar un parámetro monto de tipo Double")
   await expect(page.locator(".react-flow__node").filter({ hasText: "Factura" })).toContainText("cobrar(monto: Double): void")
 
+  await abrirDiagnosticoTecnico(page)
   await page.getByText("Modelo UML canónico (JSON)").click()
   const json = page.locator(".canonical-json pre")
   await expect(json).toContainText('"nombre": "Factura"')
@@ -86,6 +89,7 @@ test("CU04 traduce la cardinalidad de negocio Persona-Auto a extremos UML", asyn
   await expect(page.locator(".react-flow__edge").getByText("1", { exact: true })).toBeVisible()
   await expect(page.locator(".react-flow__edge").getByText("*", { exact: true })).toBeVisible()
 
+  await abrirDiagnosticoTecnico(page)
   await page.getByText("Modelo UML canónico (JSON)").click()
   const json = page.locator(".canonical-json pre")
   await expect(json).toContainText('"multiplicidadOrigen": "1"')
