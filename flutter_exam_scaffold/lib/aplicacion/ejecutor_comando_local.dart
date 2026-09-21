@@ -1,4 +1,5 @@
 import 'package:sw1_local_ai_spike/dominio/cliente_local.dart';
+import 'package:sw1_local_ai_spike/configuracion/configuracion_dominio_examen.dart';
 import 'package:sw1_local_ai_spike/dominio/comando_local.dart';
 import 'package:sw1_local_ai_spike/dominio/operacion_pendiente.dart';
 import 'package:sw1_local_ai_spike/dominio/producto_local.dart';
@@ -71,8 +72,8 @@ final class EjecutorComandoLocal {
       );
       await _outbox.encolar(
         _operacion(
-          tipo: 'crear_cliente',
-          entidad: 'cliente',
+          tipo: ConfiguracionDominioExamen.accionCrearCliente,
+          entidad: ConfiguracionDominioExamen.entidadCliente,
           entidadId: id,
           payload: payload,
           fecha: fecha,
@@ -108,8 +109,8 @@ final class EjecutorComandoLocal {
       );
       await _outbox.encolar(
         _operacion(
-          tipo: 'crear_producto',
-          entidad: 'producto',
+          tipo: ConfiguracionDominioExamen.accionCrearProducto,
+          entidad: ConfiguracionDominioExamen.entidadProducto,
           entidadId: id,
           payload: payload,
           fecha: fecha,

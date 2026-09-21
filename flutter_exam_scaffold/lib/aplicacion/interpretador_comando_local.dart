@@ -1,21 +1,23 @@
 import 'package:sw1_local_ai_spike/dominio/comando_local.dart';
 import 'package:sw1_local_ai_spike/dominio/validador_comando_local.dart';
+import 'package:sw1_local_ai_spike/configuracion/configuracion_dominio_examen.dart';
 import 'package:sw1_local_ai_spike/local_ai/local_ai_engine.dart';
 
-const promptSistemaLocal = '''
+const promptSistemaLocal =
+    '''
 Clasifica una solicitud de negocio en español y extrae sus datos.
 La respuesta JSON ya empieza con {"accion":". Completa solamente lo que falta.
 
 Completaciones válidas:
-crear_cliente","parametros":{"nombre":"Ana","correo":"ana@correo.com"}}
-crear_producto","parametros":{"nombre":"Laptop","precio":3500}}
-consultar_clientes","parametros":{}}
-no_soportada","parametros":{}}
+${ConfiguracionDominioExamen.accionCrearCliente}","parametros":{"nombre":"Ana","correo":"ana@correo.com"}}
+${ConfiguracionDominioExamen.accionCrearProducto}","parametros":{"nombre":"Laptop","precio":3500}}
+${ConfiguracionDominioExamen.accionConsultarClientes}","parametros":{}}
+${ConfiguracionDominioExamen.accionNoSoportada}","parametros":{}}
 
-Usa crear_cliente para registrar una persona con nombre y correo.
-Usa crear_producto para agregar un producto con nombre y precio numérico.
-Usa consultar_clientes para listar o consultar clientes.
-Si la intención no coincide claramente, usa no_soportada.
+Usa ${ConfiguracionDominioExamen.accionCrearCliente} para registrar una persona con nombre y correo.
+Usa ${ConfiguracionDominioExamen.accionCrearProducto} para agregar un producto con nombre y precio numérico.
+Usa ${ConfiguracionDominioExamen.accionConsultarClientes} para listar o consultar clientes.
+Si la intención no coincide claramente, usa ${ConfiguracionDominioExamen.accionNoSoportada}.
 No repitas el prefijo. No expliques. No uses Markdown. No inventes acciones.
 ''';
 

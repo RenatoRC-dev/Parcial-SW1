@@ -1,3 +1,4 @@
+import 'package:sw1_local_ai_spike/configuracion/configuracion_dominio_examen.dart';
 import 'package:sw1_local_ai_spike/dominio/operacion_pendiente.dart';
 import 'package:sw1_local_ai_spike/persistencia/base_datos_local.dart';
 import 'package:sw1_local_ai_spike/persistencia/cliente_local_repository.dart';
@@ -69,14 +70,15 @@ final class ServicioSincronizacion {
 
   Future<ResultadoCreacionRemota> _enviar(OperacionPendiente operacion) =>
       switch (operacion.tipo) {
-        'crear_cliente' => _backend.crearCliente(
+        ConfiguracionDominioExamen.accionCrearCliente => _backend.crearCliente(
           nombre: operacion.payload['nombre']! as String,
           correo: operacion.payload['correo']! as String,
         ),
-        'crear_producto' => _backend.crearProducto(
-          nombre: operacion.payload['nombre']! as String,
-          precio: operacion.payload['precio']! as num,
-        ),
+        ConfiguracionDominioExamen.accionCrearProducto =>
+          _backend.crearProducto(
+            nombre: operacion.payload['nombre']! as String,
+            precio: operacion.payload['precio']! as num,
+          ),
         _ => throw ErrorBackendApi(
           'Operación de sincronización no soportada: ${operacion.tipo}.',
         ),
@@ -87,12 +89,12 @@ final class ServicioSincronizacion {
     String idRemoto, {
     required AccesoDatosLocal acceso,
   }) => switch (operacion.entidad) {
-    'cliente' => _clientes.marcarSincronizado(
+    ConfiguracionDominioExamen.entidadCliente => _clientes.marcarSincronizado(
       operacion.entidadIdLocal,
       idRemoto,
       acceso: acceso,
     ),
-    'producto' => _productos.marcarSincronizado(
+    ConfiguracionDominioExamen.entidadProducto => _productos.marcarSincronizado(
       operacion.entidadIdLocal,
       idRemoto,
       acceso: acceso,

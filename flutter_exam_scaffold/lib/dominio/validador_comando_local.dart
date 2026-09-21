@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:sw1_local_ai_spike/configuracion/configuracion_dominio_examen.dart';
 import 'package:sw1_local_ai_spike/dominio/comando_local.dart';
 
 ComandoLocal validarRespuestaLocal(String respuestaCruda) {
@@ -29,9 +30,13 @@ ComandoLocal validarRespuestaLocal(String respuestaCruda) {
     );
   }
   return switch (accion) {
-    'crear_cliente' => _crearCliente(parametros),
-    'crear_producto' => _crearProducto(parametros),
-    'consultar_clientes' => _consultarClientes(parametros),
+    ConfiguracionDominioExamen.accionCrearCliente => _crearCliente(parametros),
+    ConfiguracionDominioExamen.accionCrearProducto => _crearProducto(
+      parametros,
+    ),
+    ConfiguracionDominioExamen.accionConsultarClientes => _consultarClientes(
+      parametros,
+    ),
     _ => throw const ErrorComandoLocal(
       'La acción solicitada no está soportada.',
     ),
@@ -43,14 +48,14 @@ ComandoLocal _crearCliente(Map<String, dynamic> parametros) {
       parametros['nombre'] is! String ||
       parametros['correo'] is! String) {
     throw const ErrorComandoLocal(
-      'crear_cliente requiere nombre y correo de tipo texto.',
+      '${ConfiguracionDominioExamen.accionCrearCliente} requiere nombre y correo de tipo texto.',
     );
   }
   final nombre = (parametros['nombre'] as String).trim();
   final correo = (parametros['correo'] as String).trim();
   if (nombre.isEmpty || correo.isEmpty || !correo.contains('@')) {
     throw const ErrorComandoLocal(
-      'crear_cliente contiene datos vacíos o un correo inválido.',
+      '${ConfiguracionDominioExamen.accionCrearCliente} contiene datos vacíos o un correo inválido.',
     );
   }
   return ComandoLocal(
@@ -64,14 +69,14 @@ ComandoLocal _crearProducto(Map<String, dynamic> parametros) {
       parametros['nombre'] is! String ||
       parametros['precio'] is! num) {
     throw const ErrorComandoLocal(
-      'crear_producto requiere nombre de texto y precio numérico.',
+      '${ConfiguracionDominioExamen.accionCrearProducto} requiere nombre de texto y precio numérico.',
     );
   }
   final nombre = (parametros['nombre'] as String).trim();
   final precio = parametros['precio'] as num;
   if (nombre.isEmpty || !precio.isFinite || precio < 0) {
     throw const ErrorComandoLocal(
-      'crear_producto contiene un nombre o precio inválido.',
+      '${ConfiguracionDominioExamen.accionCrearProducto} contiene un nombre o precio inválido.',
     );
   }
   return ComandoLocal(
@@ -82,7 +87,9 @@ ComandoLocal _crearProducto(Map<String, dynamic> parametros) {
 
 ComandoLocal _consultarClientes(Map<String, dynamic> parametros) {
   if (parametros.isNotEmpty) {
-    throw const ErrorComandoLocal('consultar_clientes no admite parámetros.');
+    throw const ErrorComandoLocal(
+      '${ConfiguracionDominioExamen.accionConsultarClientes} no admite parámetros.',
+    );
   }
   return const ComandoLocal(
     accion: TipoAccionLocal.consultarClientes,

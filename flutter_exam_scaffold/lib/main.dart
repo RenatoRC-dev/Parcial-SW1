@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sw1_local_ai_spike/configuracion/configuracion_dominio_examen.dart';
 import 'package:sw1_local_ai_spike/local_ai/llama_flutter_local_ai_engine.dart';
 import 'package:sw1_local_ai_spike/presentacion/local_ai_spike_page.dart';
 
@@ -10,7 +11,7 @@ class LocalAiSpikeApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
-    title: 'IA local — prueba técnica',
+    title: ConfiguracionDominioExamen.nombreAplicacion,
     theme: ThemeData(
       colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff315da8)),
       useMaterial3: true,

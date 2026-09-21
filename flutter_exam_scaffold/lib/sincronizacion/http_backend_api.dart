@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:sw1_local_ai_spike/configuracion/configuracion_dominio_examen.dart';
 import 'package:sw1_local_ai_spike/sincronizacion/backend_api.dart';
 
 final class HttpBackendApi implements BackendApi {
@@ -15,13 +16,19 @@ final class HttpBackendApi implements BackendApi {
   Future<ResultadoCreacionRemota> crearCliente({
     required String nombre,
     required String correo,
-  }) => _crear('/api/cliente', {'nombre': nombre, 'correo': correo});
+  }) => _crear(ConfiguracionDominioExamen.rutaCliente, {
+    'nombre': nombre,
+    'correo': correo,
+  });
 
   @override
   Future<ResultadoCreacionRemota> crearProducto({
     required String nombre,
     required num precio,
-  }) => _crear('/api/producto', {'nombre': nombre, 'precio': precio});
+  }) => _crear(ConfiguracionDominioExamen.rutaProducto, {
+    'nombre': nombre,
+    'precio': precio,
+  });
 
   Future<ResultadoCreacionRemota> _crear(
     String ruta,

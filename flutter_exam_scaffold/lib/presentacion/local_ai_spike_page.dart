@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sw1_local_ai_spike/aplicacion/ejecutor_comando_local.dart';
 import 'package:sw1_local_ai_spike/aplicacion/interpretador_comando_local.dart';
+import 'package:sw1_local_ai_spike/configuracion/configuracion_dominio_examen.dart';
 import 'package:sw1_local_ai_spike/dominio/comando_local.dart';
 import 'package:sw1_local_ai_spike/dominio/operacion_pendiente.dart';
 import 'package:sw1_local_ai_spike/local_ai/local_ai_engine.dart';
@@ -217,9 +218,12 @@ class _LocalAiSpikePageState extends State<LocalAiSpikePage> {
   }
 
   String _accion(TipoAccionLocal accion) => switch (accion) {
-    TipoAccionLocal.crearCliente => 'crear_cliente',
-    TipoAccionLocal.crearProducto => 'crear_producto',
-    TipoAccionLocal.consultarClientes => 'consultar_clientes',
+    TipoAccionLocal.crearCliente =>
+      ConfiguracionDominioExamen.accionCrearCliente,
+    TipoAccionLocal.crearProducto =>
+      ConfiguracionDominioExamen.accionCrearProducto,
+    TipoAccionLocal.consultarClientes =>
+      ConfiguracionDominioExamen.accionConsultarClientes,
   };
 
   @override
