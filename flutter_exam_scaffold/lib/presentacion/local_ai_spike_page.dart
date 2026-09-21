@@ -5,11 +5,15 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sw1_local_ai_spike/aplicacion/ejecutor_comando_local.dart';
 import 'package:sw1_local_ai_spike/aplicacion/interpretador_comando_local.dart';
 import 'package:sw1_local_ai_spike/dominio/comando_local.dart';
+import 'package:sw1_local_ai_spike/dominio/operacion_pendiente.dart';
 import 'package:sw1_local_ai_spike/local_ai/local_ai_engine.dart';
 import 'package:sw1_local_ai_spike/persistencia/base_datos_local.dart';
 import 'package:sw1_local_ai_spike/persistencia/cliente_local_repository.dart';
+import 'package:sw1_local_ai_spike/persistencia/configuracion_local_repository.dart';
 import 'package:sw1_local_ai_spike/persistencia/outbox_repository.dart';
 import 'package:sw1_local_ai_spike/persistencia/producto_local_repository.dart';
+import 'package:sw1_local_ai_spike/sincronizacion/http_backend_api.dart';
+import 'package:sw1_local_ai_spike/sincronizacion/servicio_sincronizacion.dart';
 
 const nombreModelo = 'Qwen3-0.6B-Q4_0.gguf';
 
@@ -25,6 +29,7 @@ class _LocalAiSpikePageState extends State<LocalAiSpikePage> {
   final _instruccion = TextEditingController(
     text: 'Registra a Ana con correo ana@correo.com',
   );
+  final _backendUrl = TextEditingController();
   String? _rutaModelo;
   bool _cargando = false, _cargado = false, _generando = false;
   Duration? _tiempoCarga;
@@ -32,39 +37,102 @@ class _LocalAiSpikePageState extends State<LocalAiSpikePage> {
   ResultadoEjecucionLocal? _ejecucion;
   String? _error;
   late final BaseDatosLocal _baseDatos;
+  late final ClienteLocalRepository _clientes;
+  late final ProductoLocalRepository _productos;
+  late final OutboxRepository _outbox;
+  late final ConfiguracionLocalRepository _configuracion;
   late final EjecutorComandoLocal _ejecutor;
-  bool _persistenciaLista = false;
-  int _pendientes = 0;
+  bool _persistenciaLista = false, _sincronizando = false;
+  int _pendientes = 0, _sincronizadas = 0, _erroresSync = 0;
+  String? _ultimoSync;
 
   @override
   void initState() {
     super.initState();
     _baseDatos = widget.baseDatos ?? BaseDatosLocal();
-    final clientes = ClienteLocalRepository(_baseDatos);
-    final productos = ProductoLocalRepository(_baseDatos);
-    final outbox = OutboxRepository(_baseDatos);
+    _clientes = ClienteLocalRepository(_baseDatos);
+    _productos = ProductoLocalRepository(_baseDatos);
+    _outbox = OutboxRepository(_baseDatos);
+    _configuracion = ConfiguracionLocalRepository(_baseDatos);
     _ejecutor = EjecutorComandoLocal(
       baseDatos: _baseDatos,
-      clientes: clientes,
-      productos: productos,
-      outbox: outbox,
+      clientes: _clientes,
+      productos: _productos,
+      outbox: _outbox,
     );
     _prepararRuta();
-    _prepararPersistencia(outbox);
+    _prepararPersistencia();
   }
 
-  Future<void> _prepararPersistencia(RepositorioOutbox outbox) async {
+  Future<void> _prepararPersistencia() async {
     try {
       await _baseDatos.abrir();
-      final pendientes = await outbox.contarPendientes();
+      final url = await _configuracion.obtenerBackendUrl();
+      final conteos = await _obtenerConteos();
       if (mounted) {
         setState(() {
           _persistenciaLista = true;
-          _pendientes = pendientes;
+          _backendUrl.text = url ?? '';
+          _aplicarConteos(conteos);
         });
       }
     } catch (error) {
       if (mounted) setState(() => _error = 'No se pudo abrir SQLite: $error');
+    }
+  }
+
+  Future<List<int>> _obtenerConteos() async => [
+    await _outbox.contarPendientes(),
+    await _outbox.contarPorEstado(EstadoOperacionOutbox.sincronizada),
+    await _outbox.contarPorEstado(EstadoOperacionOutbox.error),
+  ];
+
+  void _aplicarConteos(List<int> conteos) {
+    _pendientes = conteos[0];
+    _sincronizadas = conteos[1];
+    _erroresSync = conteos[2];
+  }
+
+  Future<void> _guardarBackendUrl() async {
+    try {
+      await _configuracion.guardarBackendUrl(_backendUrl.text);
+      if (mounted) setState(() => _ultimoSync = 'URL del backend guardada.');
+    } catch (error) {
+      if (mounted) setState(() => _ultimoSync = error.toString());
+    }
+  }
+
+  Future<void> _sincronizarAhora() async {
+    if (_sincronizando || !_persistenciaLista) return;
+    setState(() {
+      _sincronizando = true;
+      _ultimoSync = null;
+    });
+    HttpBackendApi? backend;
+    try {
+      await _configuracion.guardarBackendUrl(_backendUrl.text);
+      backend = HttpBackendApi(baseUrl: _backendUrl.text.trim());
+      final resultado = await ServicioSincronizacion(
+        baseDatos: _baseDatos,
+        clientes: _clientes,
+        productos: _productos,
+        outbox: _outbox,
+        backend: backend,
+      ).sincronizar();
+      final conteos = await _obtenerConteos();
+      if (mounted) {
+        setState(() {
+          _aplicarConteos(conteos);
+          _ultimoSync = resultado.errores == 0
+              ? '${resultado.sincronizadas} operaciones sincronizadas correctamente.'
+              : '${resultado.sincronizadas} sincronizadas; ${resultado.errores} con error.';
+        });
+      }
+    } catch (error) {
+      if (mounted) setState(() => _ultimoSync = error.toString());
+    } finally {
+      backend?.cerrar();
+      if (mounted) setState(() => _sincronizando = false);
     }
   }
 
@@ -142,6 +210,7 @@ class _LocalAiSpikePageState extends State<LocalAiSpikePage> {
   @override
   void dispose() {
     _instruccion.dispose();
+    _backendUrl.dispose();
     unawaited(widget.engine.dispose());
     unawaited(_baseDatos.cerrar());
     super.dispose();
@@ -165,6 +234,36 @@ class _LocalAiSpikePageState extends State<LocalAiSpikePage> {
           'Persistencia offline: ${_persistenciaLista ? 'Lista' : 'Preparando…'}',
         ),
         Text('Pendientes de sincronización: $_pendientes'),
+        Text('Sincronizadas: $_sincronizadas'),
+        Text('Errores de sincronización: $_erroresSync'),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _backendUrl,
+          keyboardType: TextInputType.url,
+          decoration: const InputDecoration(
+            labelText: 'Backend URL',
+            hintText: 'http://192.168.x.x:8080',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        Wrap(
+          spacing: 8,
+          children: [
+            OutlinedButton(
+              onPressed: _persistenciaLista ? _guardarBackendUrl : null,
+              child: const Text('Guardar URL'),
+            ),
+            FilledButton.tonal(
+              onPressed: _persistenciaLista && !_sincronizando
+                  ? _sincronizarAhora
+                  : null,
+              child: Text(
+                _sincronizando ? 'Sincronizando…' : 'Sincronizar ahora',
+              ),
+            ),
+          ],
+        ),
+        if (_ultimoSync case final mensaje?) Text(mensaje),
         const SizedBox(height: 8),
         SelectableText(
           _rutaModelo ?? 'Preparando ubicación local…',

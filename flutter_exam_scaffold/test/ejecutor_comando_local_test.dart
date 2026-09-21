@@ -185,5 +185,21 @@ final class _OutboxQueFalla implements RepositorioOutbox {
   Future<int> contarPendientes() => _real.contarPendientes();
 
   @override
+  Future<int> contarPorEstado(EstadoOperacionOutbox estado) =>
+      _real.contarPorEstado(estado);
+
+  @override
+  Future<List<OperacionPendiente>> listarElegibles() => _real.listarElegibles();
+
+  @override
+  Future<void> registrarResultado(
+    OperacionPendiente operacion,
+    EstadoOperacionOutbox estado, {
+    String? error,
+    AccesoDatosLocal? acceso,
+  }) =>
+      _real.registrarResultado(operacion, estado, error: error, acceso: acceso);
+
+  @override
   Future<List<OperacionPendiente>> listar() => _real.listar();
 }

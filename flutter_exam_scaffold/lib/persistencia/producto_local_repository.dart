@@ -4,6 +4,11 @@ import 'package:sw1_local_ai_spike/persistencia/base_datos_local.dart';
 abstract interface class RepositorioProductoLocal {
   Future<void> guardar(ProductoLocal producto, {AccesoDatosLocal? acceso});
   Future<List<ProductoLocal>> listar();
+  Future<void> marcarSincronizado(
+    String idLocal,
+    String? idRemoto, {
+    AccesoDatosLocal? acceso,
+  });
 }
 
 final class ProductoLocalRepository implements RepositorioProductoLocal {
@@ -17,6 +22,7 @@ final class ProductoLocalRepository implements RepositorioProductoLocal {
         'nombre': producto.nombre,
         'precio': producto.precio,
         'estado_sync': producto.estadoSync,
+        'id_remoto': producto.idRemoto,
         'creado_en': producto.creadoEn.toUtc().toIso8601String(),
       });
 
@@ -33,9 +39,22 @@ final class ProductoLocalRepository implements RepositorioProductoLocal {
             nombre: fila['nombre']! as String,
             precio: (fila['precio']! as num).toDouble(),
             estadoSync: fila['estado_sync']! as String,
+            idRemoto: fila['id_remoto'] as String?,
             creadoEn: DateTime.parse(fila['creado_en']! as String),
           ),
         )
         .toList(growable: false);
   }
+
+  @override
+  Future<void> marcarSincronizado(
+    String idLocal,
+    String? idRemoto, {
+    AccesoDatosLocal? acceso,
+  }) => (acceso ?? _baseDatos).actualizar(
+    'productos_locales',
+    {'estado_sync': 'sincronizada', 'id_remoto': idRemoto},
+    donde: 'id_local = ?',
+    argumentos: [idLocal],
+  );
 }

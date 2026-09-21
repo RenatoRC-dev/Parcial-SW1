@@ -5,6 +5,7 @@ final class ProductoLocal {
     required this.precio,
     required this.estadoSync,
     required this.creadoEn,
+    this.idRemoto,
   });
 
   final String idLocal;
@@ -12,4 +13,5 @@ final class ProductoLocal {
   final double precio;
   final String estadoSync;
   final DateTime creadoEn;
+  final String? idRemoto;
 }

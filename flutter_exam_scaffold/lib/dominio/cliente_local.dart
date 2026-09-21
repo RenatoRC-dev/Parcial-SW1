@@ -5,6 +5,7 @@ final class ClienteLocal {
     required this.correo,
     required this.estadoSync,
     required this.creadoEn,
+    this.idRemoto,
   });
 
   final String idLocal;
@@ -12,4 +13,5 @@ final class ClienteLocal {
   final String correo;
   final String estadoSync;
   final DateTime creadoEn;
+  final String? idRemoto;
 }

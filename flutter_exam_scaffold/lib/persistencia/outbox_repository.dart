@@ -9,7 +9,15 @@ abstract interface class RepositorioOutbox {
     AccesoDatosLocal? acceso,
   });
   Future<List<OperacionPendiente>> listar();
+  Future<List<OperacionPendiente>> listarElegibles();
   Future<int> contarPendientes();
+  Future<int> contarPorEstado(EstadoOperacionOutbox estado);
+  Future<void> registrarResultado(
+    OperacionPendiente operacion,
+    EstadoOperacionOutbox estado, {
+    String? error,
+    AccesoDatosLocal? acceso,
+  });
 }
 
 final class OutboxRepository implements RepositorioOutbox {
@@ -42,10 +50,51 @@ final class OutboxRepository implements RepositorioOutbox {
   }
 
   @override
+  Future<List<OperacionPendiente>> listarElegibles() async {
+    final filas = await _baseDatos.consultar(
+      'operaciones_pendientes',
+      donde: 'estado IN (?, ?)',
+      argumentos: [
+        EstadoOperacionOutbox.pendiente.name,
+        EstadoOperacionOutbox.error.name,
+      ],
+      ordenarPor: 'creado_en ASC, id ASC',
+    );
+    return filas.map(_desdeFila).toList(growable: false);
+  }
+
+  @override
   Future<int> contarPendientes() => _baseDatos.contar(
     'operaciones_pendientes',
     donde: 'estado = ?',
     argumentos: [EstadoOperacionOutbox.pendiente.name],
+  );
+
+  @override
+  Future<int> contarPorEstado(EstadoOperacionOutbox estado) =>
+      _baseDatos.contar(
+        'operaciones_pendientes',
+        donde: 'estado = ?',
+        argumentos: [estado.name],
+      );
+
+  @override
+  Future<void> registrarResultado(
+    OperacionPendiente operacion,
+    EstadoOperacionOutbox estado, {
+    String? error,
+    AccesoDatosLocal? acceso,
+  }) => (acceso ?? _baseDatos).actualizar(
+    'operaciones_pendientes',
+    {
+      'estado': estado.name,
+      'intentos': estado == EstadoOperacionOutbox.error
+          ? operacion.intentos + 1
+          : operacion.intentos,
+      'ultimo_error': error,
+    },
+    donde: 'id = ?',
+    argumentos: [operacion.id],
   );
 
   OperacionPendiente _desdeFila(Map<String, Object?> fila) =>

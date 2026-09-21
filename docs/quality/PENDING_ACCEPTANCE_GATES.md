@@ -228,3 +228,35 @@ Satisfied. Physical Android inference works without networking; supported Spanis
 ### PASS condition
 
 Satisfied. Physical airplane-mode execution confirmed durable SQLite business data and pending outbox state across application restart, transactional offline creation, and read-only local querying. Iteration 16 is `PASS` for its defined offline-persistence scope.
+
+## FLUTTER-SPRING-SYNC-001 — Physical Flutter-to-Spring/PostgreSQL synchronization acceptance
+
+- **Related package:** Flutter exam scaffold / generated Spring backend
+- **Related capability:** Durable outbox delivery to the SW1-generated REST API
+- **Origin:** Iteration 17
+- **Current status:** **PASS — PHYSICAL END-TO-END SYNC ACCEPTED**
+
+### Internal evidence already completed
+
+- Flutter sync uses the generated `POST /api/cliente` and `POST /api/producto` contracts through an application-owned `BackendApi` boundary.
+- Eligible pending/error operations are processed FIFO; successful delivery atomically records the remote ID and synchronized entity/outbox states.
+- Failures preserve local data, increment attempts, retain the operation with a useful error, and permit later retry.
+- SQLite version 2 adds nullable remote IDs and persisted backend URL configuration without dropping Iteration 16 data.
+- Focused Flutter suite: 29/29 PASS; `flutter analyze` and Android debug build PASS.
+- The production SW1 generator created the Cliente/Producto Spring project and its `mvnw.cmd clean test` passed.
+- The automated proof initially encountered a session-local missing PostgreSQL credential; subsequent physical acceptance supplied the authoritative generated-Spring/PostgreSQL runtime evidence.
+
+### Physical acceptance evidence
+
+- A real Xiaomi Android device reached the generated backend over LAN at `http://192.168.0.8:8080` and database `sw1_flutter_sync`.
+- The phone retried the preserved Ana and Laptop operations after an incorrect backend URL had moved both to `error`.
+- After correcting the URL, state changed from pending zero / synchronized zero / errors two to pending zero / synchronized two / errors zero.
+- PostgreSQL contained the expected Ana and Laptop rows through generated `POST /api/cliente` and `POST /api/producto` routes.
+- The two rows per table corresponded to one backend-proof dataset and one physical Flutter dataset, not duplicate mobile delivery.
+- An immediate extra synchronization delivered zero operations and did not change PostgreSQL counts.
+- After fully restarting Flutter, synchronized state remained durable and another synchronization again delivered zero operations.
+- Synchronization worked without requiring the local AI model to be loaded.
+
+### PASS condition
+
+Satisfied. Physical Flutter-to-generated-Spring/PostgreSQL synchronization, controlled retry after configuration failure, durable synchronized state, remote persistence, and no resend before or after application restart were all confirmed. Iteration 17 is `COMPLETE / PASS` for its defined manual synchronization scope.

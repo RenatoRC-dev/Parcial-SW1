@@ -10,6 +10,12 @@ abstract interface class AccesoDatosLocal {
     String? ordenarPor,
   });
   Future<int> contar(String tabla, {String? donde, List<Object?>? argumentos});
+  Future<void> actualizar(
+    String tabla,
+    Map<String, Object?> valores, {
+    required String donde,
+    required List<Object?> argumentos,
+  });
 }
 
 final class BaseDatosLocal implements AccesoDatosLocal {
@@ -27,7 +33,11 @@ final class BaseDatosLocal implements AccesoDatosLocal {
         _ruta ?? p.join(await _factory.getDatabasesPath(), 'sw1_offline.db');
     _database = await _factory.openDatabase(
       ruta,
-      options: OpenDatabaseOptions(version: 1, onCreate: _crearEsquema),
+      options: OpenDatabaseOptions(
+        version: 2,
+        onCreate: _crearEsquema,
+        onUpgrade: _migrarEsquema,
+      ),
     );
   }
 
@@ -69,6 +79,21 @@ final class BaseDatosLocal implements AccesoDatosLocal {
     return Sqflite.firstIntValue(resultado) ?? 0;
   }
 
+  @override
+  Future<void> actualizar(
+    String tabla,
+    Map<String, Object?> valores, {
+    required String donde,
+    required List<Object?> argumentos,
+  }) async {
+    await (await _obtener()).update(
+      tabla,
+      valores,
+      where: donde,
+      whereArgs: argumentos,
+    );
+  }
+
   Future<void> cerrar() async {
     final db = _database;
     _database = null;
@@ -87,6 +112,7 @@ CREATE TABLE clientes_locales (
   nombre TEXT NOT NULL,
   correo TEXT NOT NULL,
   estado_sync TEXT NOT NULL,
+  id_remoto TEXT,
   creado_en TEXT NOT NULL
 )
 ''');
@@ -96,6 +122,7 @@ CREATE TABLE productos_locales (
   nombre TEXT NOT NULL,
   precio REAL NOT NULL,
   estado_sync TEXT NOT NULL,
+  id_remoto TEXT,
   creado_en TEXT NOT NULL
 )
 ''');
@@ -112,7 +139,31 @@ CREATE TABLE operaciones_pendientes (
   creado_en TEXT NOT NULL
 )
 ''');
+    await _crearConfiguracion(db);
   }
+
+  static Future<void> _migrarEsquema(
+    Database db,
+    int versionAnterior,
+    int versionNueva,
+  ) async {
+    if (versionAnterior < 2) {
+      await db.execute(
+        'ALTER TABLE clientes_locales ADD COLUMN id_remoto TEXT',
+      );
+      await db.execute(
+        'ALTER TABLE productos_locales ADD COLUMN id_remoto TEXT',
+      );
+      await _crearConfiguracion(db);
+    }
+  }
+
+  static Future<void> _crearConfiguracion(DatabaseExecutor db) => db.execute('''
+CREATE TABLE IF NOT EXISTS configuracion_local (
+  clave TEXT PRIMARY KEY,
+  valor TEXT NOT NULL
+)
+''');
 }
 
 final class _AccesoTransaccional implements AccesoDatosLocal {
@@ -148,5 +199,15 @@ final class _AccesoTransaccional implements AccesoDatosLocal {
       argumentos,
     );
     return Sqflite.firstIntValue(resultado) ?? 0;
+  }
+
+  @override
+  Future<void> actualizar(
+    String tabla,
+    Map<String, Object?> valores, {
+    required String donde,
+    required List<Object?> argumentos,
+  }) async {
+    await _tx.update(tabla, valores, where: donde, whereArgs: argumentos);
   }
 }
