@@ -213,7 +213,7 @@ export function prepararRelacionUnoAMuchos(
   const destinoEsUno = (relacion.multiplicidadOrigen === "0..*" || relacion.multiplicidadOrigen === "1..*") && relacion.multiplicidadDestino === "1"
   if (!origenEsUno && !destinoEsUno) {
     if (relacion.multiplicidadOrigen === "0..*" && relacion.multiplicidadDestino === "0..*") {
-      throw new Error(`La relación ${descripcion} representa un N:M directo. El generador Spring de SW1 requiere convertirla explícitamente en una clase asociativa antes de generar.`)
+      throw new Error(`La relación ${descripcion} representa un N:M directo. El generador Spring de NexoCASE requiere convertirla explícitamente en una clase asociativa antes de generar.`)
     }
     throw new Error(`La relación ${descripcion} es UML válida, pero todavía no pertenece al perfil de generación Spring. Actualmente se soportan 1 ↔ 0..* y 1 ↔ 1..*.`)
   }

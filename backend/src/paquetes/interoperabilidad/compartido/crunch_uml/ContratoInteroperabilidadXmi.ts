@@ -4,7 +4,7 @@ export interface AtributoIntercambio {
   id: string
   nombre: string
   tipo: string | null
-  visibilidad?: "publica" | "privada"
+  visibilidad?: "publica" | "privada" | "protegida" | "paquete"
 }
 
 export interface ParametroIntercambio { id: string; nombre: string; tipo: string }

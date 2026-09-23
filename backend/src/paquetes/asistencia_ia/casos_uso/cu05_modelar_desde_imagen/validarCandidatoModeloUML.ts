@@ -39,7 +39,8 @@ export function esCandidatoModeloUMLImagen(valor: unknown): valor is CandidatoMo
     nombresClases.add(claveNombre)
     const nombresAtributos = new Set<string>()
     for (const atributo of clase.atributos) {
-      if (!registro(atributo) || !texto(atributo.refTemporal) || !texto(atributo.nombre) || !textoOpcional(atributo.tipoDato)) return false
+      if (!registro(atributo) || !texto(atributo.refTemporal) || !texto(atributo.nombre) || !textoOpcional(atributo.tipoDato)
+        || !(atributo.visibilidad === undefined || atributo.visibilidad === "publica" || atributo.visibilidad === "privada" || atributo.visibilidad === "protegida" || atributo.visibilidad === "paquete")) return false
       const claveAtributo = atributo.nombre.trim().toLowerCase()
       if (refsAtributos.has(atributo.refTemporal) || nombresAtributos.has(claveAtributo)) return false
       refsAtributos.add(atributo.refTemporal)

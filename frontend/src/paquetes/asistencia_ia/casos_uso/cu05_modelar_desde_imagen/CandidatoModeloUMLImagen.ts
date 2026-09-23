@@ -1,9 +1,10 @@
-import type { Multiplicidad } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
+import type { Multiplicidad, VisibilidadUML } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
 
 export interface AtributoCandidatoImagen {
   refTemporal: string
   nombre: string
   tipoDato: string | null
+  visibilidad?: VisibilidadUML
 }
 
 export interface ClaseCandidataImagen {

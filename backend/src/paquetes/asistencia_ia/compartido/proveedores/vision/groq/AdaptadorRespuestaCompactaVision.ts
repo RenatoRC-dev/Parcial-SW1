@@ -3,6 +3,10 @@ import { esResultadoVisionUML } from "../../../../casos_uso/cu05_modelar_desde_i
 import { ErrorProveedorVision } from "../ProveedorVisionUML.js"
 
 const MULTIPLICIDADES = new Set(["0..1", "1", "0..*", "1..*"])
+const VISIBILIDADES: Readonly<Record<string, "publica" | "privada" | "protegida" | "paquete">> = {
+  "+": "publica", "-": "privada", "#": "protegida", "~": "paquete",
+  publica: "publica", privada: "privada", protegida: "protegida", paquete: "paquete",
+}
 const ADVERTENCIAS: Readonly<Record<string, string>> = {
   agregacion: "Se detectó una agregación, semántica no soportada por el perfil visual actual.",
   composicion: "Se detectó una composición, semántica no soportada por el perfil visual actual.",
@@ -42,12 +46,15 @@ export function adaptarRespuestaCompactaVision(valor: unknown, modelo: string): 
     const refTemporal = `tmp_clase_${indiceClase + 1}`
     referenciasClase.set(clave, refTemporal)
     const atributos = clase[1].map((atributo, indiceAtributo) => {
-      if (!Array.isArray(atributo) || atributo.length !== 2 || !esTexto(atributo[0])) return invalida()
+      if (!Array.isArray(atributo) || (atributo.length !== 2 && atributo.length !== 3) || !esTexto(atributo[0])) return invalida()
       if (atributo[1] !== null && typeof atributo[1] !== "string") return invalida()
+      const visibilidad = atributo[2] === null || atributo[2] === undefined ? undefined : VISIBILIDADES[String(atributo[2]).toLowerCase()]
+      if (atributo.length === 3 && atributo[2] !== null && !visibilidad) return invalida()
       return {
         refTemporal: `tmp_atributo_${indiceClase + 1}_${indiceAtributo + 1}`,
         nombre: atributo[0].trim(),
         tipoDato: typeof atributo[1] === "string" && atributo[1].trim() !== "" ? atributo[1].trim() : null,
+        ...(visibilidad ? { visibilidad } : {}),
       }
     })
     return { refTemporal, nombre, atributos }

@@ -1,5 +1,6 @@
 export type MultiplicidadIA = "0..1" | "1" | "0..*" | "1..*"
 export type VisibilidadIA = "publica" | "privada"
+export type VisibilidadAtributoIA = VisibilidadIA | "protegida" | "paquete"
 
 export const TIPOS_UML_SOPORTADOS_IA = [
   "String", "Integer", "int", "Long", "long", "Decimal", "BigDecimal",
@@ -11,7 +12,7 @@ export interface AtributoModeloIA {
   id: string
   nombre: string
   tipo: string | null
-  visibilidad?: VisibilidadIA
+  visibilidad?: VisibilidadAtributoIA
 }
 
 export interface ParametroModeloIA {
@@ -70,8 +71,8 @@ export type ComandoModeloUML =
   | { tipo: "convertir_relacion_en_clase_asociativa"; refTemporal: string; nombre: string; relacionId: string }
   | { tipo: "renombrar_clase"; claseId: string; nuevoNombre: string }
   | { tipo: "eliminar_clase"; claseId: string }
-  | { tipo: "agregar_atributo"; claseRef: string; refTemporal: string; nombre: string; tipoDato: string; visibilidad: VisibilidadIA | null }
-  | { tipo: "modificar_atributo"; atributoId: string; nuevoNombre: string | null; nuevoTipo: string | null; nuevaVisibilidad: VisibilidadIA | null }
+  | { tipo: "agregar_atributo"; claseRef: string; refTemporal: string; nombre: string; tipoDato: string; visibilidad: VisibilidadAtributoIA | null }
+  | { tipo: "modificar_atributo"; atributoId: string; nuevoNombre: string | null; nuevoTipo: string | null; nuevaVisibilidad: VisibilidadAtributoIA | null }
   | { tipo: "eliminar_atributo"; atributoId: string }
   | { tipo: "crear_metodo"; claseRef: string; refTemporal: string; nombre: string; tipoRetorno: string; visibilidad: VisibilidadIA; parametros: Array<{ refTemporal: string; nombre: string; tipo: string }> }
   | { tipo: "modificar_metodo"; metodoId: string; nuevoNombre: string | null; nuevoTipoRetorno: string | null; nuevaVisibilidad: VisibilidadIA | null }

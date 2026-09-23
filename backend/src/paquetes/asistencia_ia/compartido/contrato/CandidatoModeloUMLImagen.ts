@@ -4,6 +4,7 @@ export interface AtributoCandidatoImagen {
   refTemporal: string
   nombre: string
   tipoDato: string | null
+  visibilidad?: "publica" | "privada" | "protegida" | "paquete"
 }
 
 export interface ClaseCandidataImagen {

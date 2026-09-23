@@ -3,7 +3,8 @@ import type { RespuestaInterpretacionUML } from "../../compartido/contrato/PlanC
 import { ErrorPlanCambiosUML, ejecutarComandosUML } from "./EjecutorComandosUML.js"
 
 const MULTIPLICIDADES = new Set(["0..1", "1", "0..*", "1..*"])
-const VISIBILIDADES = new Set(["publica", "privada"])
+const VISIBILIDADES_ATRIBUTO = new Set(["publica", "privada", "protegida", "paquete"])
+const VISIBILIDADES_METODO = new Set(["publica", "privada"])
 const TIPOS = new Set<string>(TIPOS_UML_SOPORTADOS_IA)
 const TIPOS_RETORNO = new Set<string>([...TIPOS_UML_SOPORTADOS_IA, "void"])
 const CLASE = /^[A-Z][A-Za-z0-9]*$/
@@ -29,8 +30,12 @@ function multiplicidadONull(valor: unknown): boolean {
   return valor === null || multiplicidad(valor)
 }
 
-function visibilidadONull(valor: unknown): boolean {
-  return valor === null || (cadena(valor) && VISIBILIDADES.has(valor))
+function visibilidadAtributoONull(valor: unknown): boolean {
+  return valor === null || (cadena(valor) && VISIBILIDADES_ATRIBUTO.has(valor))
+}
+
+function visibilidadMetodoONull(valor: unknown): boolean {
+  return valor === null || (cadena(valor) && VISIBILIDADES_METODO.has(valor))
 }
 
 function parametroNuevo(valor: unknown): boolean {
@@ -51,15 +56,15 @@ export function esComandoModeloUML(valor: unknown): valor is ComandoModeloUML {
     case "eliminar_clase":
       return cadena(valor.claseId)
     case "agregar_atributo":
-      return cadena(valor.claseRef) && cadena(valor.refTemporal) && cadena(valor.nombre) && cadena(valor.tipoDato) && visibilidadONull(valor.visibilidad)
+      return cadena(valor.claseRef) && cadena(valor.refTemporal) && cadena(valor.nombre) && cadena(valor.tipoDato) && visibilidadAtributoONull(valor.visibilidad)
     case "modificar_atributo":
-      return cadena(valor.atributoId) && cadenaONull(valor.nuevoNombre) && cadenaONull(valor.nuevoTipo) && visibilidadONull(valor.nuevaVisibilidad)
+      return cadena(valor.atributoId) && cadenaONull(valor.nuevoNombre) && cadenaONull(valor.nuevoTipo) && visibilidadAtributoONull(valor.nuevaVisibilidad)
     case "eliminar_atributo":
       return cadena(valor.atributoId)
     case "crear_metodo":
-      return cadena(valor.claseRef) && cadena(valor.refTemporal) && cadena(valor.nombre) && cadena(valor.tipoRetorno) && cadena(valor.visibilidad) && VISIBILIDADES.has(valor.visibilidad) && Array.isArray(valor.parametros) && valor.parametros.every(parametroNuevo)
+      return cadena(valor.claseRef) && cadena(valor.refTemporal) && cadena(valor.nombre) && cadena(valor.tipoRetorno) && cadena(valor.visibilidad) && VISIBILIDADES_METODO.has(valor.visibilidad) && Array.isArray(valor.parametros) && valor.parametros.every(parametroNuevo)
     case "modificar_metodo":
-      return cadena(valor.metodoId) && cadenaONull(valor.nuevoNombre) && cadenaONull(valor.nuevoTipoRetorno) && visibilidadONull(valor.nuevaVisibilidad)
+      return cadena(valor.metodoId) && cadenaONull(valor.nuevoNombre) && cadenaONull(valor.nuevoTipoRetorno) && visibilidadMetodoONull(valor.nuevaVisibilidad)
     case "eliminar_metodo":
       return cadena(valor.metodoId)
     case "agregar_parametro":
@@ -124,7 +129,7 @@ function validarModeloResultado(modelo: ModeloUMLCanonicoIA): void {
       if (!metodo.id.trim() || idsMetodos.has(metodo.id)) errores.push(`Id de método inválido o duplicado: ${metodo.id}.`)
       idsMetodos.add(metodo.id)
       if (metodo.nombre.trim() === "") errores.push("El método debe tener un nombre.")
-      if (!VISIBILIDADES.has(metodo.visibilidad)) errores.push(`Visibilidad de método no soportada: ${metodo.visibilidad}.`)
+      if (!VISIBILIDADES_METODO.has(metodo.visibilidad)) errores.push(`Visibilidad de método no soportada: ${metodo.visibilidad}.`)
       if (!TIPOS_RETORNO.has(metodo.tipoRetorno.trim())) errores.push(`Tipo de retorno no soportado: ${metodo.tipoRetorno}.`)
       const firma = `${metodo.nombre.trim().toLowerCase()}(${metodo.parametros.map((parametro) => parametro.tipo.trim()).join(",")})`
       if (firmas.has(firma)) errores.push(`Firma de método duplicada en ${clase.nombre}: ${metodo.nombre}.`)
@@ -146,6 +151,10 @@ function validarModeloResultado(modelo: ModeloUMLCanonicoIA): void {
     if (!relacion.id.trim() || idsRelaciones.has(relacion.id)) errores.push(`Id de relación inválido o duplicado: ${relacion.id}.`)
     idsRelaciones.add(relacion.id)
     if (!idsClases.has(relacion.claseOrigenId) || !idsClases.has(relacion.claseDestinoId)) errores.push(`La relación ${relacion.id} tiene un extremo inexistente.`)
+    if (relacion.claseOrigenId === relacion.claseDestinoId) errores.push(`La relación ${relacion.id} debe conectar dos clases diferentes.`)
+    if (relacion.tipo === "generalizacion" && (relacion.multiplicidadOrigen !== null || relacion.multiplicidadDestino !== null || relacion.rolOrigen !== undefined || relacion.rolDestino !== undefined)) {
+      errores.push(`La generalización ${relacion.id} no admite multiplicidades ni roles de asociación.`)
+    }
   }
   if (errores.length > 0) throw new ErrorPlanCambiosUML(errores.join(" "))
 }

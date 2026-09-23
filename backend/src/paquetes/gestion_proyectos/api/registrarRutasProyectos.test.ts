@@ -58,6 +58,26 @@ describe("API CU01/CU11 de proyectos", () => {
     expect(recuperado.body.modelo.relaciones).toEqual(relaciones)
   })
 
+  it("preserva métodos, visibilidad y los cuatro tipos de relación al guardar y reabrir", async () => {
+    const creado = await request(app()).post("/api/proyectos").send({ nombre: "Modelo integrado" }).expect(201)
+    const clase = (id: string, nombre: string) => ({ id, nombre, tipoClase: "normal", abstracta: false, posicion: { x: 0, y: 0 }, atributos: [] })
+    const clases = [clase("persona", "Persona"), {
+      ...clase("cliente", "Cliente"),
+      atributos: [{ id: "correo", nombre: "correo", tipo: "String", visibilidad: "privada" }],
+      metodos: [{ id: "descuento", nombre: "calcularDescuento", visibilidad: "publica", tipoRetorno: "Double", parametros: [{ id: "total", nombre: "total", tipo: "Double" }] }],
+    }, clase("pedido", "Pedido"), clase("detalle", "DetallePedido"), clase("biblioteca", "Biblioteca"), clase("libro", "Libro")]
+    const relaciones = [
+      { id: "g", tipo: "generalizacion", claseOrigenId: "cliente", claseDestinoId: "persona", multiplicidadOrigen: null, multiplicidadDestino: null },
+      { id: "a", tipo: "asociacion", claseOrigenId: "cliente", claseDestinoId: "pedido", multiplicidadOrigen: "1", multiplicidadDestino: "0..*" },
+      { id: "c", tipo: "composicion", claseOrigenId: "detalle", claseDestinoId: "pedido", multiplicidadOrigen: "1..*", multiplicidadDestino: "1" },
+      { id: "ag", tipo: "agregacion", claseOrigenId: "libro", claseDestinoId: "biblioteca", multiplicidadOrigen: "0..*", multiplicidadDestino: "1" },
+    ]
+    const modelo = { ...creado.body.modelo, clases, relaciones }
+    await request(app()).put(`/api/proyectos/${creado.body.id}/modelo`).send({ modelo }).expect(200)
+    const recuperado = await request(app()).get(`/api/proyectos/${creado.body.id}`).expect(200)
+    expect(recuperado.body.modelo).toEqual(modelo)
+  })
+
   it("rechaza nombre duplicado sin distinguir mayúsculas", async () => {
     await request(app()).post("/api/proyectos").send({ nombre: "Ventas" }).expect(201)
     await request(app()).post("/api/proyectos").send({ nombre: "ventas" }).expect(409)

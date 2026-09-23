@@ -122,8 +122,8 @@ export function validarAptitudExportacionXmi(modelo: ModeloUMLCanonicoIntercambi
   if (modelo.clases.some((clase) => clase.abstracta)) {
     errores.push("Las clases abstractas no pertenecen al perfil XMI de esta iteración.")
   }
-  if (modelo.clases.some((clase) => clase.atributos.some((atributo) => atributo.visibilidad !== undefined))) {
-    errores.push("La visibilidad de atributos no pertenece al perfil XMI comprobado de esta iteración.")
+  if (modelo.clases.some((clase) => (clase.metodos?.length ?? 0) > 0)) {
+    errores.push("Los métodos UML no pertenecen al perfil XMI exportable actual; no se exportaron datos parcialmente.")
   }
   const idsClases = modelo.clases.map((clase) => clase.id)
   if (new Set(idsClases).size !== idsClases.length || idsClases.some((id) => !id.trim())) {

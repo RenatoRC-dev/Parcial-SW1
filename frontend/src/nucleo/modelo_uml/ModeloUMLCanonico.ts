@@ -4,8 +4,10 @@ export type Multiplicidad = (typeof MULTIPLICIDADES_UML)[number]
 export const TIPOS_RELACION_UML = ["asociacion", "agregacion", "composicion", "generalizacion"] as const
 export type TipoRelacionUML = (typeof TIPOS_RELACION_UML)[number]
 
-export const VISIBILIDADES_UML = ["privada", "publica"] as const
+export const VISIBILIDADES_UML = ["privada", "publica", "protegida", "paquete"] as const
 export type VisibilidadUML = (typeof VISIBILIDADES_UML)[number]
+export const VISIBILIDADES_METODO_UML = ["privada", "publica"] as const
+export type VisibilidadMetodoUML = (typeof VISIBILIDADES_METODO_UML)[number]
 
 export const TIPOS_CLASE_UML = ["normal", "asociativa"] as const
 export type TipoClaseUML = (typeof TIPOS_CLASE_UML)[number]
@@ -31,7 +33,7 @@ export interface ParametroUML {
 export interface MetodoUML {
   id: string
   nombre: string
-  visibilidad: VisibilidadUML
+  visibilidad: VisibilidadMetodoUML
   tipoRetorno: string
   parametros: ParametroUML[]
 }

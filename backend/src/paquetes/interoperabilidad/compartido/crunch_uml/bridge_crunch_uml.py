@@ -63,15 +63,25 @@ def importar(entrada: Path, salida: Path):
     tipos_asociacion = {}
     todos_asociacion = {}
     clases_abstractas = set()
-    visibilidad_omitida = False
+    visibilidades_atributos = {}
+    cantidad_metodos_omitidos = 0
+    visibilidades_uml = {
+        "public": "publica", "private": "privada",
+        "protected": "protegida", "package": "paquete",
+    }
     for elemento in raiz.iter():
         nombre_local = etree.QName(elemento).localname if isinstance(elemento.tag, str) else ""
+        if nombre_local == "ownedOperation":
+            cantidad_metodos_omitidos += 1
         if elemento.get("isAbstract") == "true":
             clase_id = elemento.get(ns_xmi + "id")
             if clase_id:
                 clases_abstractas.add(clase_id)
-        if elemento.tag == "ownedAttribute" and elemento.get("association") is None and elemento.get("visibility"):
-            visibilidad_omitida = True
+        if nombre_local == "ownedAttribute" and elemento.get("association") is None:
+            atributo_id = elemento.get(ns_xmi + "id")
+            visibilidad = visibilidades_uml.get(elemento.get("visibility"))
+            if atributo_id and visibilidad:
+                visibilidades_atributos[atributo_id] = visibilidad
         if elemento.get("association") and elemento.get("aggregation") in ("shared", "composite"):
             asociacion_id = elemento.get("association")
             if asociacion_id:
@@ -98,13 +108,13 @@ def importar(entrada: Path, salida: Path):
                 if todo_id:
                     todos_asociacion[asociacion_id] = todo_id
 
-    if visibilidad_omitida:
-        advertencias.append({
-            "codigo": "VISIBILIDAD_ATRIBUTO_OMITIDA",
-            "mensaje": "La visibilidad de atributos no se conserva porque no forma parte del perfil comprobado.",
-        })
     if schema.count_enumeratie() > 0:
         advertencias.append({"codigo": "ENUMERACION_OMITIDA", "mensaje": "Las enumeraciones están fuera del perfil XMI soportado."})
+    if cantidad_metodos_omitidos > 0:
+        advertencias.append({
+            "codigo": "METODOS_OMITIDOS",
+            "mensaje": f"{cantidad_metodos_omitidos} métodos UML fueron omitidos porque el perfil XMI actual no los soporta.",
+        })
     paquetes = sorted(schema.get_all_packages(), key=lambda item: item.id)
     identificador = paquetes[0].id if paquetes else "modelo-xmi-" + hashlib.sha256(entrada.read_bytes()).hexdigest()[:16]
     nombre = paquetes[0].name if paquetes and paquetes[0].name else "Modelo importado"
@@ -129,6 +139,8 @@ def importar(entrada: Path, salida: Path):
             if atributo.id.startswith("EAID_src") or atributo.id.startswith("EAID_dst"):
                 continue
             dato = {"id": atributo.id, "nombre": atributo.name or "", "tipo": atributo.primitive or None}
+            if atributo.id in visibilidades_atributos:
+                dato["visibilidad"] = visibilidades_atributos[atributo.id]
             atributos.append(dato)
         clases.append({
             "id": clase.id,
@@ -205,6 +217,7 @@ def importar(entrada: Path, salida: Path):
 
 
 def exportar(entrada: Path, salida: Path):
+    from lxml import etree
     from crunch_uml import db
     import crunch_uml.schema as sch
     from crunch_uml.renderers.xmirenderer import XMIRenderer
@@ -247,6 +260,29 @@ def exportar(entrada: Path, salida: Path):
     schema.save(diagrama)
     database.commit()
     XMIRenderer().render(Namespace(outputfile=str(salida)), schema)
+
+    traduccion_visibilidad = {
+        "publica": "public", "privada": "private",
+        "protegida": "protected", "paquete": "package",
+    }
+    visibilidades = {
+        atributo["id"]: atributo.get("visibilidad")
+        for clase in modelo["clases"] for atributo in clase["atributos"]
+    }
+    arbol = etree.parse(str(salida))
+    ns_xmi = "{http://schema.omg.org/spec/XMI/2.1}"
+    for elemento in arbol.iter():
+        if etree.QName(elemento).localname != "ownedAttribute" or elemento.get("association") is not None:
+            continue
+        atributo_id = elemento.get(ns_xmi + "id")
+        if atributo_id not in visibilidades:
+            continue
+        visibilidad = traduccion_visibilidad.get(visibilidades[atributo_id])
+        if visibilidad:
+            elemento.set("visibility", visibilidad)
+        else:
+            elemento.attrib.pop("visibility", None)
+    arbol.write(str(salida), encoding="UTF-8", xml_declaration=True)
 
 
 def main():

@@ -183,6 +183,14 @@ describe("EjecutorComandosUML backend", () => {
     expect(ejecutar([{ tipo: "eliminar_relacion", relacionId: "r1" }]).relaciones).toEqual([])
   })
 
+  it("no permite multiplicidades en generalización y preserva métodos al agregar relaciones", () => {
+    const conMetodo = structuredClone(modeloBase)
+    conMetodo.clases[0].metodos = [{ id: "descuento", nombre: "calcularDescuento", visibilidad: "publica", tipoRetorno: "Double", parametros: [{ id: "total", nombre: "total", tipo: "Double" }] }]
+    conMetodo.relaciones = [{ id: "g1", tipo: "generalizacion", claseOrigenId: "cliente", claseDestinoId: "pedido", multiplicidadOrigen: null, multiplicidadDestino: null }]
+    expect(() => ejecutarComandosUML(conMetodo, [{ tipo: "cambiar_multiplicidad", relacionId: "g1", cantidadDestinoPorOrigen: "1", cantidadOrigenPorDestino: "1" }], () => "x")).toThrow(/no admite multiplicidades/)
+    expect(conMetodo.clases[0].metodos[0]).toMatchObject({ nombre: "calcularDescuento", parametros: [{ nombre: "total", tipo: "Double" }] })
+  })
+
   it("rechaza ids existentes y referencias temporales no resueltas", () => {
     expect(() => ejecutar([{ tipo: "renombrar_clase", claseId: "inexistente", nuevoNombre: "Otra" }])).toThrow(ErrorPlanCambiosUML)
     expect(() => ejecutar([{ tipo: "agregar_atributo", claseRef: "tmp_inexistente", refTemporal: "tmp_a", nombre: "dato", tipoDato: "String", visibilidad: null }])).toThrow(/No existe la clase/)

@@ -53,8 +53,10 @@ describe("procesarInstruccionIA", () => {
   })
 
   it("un error de API no modifica el modelo", async () => {
+    const solicitar = vi.fn(async () => { throw new Error("La IA tardó demasiado en responder.") })
     const aplicar = vi.fn()
-    await expect(procesarInstruccionIA({ instruccion: "Agrega correo", obtenerEstado: () => ({ modelo, revision: 1 }), solicitar: vi.fn(async () => { throw new Error("sin servicio") }), aplicar, alCambiarEstado: vi.fn() })).rejects.toThrow("sin servicio")
+    await expect(procesarInstruccionIA({ instruccion: "Agrega correo", obtenerEstado: () => ({ modelo, revision: 1 }), solicitar, aplicar, alCambiarEstado: vi.fn() })).rejects.toThrow("La IA tardó demasiado")
+    expect(solicitar).toHaveBeenCalledOnce()
     expect(aplicar).not.toHaveBeenCalled()
   })
 })

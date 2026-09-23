@@ -319,4 +319,13 @@ describe("ValidadorModeloUML", () => {
 
     expect(resultado).toEqual({ valido: true, diagnosticos: [] })
   })
+
+  it("rechaza generalización autorreferente o con semántica de asociación", () => {
+    const resultado = validarModelo(modelo([clase("persona", "Persona"), clase("cliente", "Cliente")], [{
+      id: "g1", tipo: "generalizacion", claseOrigenId: "cliente", claseDestinoId: "cliente",
+      multiplicidadOrigen: "1", multiplicidadDestino: "0..*", rolOrigen: "hijo",
+    }]))
+    expect(resultado.valido).toBe(false)
+    expect(codigos(resultado)).toEqual(expect.arrayContaining(["RELACION_AUTORREFERENTE_INVALIDA", "GENERALIZACION_SEMANTICA_INVALIDA"]))
+  })
 })

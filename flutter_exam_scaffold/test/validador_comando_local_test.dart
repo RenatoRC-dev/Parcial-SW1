@@ -74,7 +74,48 @@ razonamiento interno
         () => validarRespuestaLocal(
           '{"accion":"crear_cliente","parametros":{"nombre":"Ana"}}',
         ),
-        throwsA(isA<ErrorComandoLocal>()),
+        throwsA(
+          isA<ErrorParametrosComandoLocal>()
+              .having(
+                (error) => error.borrador.accion,
+                'acción preservada',
+                TipoAccionLocal.crearCliente,
+              )
+              .having(
+                (error) => error.borrador.errores,
+                'errores',
+                contains('correo'),
+              ),
+        ),
+      );
+    });
+
+    test('preserva crear_producto cuando el precio es invalido', () {
+      expect(
+        () => validarRespuestaLocal(
+          '{"accion":"crear_producto","parametros":{"nombre":"Laptop","precio":null}}',
+        ),
+        throwsA(
+          isA<ErrorParametrosComandoLocal>()
+              .having(
+                (error) => error.borrador.accion,
+                'acción preservada',
+                TipoAccionLocal.crearProducto,
+              )
+              .having(
+                (error) => error.borrador.errores,
+                'errores',
+                contains('precio'),
+              ),
+        ),
+      );
+    });
+
+    test('accion realmente desconocida conserva error no soportado', () {
+      expect(
+        () =>
+            validarRespuestaLocal('{"accion":"poner_musica","parametros":{}}'),
+        throwsA(isA<ErrorAccionNoSoportadaLocal>()),
       );
     });
 

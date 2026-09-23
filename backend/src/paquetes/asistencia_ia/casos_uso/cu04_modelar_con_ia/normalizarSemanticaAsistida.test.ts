@@ -42,6 +42,14 @@ describe("normalización semántica asistida", () => {
     expect(comandos[0]).toEqual(expect.objectContaining({ claseRef: "factura-producto", tipoDato: "Double", visibilidad: "privada" }))
   })
 
+  it("preserva la visibilidad de atributo provista explÃ­citamente", () => {
+    const comandos = normalizarComandosAsistidos(modelo, [{
+      tipo: "agregar_atributo", claseRef: "factura", refTemporal: "tmp_codigo",
+      nombre: "codigo", tipoDato: "String", visibilidad: "publica",
+    }])
+    expect(comandos[0]).toEqual(expect.objectContaining({ visibilidad: "publica" }))
+  })
+
   it("normaliza una instrucción estructurada clara de clase asociativa", async () => {
     const proveedor: ProveedorModeloLenguaje = {
       interpretarCambiosUML: vi.fn(async () => ({

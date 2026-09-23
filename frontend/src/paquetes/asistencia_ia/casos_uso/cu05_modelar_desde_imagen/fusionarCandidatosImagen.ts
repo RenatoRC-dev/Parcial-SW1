@@ -43,6 +43,11 @@ function fusionarAtributos(
         `${clase.nombre}.${existente.nombre} fue detectado con tipos diferentes: ${tipoExistente} / ${tipoEntrante}.`,
       )
     }
+    if (!existente.visibilidad && entrante.visibilidad) {
+      existente.visibilidad = entrante.visibilidad
+    } else if (existente.visibilidad && entrante.visibilidad && existente.visibilidad !== entrante.visibilidad) {
+      agregarAdvertencia(advertencias, `${clase.nombre}.${existente.nombre} fue detectado con visibilidades diferentes.`)
+    }
   }
 }
 

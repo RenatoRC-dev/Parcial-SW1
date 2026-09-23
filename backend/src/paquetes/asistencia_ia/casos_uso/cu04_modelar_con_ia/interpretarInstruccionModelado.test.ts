@@ -24,6 +24,8 @@ describe("interpretarInstruccionModelado", () => {
     const resultado = await interpretarInstruccionModelado({ instruccion: "Renombra", modelo, revision: 1 }, proveedor)
     expect(resultado.resultado).toBe("rechazar")
     expect(resultado.comandos).toEqual([])
+    expect(resultado.mensaje).toContain("La instrucción no produjo un cambio UML válido.")
+    expect(resultado.mensaje).toContain("El modelo no fue modificado.")
   })
 
   it.each(["aclarar", "rechazar"] as const)("%s preserva cero comandos", async (resultadoProveedor) => {
@@ -76,5 +78,37 @@ describe("API CU04", () => {
     const proveedor: ProveedorModeloLenguaje = { interpretarCambiosUML: vi.fn(async () => { throw new ErrorProveedorIA("limite", "detalle privado") }) }
     const respuesta = await request(crearAplicacionGeneracionBackend({ proveedorIA: proveedor })).post("/api/ia/modelado/interpretar").send({ instruccion: "Crea Factura", modelo, revision: 0 }).expect(429)
     expect(respuesta.body.error).not.toContain("detalle privado")
+    expect(respuesta.body.error).toContain("temporalmente limitado")
+    expect(respuesta.body.error).toContain("El modelo no fue modificado")
+  })
+
+  it.each([
+    ["configuracion", 503],
+    ["autenticacion", 503],
+    ["timeout", 504],
+    ["respuesta_invalida", 502],
+    ["no_disponible", 503],
+  ] as const)("normaliza el error de proveedor %s sin filtrar detalles", async (tipo, estado) => {
+    const proveedor: ProveedorModeloLenguaje = { interpretarCambiosUML: vi.fn(async () => { throw new ErrorProveedorIA(tipo, "detalle privado") }) }
+    const respuesta = await request(crearAplicacionGeneracionBackend({ proveedorIA: proveedor })).post("/api/ia/modelado/interpretar").send({ instruccion: "Crea Factura", modelo, revision: 0 }).expect(estado)
+    expect(respuesta.body).toMatchObject({ tipo })
+    expect(respuesta.body.error).not.toContain("detalle privado")
+    expect(respuesta.body.error).toContain("El modelo no fue modificado")
+  })
+
+  it("distingue el timeout del límite y conserva el modelo de la solicitud", async () => {
+    const original = structuredClone(modelo)
+    const interpretarCambiosUML = vi.fn(async () => { throw new ErrorProveedorIA("timeout", "detalle privado") })
+    const respuesta = await request(crearAplicacionGeneracionBackend({ proveedorIA: { interpretarCambiosUML } }))
+      .post("/api/ia/modelado/interpretar")
+      .send({ instruccion: "Agrega correo", modelo, revision: 0 })
+      .expect(504)
+
+    expect(respuesta.body).toEqual({
+      tipo: "timeout",
+      error: "La IA tardó demasiado en responder. Intenta nuevamente. El modelo no fue modificado.",
+    })
+    expect(interpretarCambiosUML).toHaveBeenCalledOnce()
+    expect(modelo).toEqual(original)
   })
 })

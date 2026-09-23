@@ -107,6 +107,8 @@ describe("AdaptadorApollon", () => {
           attributes: [
             { id: "atributo-nombre", name: "+ nombre: String" },
             { id: "atributo-email", name: "- email : String" },
+            { id: "atributo-saldo", name: "# saldo: Double" },
+            { id: "atributo-interno", name: "~ interno: String" },
           ],
         }),
       ])
@@ -125,6 +127,61 @@ describe("AdaptadorApollon", () => {
         tipo: "String",
         visibilidad: "privada",
       },
+      {
+        id: "atributo-saldo",
+        nombre: "saldo",
+        tipo: "Double",
+        visibilidad: "protegida",
+      },
+      {
+        id: "atributo-interno",
+        nombre: "interno",
+        tipo: "String",
+        visibilidad: "paquete",
+      },
+    ])
+  })
+
+  it("elimina multiplicidades y roles ajenos a una generalización de Apollon", () => {
+    const canonico = convertirAModeloCanonico(crearModelo(
+      [crearClase("cliente", "Cliente"), crearClase("persona", "Persona")],
+      [{ ...crearRelacion("ClassInheritance", {
+        sourceMultiplicity: "*", targetMultiplicity: "1", sourceRole: "hijo", targetRole: "padre",
+      }), source: "cliente", target: "persona" }],
+    ))
+    expect(canonico.relaciones[0]).toEqual(expect.objectContaining({
+      tipo: "generalizacion", claseOrigenId: "cliente", claseDestinoId: "persona",
+      multiplicidadOrigen: null, multiplicidadDestino: null,
+    }))
+    expect(canonico.relaciones[0]).not.toHaveProperty("rolOrigen")
+    expect(canonico.relaciones[0]).not.toHaveProperty("rolDestino")
+  })
+
+  it("preserva simultáneamente métodos y los cuatro tipos de relación en un ciclo canónico", () => {
+    const integrado = {
+      id: "integrado", nombre: "Modelo integrado", version: "4.2.0",
+      clases: [
+        { id: "persona", nombre: "Persona", abstracta: false, posicion: { x: 0, y: 0 }, atributos: [], metodos: [] },
+        { id: "cliente", nombre: "Cliente", abstracta: false, posicion: { x: 300, y: 0 }, atributos: [], metodos: [{ id: "descuento", nombre: "calcularDescuento", visibilidad: "publica" as const, tipoRetorno: "Double", parametros: [{ id: "total", nombre: "total", tipo: "Double" }] }] },
+        { id: "pedido", nombre: "Pedido", abstracta: false, posicion: { x: 600, y: 0 }, atributos: [], metodos: [] },
+        { id: "detalle", nombre: "DetallePedido", abstracta: false, posicion: { x: 900, y: 0 }, atributos: [], metodos: [] },
+        { id: "biblioteca", nombre: "Biblioteca", abstracta: false, posicion: { x: 0, y: 300 }, atributos: [], metodos: [] },
+        { id: "libro", nombre: "Libro", abstracta: false, posicion: { x: 300, y: 300 }, atributos: [], metodos: [] },
+      ],
+      relaciones: [
+        { id: "g", tipo: "generalizacion" as const, claseOrigenId: "cliente", claseDestinoId: "persona", multiplicidadOrigen: null, multiplicidadDestino: null },
+        { id: "a", tipo: "asociacion" as const, claseOrigenId: "cliente", claseDestinoId: "pedido", multiplicidadOrigen: "1" as const, multiplicidadDestino: "0..*" as const },
+        { id: "c", tipo: "composicion" as const, claseOrigenId: "detalle", claseDestinoId: "pedido", multiplicidadOrigen: "1..*" as const, multiplicidadDestino: "1" as const },
+        { id: "ag", tipo: "agregacion" as const, claseOrigenId: "libro", claseDestinoId: "biblioteca", multiplicidadOrigen: "0..*" as const, multiplicidadDestino: "1" as const },
+      ],
+    }
+    const vuelta = convertirAModeloCanonico(convertirDesdeModeloCanonico(integrado))
+    expect(vuelta.relaciones).toEqual(integrado.relaciones)
+    expect(vuelta.clases.find((clase) => clase.id === "cliente")?.metodos).toEqual([
+      expect.objectContaining({
+        id: "descuento", nombre: "calcularDescuento", visibilidad: "publica", tipoRetorno: "Double",
+        parametros: [expect.objectContaining({ nombre: "total", tipo: "Double" })],
+      }),
     ])
   })
 

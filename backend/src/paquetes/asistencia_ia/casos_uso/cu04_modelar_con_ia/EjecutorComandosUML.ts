@@ -226,6 +226,7 @@ export function ejecutarComandosUML(
         break
       case "cambiar_multiplicidad": {
         const relacion = obtenerRelacion(comando.relacionId)
+        if (relacion.tipo === "generalizacion") throw new ErrorPlanCambiosUML("La generalización no admite multiplicidades.")
         relacion.multiplicidadOrigen = comando.cantidadOrigenPorDestino
         relacion.multiplicidadDestino = comando.cantidadDestinoPorOrigen
         break

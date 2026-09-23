@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest"
 import { CONTEXTO_PRODUCTO_SW1 } from "./ContextoProductoSW1.js"
 
 describe("ContextoProductoSW1", () => {
+  it("expone NexoCASE como nombre visible del producto", () => {
+    expect(CONTEXTO_PRODUCTO_SW1.producto).toBe("NexoCASE")
+  })
   it("documenta únicamente los flujos verificados de CU04, CU05 y CU12", () => {
     expect(CONTEXTO_PRODUCTO_SW1.responsabilidadesIa.iaModelado).toContain("aplica automáticamente")
     expect(CONTEXTO_PRODUCTO_SW1.capacidades.iaModelado.requiereConfirmacion).toBe(false)

@@ -45,7 +45,8 @@ if (!process.env.GROQ_API_KEY) {
   contextoNm.generacion = { estado: "no_apto", bloqueos: ["La relación Usuario (0..*) ↔ Rol (0..*) representa un N:M directo. Debe convertirse explícitamente en clase asociativa."], advertencias: [] }
 
   const bloqueo = await consultar("Analiza técnicamente la relación Usuario-Rol y explica el bloqueo actual.", contextoNm)
-  const ayudaProducto = await consultar("Explica brevemente cómo crear una clase por texto o voz con Asistente IA y cómo importar o exportar XMI aquí.", contextoBase([]))
+  const ayudaProducto = await consultar("¿Cómo creo una clase por texto o voz con Asistente IA?", contextoBase([]))
+  const ayudaXmi = await consultar("¿Cómo importo o exporto XMI aquí?", contextoBase([]))
   const modeloActualizado = contextoBase([
     { id: "cliente", nombre: "Cliente", atributos: [{ nombre: "id", tipo: "Long" }, { nombre: "correo", tipo: "String" }] },
     { id: "direccion", nombre: "Dirección", atributos: [{ nombre: "calle", tipo: "String" }] },
@@ -73,19 +74,19 @@ if (!process.env.GROQ_API_KEY) {
   const noExigeEnviarTrasHablar = !/(hablar|voz|dict).{0,100}(luego|despues).{0,30}(puls|presion|clic).{0,20}enviar/s.test(ayudaProducto.texto)
   const noInventaFlujoCu04 = !/(ir_a_|(?:asistente ia|cambios? validos?).{0,40}(?:requiere confirmacion|debes confirmar))/s.test(ayudaProducto.texto)
   const ayudaIaCorrecta = mencionaAsistenteIa && mencionaInstruccionTexto && mencionaVoz && mencionaAplicacionAutomatica && vozTranscribeYEnvia && noExigeEnviarTrasHablar && noInventaFlujoCu04
-  const ayudaXmiCorrecta = /xmi/.test(ayudaProducto.texto)
-    && /importar/.test(ayudaProducto.texto)
-    && /exportar/.test(ayudaProducto.texto)
-    && /(confirm|reemplaz)/.test(ayudaProducto.texto)
-    && /modelo\.xmi/.test(ayudaProducto.texto)
-    && !/(candidato xmi|modelo candidato|vista previa|archivo\s*(→|>|-).*export|editor (de )?xmi|vista (de )?texto xmi|ir_a_)/.test(ayudaProducto.texto)
-    && !/(xmi.{0,80}(requer|necesar).{0,50}(gener|spring)|(gener|spring).{0,80}(requer|necesar).{0,50}xmi)/s.test(ayudaProducto.texto)
+  const ayudaXmiCorrecta = /xmi/.test(ayudaXmi.texto)
+    && /importar/.test(ayudaXmi.texto)
+    && /exportar/.test(ayudaXmi.texto)
+    && /(confirm|reemplaz)/.test(ayudaXmi.texto)
+    && /modelo\.xmi/.test(ayudaXmi.texto)
+    && !/(candidato xmi|modelo candidato|vista previa|archivo\s*(→|>|-).*export|editor (de )?xmi|vista (de )?texto xmi|ir_a_)/.test(ayudaXmi.texto)
+    && /(xmi no es (necesario|requisito)|xmi is not required)/.test(ayudaXmi.texto)
   const noDuplicaCorreo = modeloVigente === null || !/(falta\w*[^.\n]{0,35}correo|agreg\w*[^.\n]{0,25}correo|anad\w*[^.\n]{0,25}correo|deber\w*[^.\n]{0,25}correo)/.test(modeloVigente.texto)
   const proponeExtension = modeloVigente !== null && /(nueva clase|nueva entidad|podri\w* (modelar|crear|incorporar)|estadofactura)/.test(modeloVigente.texto)
   const alcanceBienClasificado = modeloVigente === null || !proponeExtension || (modeloVigente.respuesta.categoriaRecomendacion === "OPCIONAL" && /(solo aplica si|si el negocio|si se requiere|depende de)/.test(modeloVigente.texto))
   const respetaModeloActual = modeloVigente === null || (/(cliente|modelo actual|uml actual|valido|apto)/.test(modeloVigente.texto)
     && !/(falta\w*[^.\n]{0,25}direccion|debes crear[^.\n]{0,25}direccion)/.test(modeloVigente.texto))
-  const respuestas = [bloqueo, ayudaProducto, ...(modeloVigente ? [modeloVigente] : [])]
+  const respuestas = [bloqueo, ayudaProducto, ayudaXmi, ...(modeloVigente ? [modeloVigente] : [])]
   const accionesPermitidas = respuestas.every(({ respuesta }) => ACCIONES_ASISTENTE_CONTEXTUAL.includes(respuesta.accionSugerida))
   const sinIdsInternos = respuestas.every(({ texto }) => !/(ir_a_|mostrar_imagen_candidata|enfocar_elemento)/.test(texto))
   const sinMutacion = respuestas.every((resultado) => resultado.sinMutacion)

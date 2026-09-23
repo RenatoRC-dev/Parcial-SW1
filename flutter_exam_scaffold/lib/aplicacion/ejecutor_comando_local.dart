@@ -82,7 +82,8 @@ final class EjecutorComandoLocal {
       );
     });
     return ResultadoEjecucionLocal(
-      mensaje: 'Cliente guardado localmente. Pendiente de sincronización.',
+      mensaje:
+          'Cliente registrado correctamente.\nGuardado en el dispositivo. Pendiente de sincronización.',
       pendientes: await _outbox.contarPendientes(),
     );
   }
@@ -119,7 +120,8 @@ final class EjecutorComandoLocal {
       );
     });
     return ResultadoEjecucionLocal(
-      mensaje: 'Producto guardado localmente. Pendiente de sincronización.',
+      mensaje:
+          'Producto registrado correctamente.\nGuardado en el dispositivo. Pendiente de sincronización.',
       pendientes: await _outbox.contarPendientes(),
     );
   }

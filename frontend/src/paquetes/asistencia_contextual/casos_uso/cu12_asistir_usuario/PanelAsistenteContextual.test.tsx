@@ -37,7 +37,7 @@ describe("PanelAsistenteContextual", () => {
     fireEvent.click(screen.getByRole("button", { name: "¿Mi modelo está listo para generar?" }))
     expect(await screen.findByRole("status")).toBeInTheDocument()
 
-    const entrada = screen.getByLabelText("Pregunta sobre tu modelo o sobre SW1")
+    const entrada = screen.getByLabelText("Pregunta sobre tu modelo o sobre NexoCASE")
     fireEvent.change(entrada, { target: { value: "¿Cómo uso el asistente IA?" } })
     fireEvent.click(screen.getByRole("button", { name: "Preguntar" }))
     expect(await screen.findByText(/Ayuda local de producto/)).toBeInTheDocument()
@@ -68,7 +68,7 @@ describe("PanelAsistenteContextual", () => {
   it("conserva una conversación corta y no recibe ninguna función de mutación", async () => {
     const consultar = vi.fn(async (_pregunta: string, _contexto: ContextoAsistente, _conversacion: MensajeConversacionContextual[]) => ({ respuesta: "Convierte la relación en una clase asociativa.", accionSugerida: "IR_A_GENERACION" as const, elementoRelacionadoId: null, nivel: "sugerencia" as const, categoriaRecomendacion: "RECOMENDADO" as const }))
     render(<PanelAsistenteContextual contexto={contexto} consultar={consultar} />)
-    fireEvent.change(screen.getByLabelText("Pregunta sobre tu modelo o sobre SW1"), { target: { value: "¿Qué hago?" } })
+    fireEvent.change(screen.getByLabelText("Pregunta sobre tu modelo o sobre NexoCASE"), { target: { value: "¿Qué hago?" } })
     fireEvent.click(screen.getByRole("button", { name: "Preguntar" }))
     await waitFor(() => expect(consultar).toHaveBeenCalledOnce())
     expect(screen.getByText(/Convierte la relación/)).toBeInTheDocument()
@@ -80,7 +80,7 @@ describe("PanelAsistenteContextual", () => {
   it("preserva el intercambio reciente para una pregunta de seguimiento", async () => {
     const consultar = vi.fn(async (_pregunta: string, _contexto: ContextoAsistente, _conversacion: MensajeConversacionContextual[]) => ({ respuesta: "Dirección sería opcional si el negocio registra domicilios.", accionSugerida: "NINGUNA" as const, elementoRelacionadoId: null, nivel: "sugerencia" as const, categoriaRecomendacion: "OPCIONAL" as const }))
     render(<PanelAsistenteContextual contexto={contexto} consultar={consultar} />)
-    const entrada = screen.getByLabelText("Pregunta sobre tu modelo o sobre SW1")
+    const entrada = screen.getByLabelText("Pregunta sobre tu modelo o sobre NexoCASE")
     fireEvent.change(entrada, { target: { value: "¿Qué podría faltar en el modelo?" } })
     fireEvent.click(screen.getByRole("button", { name: "Preguntar" }))
     await waitFor(() => expect(consultar).toHaveBeenCalledTimes(1))
@@ -96,13 +96,13 @@ describe("PanelAsistenteContextual", () => {
   it("usa el modelo actualizado por encima del historial conservado", async () => {
     const consultar = vi.fn(async (_pregunta: string, _contexto: ContextoAsistente, _conversacion: MensajeConversacionContextual[]) => ({ respuesta: "Resultado actualizado.", accionSugerida: "NINGUNA" as const, elementoRelacionadoId: null, nivel: "informacion" as const, categoriaRecomendacion: "INFORMATIVO" as const }))
     const vista = render(<PanelAsistenteContextual contexto={contexto} consultar={consultar} />)
-    const entrada = screen.getByLabelText("Pregunta sobre tu modelo o sobre SW1")
+    const entrada = screen.getByLabelText("Pregunta sobre tu modelo o sobre NexoCASE")
     fireEvent.change(entrada, { target: { value: "Sugiere una clase" } })
     fireEvent.click(screen.getByRole("button", { name: "Preguntar" }))
     await waitFor(() => expect(consultar).toHaveBeenCalledTimes(1))
     const actualizado = { ...contexto, revisionModelo: 2, modeloActual: { ...contexto.modeloActual, clases: [{ id: "direccion", nombre: "Dirección", tipoClase: "normal" as const, abstracta: false, atributos: [], operaciones: [] }] } }
     vista.rerender(<PanelAsistenteContextual contexto={actualizado} consultar={consultar} />)
-    fireEvent.change(screen.getByLabelText("Pregunta sobre tu modelo o sobre SW1"), { target: { value: "¿Y ahora?" } })
+    fireEvent.change(screen.getByLabelText("Pregunta sobre tu modelo o sobre NexoCASE"), { target: { value: "¿Y ahora?" } })
     fireEvent.click(screen.getByRole("button", { name: "Preguntar" }))
     await waitFor(() => expect(consultar).toHaveBeenCalledTimes(2))
     expect(consultar.mock.calls[1][1]).toBe(actualizado)
@@ -112,7 +112,7 @@ describe("PanelAsistenteContextual", () => {
 
   it("adapta las preguntas rápidas al estado y a la selección", () => {
     const vista = render(<PanelAsistenteContextual contexto={contexto} />)
-    expect(screen.getByRole("button", { name: "¿Qué problemas o riesgos detecta SW1?" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "¿Qué problemas o riesgos detecta NexoCASE?" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "¿Qué podría faltar en este dominio?" })).not.toBeInTheDocument()
 
     vista.rerender(<PanelAsistenteContextual contexto={{ ...contexto, estadoUml: { estado: "invalido", problemas: ["Error"], errores: ["Error"], advertencias: [] } }} />)
@@ -130,7 +130,7 @@ describe("PanelAsistenteContextual", () => {
   it("presenta las preguntas contextuales en el idioma activo", () => {
     localStorage.setItem("sw1.idioma", "en")
     render(<ProveedorPreferenciasUI><PanelAsistenteContextual contexto={{ ...contexto, idioma: "en" }} /></ProveedorPreferenciasUI>)
-    expect(screen.getByRole("button", { name: "What problems or risks does SW1 detect?" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "What problems or risks does NexoCASE detect?" })).toBeInTheDocument()
     expect(screen.getByText("Contextual assistant")).toBeInTheDocument()
     localStorage.removeItem("sw1.idioma")
   })

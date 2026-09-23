@@ -17,7 +17,20 @@ backend/*.tsbuildinfo
 *.log
 flutter_exam_scaffold/models/*.gguf
 flutter_exam_scaffold/models/*.bin
+flutter_exam_scaffold/models/vosk-*/
+flutter_exam_scaffold/models/*.zip
+flutter_exam_scaffold/models/sherpa-onnx-whisper-*/
+flutter_exam_scaffold/models/*.tar.bz2
 
 # Archivos temporales de auditoria local
 AUDITORIA_*.txt
 ARBOL_*.txt
+
+SW1_DOCUMENTATION_SNAPSHOT_20260921_0447/
+
+SW1_DOCUMENTATION_SNAPSHOT_20260921_0447/
+
+# Documentacion local fuera del repositorio
+docs/
+SW1_project_records/
+README.md

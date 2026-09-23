@@ -4,7 +4,7 @@ import { crearProyectoE2E } from "./ayudas/proyectos"
 
 async function preguntar(page: import("@playwright/test").Page, pregunta: string) {
   const panel = page.getByTestId("panel-asistente-contextual")
-  await panel.getByLabel("Pregunta sobre tu modelo o sobre SW1").fill(pregunta)
+  await panel.getByLabel("Pregunta sobre tu modelo o sobre NexoCASE").fill(pregunta)
   await panel.getByRole("button", { name: "Preguntar", exact: true }).click()
   return panel
 }

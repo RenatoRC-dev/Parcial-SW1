@@ -55,6 +55,33 @@ describe("PanelAsistenteModelado", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Listo: Correo agregado")
   })
 
+  it("preserva la instrucción, evita duplicados y recupera controles tras un timeout", async () => {
+    let resolver!: (valor: Response) => void
+    const fetchMock = vi.fn(() => new Promise<Response>((resolve) => { resolver = resolve }))
+    vi.stubGlobal("fetch", fetchMock)
+    const aplicar = vi.fn()
+    render(<PanelAsistenteModelado modelo={modelo} revision={3} alAplicarModelo={aplicar} />)
+    const entrada = screen.getByLabelText(/Instrucci.n UML/)
+    const enviar = screen.getByRole("button", { name: "Enviar" })
+    fireEvent.change(entrada, { target: { value: "Agrega telefono" } })
+    fireEvent.click(enviar)
+    fireEvent.click(enviar)
+
+    expect(enviar).toBeDisabled()
+    expect(entrada).toBeDisabled()
+    expect(fetchMock).toHaveBeenCalledOnce()
+    resolver(new Response(JSON.stringify({
+      tipo: "timeout",
+      error: "La IA tardó demasiado en responder. Intenta nuevamente. El modelo no fue modificado.",
+    }), { status: 504, headers: { "Content-Type": "application/json" } }))
+
+    expect(await screen.findByText(/La IA tardó demasiado en responder/)).toHaveTextContent("El modelo no fue modificado")
+    expect(entrada).toHaveValue("Agrega telefono")
+    expect(enviar).toBeEnabled()
+    expect(entrada).toBeEnabled()
+    expect(aplicar).not.toHaveBeenCalled()
+  })
+
   it("presenta los estados estáticos de IA en inglés sin traducir el mensaje dinámico", async () => {
     localStorage.setItem("sw1.idioma", "en")
     let resolver!: (valor: Response) => void

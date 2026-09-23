@@ -17,12 +17,7 @@ final class ConfiguracionLocalRepository {
 
   Future<void> guardarBackendUrl(String valor) async {
     final normalizado = valor.trim().replaceFirst(RegExp(r'/+$'), '');
-    final uri = Uri.tryParse(normalizado);
-    if (uri == null ||
-        !{'http', 'https'}.contains(uri.scheme) ||
-        uri.host.isEmpty) {
-      throw const FormatException('La URL del backend no es válida.');
-    }
+    validarBackendUrl(normalizado);
     final existente = await obtenerBackendUrl();
     if (existente == null) {
       await _baseDatos.insertar('configuracion_local', {
@@ -37,5 +32,30 @@ final class ConfiguracionLocalRepository {
         argumentos: [_claveBackendUrl],
       );
     }
+  }
+
+  static Uri validarBackendUrl(String valor) {
+    final uri = Uri.tryParse(valor.trim());
+    final host = uri?.host ?? '';
+    final pareceIpNumerica = RegExp(r'^[0-9.]+$').hasMatch(host);
+    final segmentosIp = host.split('.');
+    final ipValida =
+        !pareceIpNumerica ||
+        (segmentosIp.length == 4 &&
+            segmentosIp.every((segmento) {
+              final numero = int.tryParse(segmento);
+              return numero != null && numero >= 0 && numero <= 255;
+            }));
+    if (uri == null ||
+        !{'http', 'https'}.contains(uri.scheme) ||
+        host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment ||
+        (uri.path.isNotEmpty && uri.path != '/') ||
+        !ipValida) {
+      throw const FormatException('La URL del backend no es válida.');
+    }
+    return uri;
   }
 }

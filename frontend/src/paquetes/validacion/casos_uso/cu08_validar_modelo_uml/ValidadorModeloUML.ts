@@ -361,6 +361,23 @@ export function validarModelo(
       )
     }
 
+    if (relacion.claseOrigenId === relacion.claseDestinoId) {
+      diagnosticos.push(crearDiagnostico(
+        "RELACION_AUTORREFERENTE_INVALIDA", "error",
+        "La relación debe conectar dos clases diferentes.", "relacion", relacion.id
+      ))
+    }
+
+    if (relacion.tipo === "generalizacion" && (
+      relacion.multiplicidadOrigen !== null || relacion.multiplicidadDestino !== null
+      || relacion.rolOrigen !== undefined || relacion.rolDestino !== undefined
+    )) {
+      diagnosticos.push(crearDiagnostico(
+        "GENERALIZACION_SEMANTICA_INVALIDA", "error",
+        "La generalización no admite multiplicidades ni roles de asociación.", "relacion", relacion.id
+      ))
+    }
+
     if (
       relacion.tipo !== "generalizacion" &&
       (relacion.multiplicidadOrigen === null || relacion.multiplicidadDestino === null)

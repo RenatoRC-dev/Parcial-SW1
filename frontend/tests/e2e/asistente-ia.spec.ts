@@ -13,6 +13,7 @@ async function instruir(page: Page, texto: string) {
 
 test("CU04 aplica clase y atributo automáticamente y aclara sin mutar", async ({ page }) => {
   await crearProyectoE2E(page, "IA")
+  await expect(page.getByText("NexoCASE", { exact: true })).toBeVisible()
   await expect(page.locator(".react-flow")).toBeVisible()
   const panel = page.getByTestId("panel-asistente-ia")
   await expect(panel.getByRole("button", { name: /confirmar|aplicar|aceptar/i })).toHaveCount(0)

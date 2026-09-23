@@ -74,6 +74,41 @@ describe("GeneradorSpringBoot", () => {
     expect(entidad).toContain("private Integer edad;")
   })
 
+  it("genera campos Java privados independientemente de la visibilidad UML", async () => {
+    const salida = await directorioTemporal()
+    const modelo = {
+      ...fixtureCliente,
+      clases: fixtureCliente.clases.map((clase) => ({
+        ...clase,
+        atributos: clase.atributos.map((atributo, indice) => ({
+          ...atributo,
+          visibilidad: indice === 0 ? "publica" as const : "protegida" as const,
+        })),
+      })),
+    }
+    await generarProyectoSpring(modelo, salida)
+    const entidad = await leer(salida, "src/main/java/com/sw1/generated/modelo/Cliente.java")
+    expect(entidad).toContain("private String nombre;")
+    expect(entidad).toContain("private String email;")
+    expect(entidad).not.toContain("public String nombre;")
+    expect(entidad).not.toContain("protected String email;")
+  })
+
+  it("ignora métodos UML para persistencia sin bloquear el backend generado", async () => {
+    const salida = await directorioTemporal()
+    const modelo = {
+      ...fixtureCliente,
+      clases: fixtureCliente.clases.map((clase) => ({
+        ...clase,
+        metodos: [{ id: "descuento", nombre: "calcularDescuento", visibilidad: "publica" as const, tipoRetorno: "Double", parametros: [{ id: "total", nombre: "total", tipo: "Double" }] }],
+      })),
+    }
+    await generarProyectoSpring(modelo, salida)
+    const entidad = await leer(salida, "src/main/java/com/sw1/generated/modelo/Cliente.java")
+    expect(entidad).not.toContain("calcularDescuento")
+    expect(entidad).toContain("private String nombre;")
+  })
+
   it("reutiliza id Long explícito sin duplicar la identidad generada", async () => {
     const salida = await directorioTemporal()
     const modelo = {

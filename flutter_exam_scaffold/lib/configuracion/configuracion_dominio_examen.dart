@@ -2,7 +2,13 @@
 ///
 /// No describe el esquema ni reemplaza las reglas de negocio: entidades,
 /// validadores, repositorios y ejecutores continúan siendo código Dart explícito.
+enum ModoInterfazExamen { asistente, gestion, hibrido }
+
 abstract final class ConfiguracionDominioExamen {
+  static const modoInterfaz = ModoInterfazExamen.asistente;
+  static const mostrarDiagnosticoTecnico = false;
+  static const entradaVozLocalHabilitada = true;
+  static const sincronizacionAlReconectarHabilitada = true;
   static const nombreAplicacion = 'SW1 — Demo Cliente y Producto';
 
   static const accionCrearCliente = 'crear_cliente';

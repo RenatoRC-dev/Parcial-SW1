@@ -14,6 +14,7 @@ export async function interpretarInstruccionModelado(
     modelo: solicitud.modelo,
     contexto: construirContextoModelo(solicitud.modelo),
   })
+  console.info(`[CU04][AI] interpretation_received result=${interpretacion.resultado} commands=${interpretacion.comandos.length}`)
   if (interpretacion.resultado !== "aplicar") {
     return { ...interpretacion, comandos: [], revision: solicitud.revision }
   }
@@ -29,9 +30,16 @@ export async function interpretarInstruccionModelado(
       }
     }
     validarPlanCambiosUML(solicitud.modelo, comandos)
+    console.info(`[CU04][UML] validation_success commands=${comandos.length}`)
     return { ...interpretacion, comandos, revision: solicitud.revision }
   } catch (error) {
-    const mensaje = error instanceof ErrorPlanCambiosUML ? error.message : "El plan no supera la validación determinista."
-    return { resultado: "rechazar", mensaje, comandos: [], revision: solicitud.revision }
+    console.warn(`[CU04][UML] validation_error type=${error instanceof ErrorPlanCambiosUML ? "plan_invalido" : "internal"}`)
+    const detalle = error instanceof ErrorPlanCambiosUML ? ` ${error.message}` : ""
+    return {
+      resultado: "rechazar",
+      mensaje: `La instrucción no produjo un cambio UML válido.${detalle} Revisa la solicitud e intenta nuevamente. El modelo no fue modificado.`,
+      comandos: [],
+      revision: solicitud.revision,
+    }
   }
 }

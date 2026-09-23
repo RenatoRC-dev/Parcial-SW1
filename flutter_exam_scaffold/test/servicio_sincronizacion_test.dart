@@ -114,6 +114,10 @@ void main() {
       () => configuracion.guardarBackendUrl('sin-host'),
       throwsA(isA<FormatException>()),
     );
+    expect(
+      () => configuracion.guardarBackendUrl('http://192.168.0.8.8080'),
+      throwsA(isA<FormatException>()),
+    );
   });
 
   test('migración v1 conserva datos y agrega identidad remota', () async {

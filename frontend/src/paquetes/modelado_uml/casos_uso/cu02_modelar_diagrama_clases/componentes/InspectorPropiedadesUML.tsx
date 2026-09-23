@@ -4,6 +4,7 @@ import {
   MULTIPLICIDADES_UML,
   TIPOS_RELACION_UML,
   VISIBILIDADES_UML,
+  VISIBILIDADES_METODO_UML,
   type AtributoUML,
   type ClaseUML,
   type MetodoUML,
@@ -14,6 +15,7 @@ import {
   type TipoRelacionUML,
   type TipoClaseUML,
   type VisibilidadUML,
+  type VisibilidadMetodoUML,
 } from "../../../../../nucleo/modelo_uml/ModeloUMLCanonico"
 import { TIPOS_GENERACION_SOPORTADOS, TIPOS_RETORNO_METODO, validarModelo } from "../../../../validacion/casos_uso/cu08_validar_modelo_uml/ValidadorModeloUML"
 import { usarPreferenciasUI } from "../../../../../configuracion/PreferenciasUI"
@@ -272,7 +274,7 @@ function EditorMetodos({ clase, modelo, alAplicar }: {
   const [creando, establecerCreando] = useState(false)
   const [nombre, establecerNombre] = useState("")
   const [tipoRetorno, establecerTipoRetorno] = useState<string>("void")
-  const [visibilidad, establecerVisibilidad] = useState<VisibilidadUML>("publica")
+  const [visibilidad, establecerVisibilidad] = useState<VisibilidadMetodoUML>("publica")
   const metodos = clase.metodos ?? []
 
   const reemplazar = (metodo: MetodoUML, elementoId = metodo.id) => alAplicar({
@@ -321,7 +323,7 @@ function EditorMetodos({ clase, modelo, alAplicar }: {
     {creando ? <div className="compact-method-row compact-new-row" role="group" aria-label={t("metodos.nuevo")}>
       <input aria-label={t("propiedades.nombre")} value={nombre} autoFocus onChange={(evento) => establecerNombre(evento.target.value)} />
       <select aria-label={t("metodos.retorno")} value={tipoRetorno} onChange={(evento) => establecerTipoRetorno(evento.target.value)}>{TIPOS_RETORNO_METODO.map((tipo) => <option key={tipo}>{tipo}</option>)}</select>
-      <select aria-label={t("propiedades.visibilidad")} value={visibilidad} onChange={(evento) => establecerVisibilidad(evento.target.value as VisibilidadUML)}>{VISIBILIDADES_UML.map((valor) => <option key={valor} value={valor}>{t(`propiedades.${valor}`)}</option>)}</select>
+      <select aria-label={t("propiedades.visibilidad")} value={visibilidad} onChange={(evento) => establecerVisibilidad(evento.target.value as VisibilidadMetodoUML)}>{VISIBILIDADES_METODO_UML.map((valor) => <option key={valor} value={valor}>{t(`propiedades.${valor}`)}</option>)}</select>
       <div className="compact-row-actions"><button type="button" className="compact-icon-button" aria-label={t("metodos.confirmar")} onClick={confirmar}>✓</button><button type="button" className="compact-icon-button secondary" aria-label={t("propiedades.cancelar")} onClick={cancelar}>×</button></div>
     </div> : <button type="button" className="compact-add-button" onClick={() => establecerCreando(true)}>{t("metodos.agregar")}</button>}
   </section>
@@ -357,7 +359,7 @@ function EditorMetodo({ metodo, alActualizar, alEliminar }: {
     <div className="compact-method-row compact-existing-method-row">
       <input className="compact-method-name" aria-label={`${t("propiedades.nombre")} ${metodo.nombre}`} value={nombre} onChange={(evento) => establecerNombre(evento.target.value)} onBlur={confirmarNombre} onKeyDown={confirmarConEnter} />
       <select className="compact-method-return" aria-label={`${t("metodos.retorno")} ${metodo.nombre}`} value={metodo.tipoRetorno} onChange={(evento) => alActualizar({ ...metodo, tipoRetorno: evento.target.value })}>{TIPOS_RETORNO_METODO.map((tipo) => <option key={tipo}>{tipo}</option>)}</select>
-      <select className="compact-method-visibility" aria-label={`${t("propiedades.visibilidad")} ${metodo.nombre}`} value={metodo.visibilidad} onChange={(evento) => alActualizar({ ...metodo, visibilidad: evento.target.value as VisibilidadUML })}>{VISIBILIDADES_UML.map((valor) => <option key={valor} value={valor}>{t(`propiedades.${valor}`)}</option>)}</select>
+      <select className="compact-method-visibility" aria-label={`${t("propiedades.visibilidad")} ${metodo.nombre}`} value={metodo.visibilidad} onChange={(evento) => alActualizar({ ...metodo, visibilidad: evento.target.value as VisibilidadMetodoUML })}>{VISIBILIDADES_METODO_UML.map((valor) => <option key={valor} value={valor}>{t(`propiedades.${valor}`)}</option>)}</select>
       <button type="button" className="compact-parameters-button" onClick={() => establecerParametrosAbiertos(!parametrosAbiertos)}>{t("metodos.parametros")}</button>
       <button type="button" className="compact-icon-button compact-method-delete danger" aria-label={`${t("metodos.eliminar")} ${metodo.nombre}`} title={t("metodos.eliminar")} onClick={alEliminar}>×</button>
     </div>

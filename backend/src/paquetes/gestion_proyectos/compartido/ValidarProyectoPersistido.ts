@@ -28,7 +28,7 @@ export function esModeloUMLPersistible(valor: unknown): valor is ModeloUMLCanoni
     for (const atributo of clase.atributos) {
       if (!objeto(atributo) || !texto(atributo.id) || !texto(atributo.nombre)
         || !(atributo.tipo === null || typeof atributo.tipo === "string")
-        || !(atributo.visibilidad === undefined || atributo.visibilidad === "publica" || atributo.visibilidad === "privada")
+        || !(atributo.visibilidad === undefined || atributo.visibilidad === "publica" || atributo.visibilidad === "privada" || atributo.visibilidad === "protegida" || atributo.visibilidad === "paquete")
         || idsElementos.has(atributo.id)) return false
       idsElementos.add(atributo.id)
     }
@@ -56,6 +56,7 @@ export function esModeloUMLPersistible(valor: unknown): valor is ModeloUMLCanoni
       || !multiplicidades.has(relacion.multiplicidadDestino as string | null)
       || !(relacion.rolOrigen === undefined || typeof relacion.rolOrigen === "string")
       || !(relacion.rolDestino === undefined || typeof relacion.rolDestino === "string")
+      || (relacion.tipo === "generalizacion" && (relacion.multiplicidadOrigen !== null || relacion.multiplicidadDestino !== null || relacion.rolOrigen !== undefined || relacion.rolDestino !== undefined))
       || idsElementos.has(relacion.id)) return false
     idsElementos.add(relacion.id)
   }

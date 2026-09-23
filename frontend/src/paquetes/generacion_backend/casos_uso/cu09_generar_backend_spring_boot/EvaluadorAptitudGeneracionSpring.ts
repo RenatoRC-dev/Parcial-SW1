@@ -52,7 +52,6 @@ export function evaluarAptitudGeneracionSpring(
 ): ResultadoAptitudGeneracion {
   const motivos: string[] = []
   const advertencias: ResultadoAptitudGeneracion["advertencias"] = []
-  if (!validacion.valido) motivos.push("El modelo contiene errores de validación UML.")
 
   for (const clase of modelo.clases) {
     if (clase.abstracta) motivos.push(`La clase abstracta ${clase.nombre} no puede generarse todavía.`)
@@ -128,7 +127,7 @@ export function evaluarAptitudGeneracionSpring(
     const destinoEsUno = (relacion.multiplicidadOrigen === "0..*" || relacion.multiplicidadOrigen === "1..*") && relacion.multiplicidadDestino === "1"
     if (!origenEsUno && !destinoEsUno) {
       if (relacion.multiplicidadOrigen === "0..*" && relacion.multiplicidadDestino === "0..*") {
-        motivos.push(`La relación ${descripcion} representa un N:M directo. El generador Spring de SW1 requiere convertirla explícitamente en una clase asociativa antes de generar.`)
+        motivos.push(`La relación ${descripcion} representa un N:M directo. El generador Spring de NexoCASE requiere convertirla explícitamente en una clase asociativa antes de generar.`)
       } else {
         motivos.push(`La relación ${descripcion} es UML válida, pero todavía no pertenece al perfil de generación Spring. Actualmente se soportan 1 ↔ 0..* y 1 ↔ 1..*.`)
       }
@@ -173,5 +172,6 @@ export function evaluarAptitudGeneracionSpring(
     }
   }
 
+  if (!validacion.valido) motivos.push("El modelo contiene errores de validación UML.")
   return { apto: motivos.length === 0, motivos, advertencias }
 }

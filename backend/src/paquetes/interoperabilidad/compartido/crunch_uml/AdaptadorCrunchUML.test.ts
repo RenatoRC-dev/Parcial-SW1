@@ -39,6 +39,63 @@ describe("AdaptadorCrunchUML", () => {
     ])
   }, 30_000)
 
+  it("preserva visibilidad UML explícita en exportación e importación XMI", async () => {
+    const modelo = {
+      ...fixtureInteroperabilidad,
+      clases: fixtureInteroperabilidad.clases.map((clase) => clase.id === "EAID_CLIENTE" ? {
+        ...clase,
+        atributos: [
+          { ...clase.atributos[0], visibilidad: "publica" as const },
+          { ...clase.atributos[1], visibilidad: "protegida" as const },
+        ],
+      } : {
+        ...clase,
+        atributos: [{ ...clase.atributos[0], visibilidad: "paquete" as const }],
+      }),
+    }
+    const xmi = (await exportarXmi(modelo)).toString("utf8")
+    expect(xmi).toMatch(/xmi:id="EAID_CLIENTE_NOMBRE"[^>]*visibility="public"/)
+    expect(xmi).toMatch(/xmi:id="EAID_CLIENTE_EMAIL"[^>]*visibility="protected"/)
+    expect(xmi).toMatch(/xmi:id="EAID_PEDIDO_FECHA"[^>]*visibility="package"/)
+
+    const resultado = await importarXmi(xmi)
+    expect(resultado.modelo.clases.find((clase) => clase.id === "EAID_CLIENTE")?.atributos).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "EAID_CLIENTE_NOMBRE", visibilidad: "publica" }),
+      expect.objectContaining({ id: "EAID_CLIENTE_EMAIL", visibilidad: "protegida" }),
+    ]))
+    expect(resultado.modelo.clases.find((clase) => clase.id === "EAID_PEDIDO")?.atributos[0]).toEqual(expect.objectContaining({ visibilidad: "paquete" }))
+  }, 30_000)
+
+  it("no inventa visibilidad al exportar atributos históricos sin valor", async () => {
+    const xmi = (await exportarXmi(fixtureInteroperabilidad)).toString("utf8")
+    const atributoNombre = xmi.match(/<ownedAttribute[^>]*xmi:id="EAID_CLIENTE_NOMBRE"[^>]*>/)?.[0]
+    expect(atributoNombre).toBeDefined()
+    expect(atributoNombre).not.toContain("visibility=")
+  }, 30_000)
+
+  it("rechaza métodos fuera del perfil XMI en lugar de descartarlos silenciosamente", async () => {
+    const conMetodo = {
+      ...fixtureInteroperabilidad,
+      clases: fixtureInteroperabilidad.clases.map((clase, indice) => indice === 0 ? {
+        ...clase,
+        metodos: [{ id: "descuento", nombre: "calcularDescuento", visibilidad: "publica" as const, tipoRetorno: "Double", parametros: [{ id: "total", nombre: "total", tipo: "Double" }] }],
+      } : clase),
+    }
+    expect(validarAptitudExportacionXmi(conMetodo)).toEqual(expect.arrayContaining([expect.stringContaining("métodos UML")]))
+    await expect(exportarXmi(conMetodo)).rejects.toThrow(/métodos UML/)
+  }, 30_000)
+
+  it("advierte cuando una importación XMI contiene métodos no soportados", async () => {
+    const exportado = (await exportarXmi({ ...fixtureInteroperabilidad, relaciones: [] })).toString("utf8")
+    const conMetodo = exportado.replace(
+      "</packagedElement>",
+      '<ownedOperation xmi:type="uml:Operation" xmi:id="OP_DESCUENTO" name="calcularDescuento"/></packagedElement>',
+    )
+    const resultado = await importarXmi(conMetodo)
+    expect(resultado.advertencias).toContainEqual(expect.objectContaining({ codigo: "METODOS_OMITIDOS" }))
+    expect(resultado.modelo.clases.flatMap((clase) => clase.metodos ?? [])).toEqual([])
+  }, 30_000)
+
   it("rechaza XML malformado de forma controlada", async () => {
     await expect(importarXmi("<xmi:roto>")).rejects.toMatchObject({ tipo: "entrada" })
   }, 30_000)

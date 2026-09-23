@@ -44,6 +44,7 @@ export function aplicarCandidatoImagen(
           id: generarId("atributo"),
           nombre: atributo.nombre.trim(),
           tipo: importabilidad.tipo,
+          visibilidad: atributo.visibilidad ?? "privada",
         }] : []
       }),
     }

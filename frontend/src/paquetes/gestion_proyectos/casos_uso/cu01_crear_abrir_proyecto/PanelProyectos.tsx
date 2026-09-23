@@ -23,7 +23,7 @@ export function PanelProyectos({ alAbrir }: { alAbrir: (proyecto: Proyecto) => v
   const setBusy = (valor: boolean) => { establecerOcupado(valor); if (valor) establecerError(null) }
 
   return <div className="projects-screen">
-    <header className="projects-topbar"><div className="product-identity"><strong>SW1 Modeler</strong><span>{t("shell.producto")}</span></div><ControlesPreferencias /></header>
+    <header className="projects-topbar"><div className="product-identity"><strong>NexoCASE</strong><span>{t("shell.producto")}</span></div><ControlesPreferencias /></header>
     <main className="project-home">
       <header className="projects-heading"><div><p className="eyebrow">{t("paquete.proyectos")}</p><h1>{t("proyectos.titulo")}</h1><p>{t("proyectos.descripcion")}</p></div></header>
       <section className="project-create" aria-labelledby="titulo-crear-proyecto">

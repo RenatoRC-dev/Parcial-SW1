@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sw1_local_ai_spike/dominio/comando_local.dart';
 import 'package:sw1_local_ai_spike/dominio/validador_comando_local.dart';
 import 'package:sw1_local_ai_spike/configuracion/configuracion_dominio_examen.dart';
@@ -5,7 +6,7 @@ import 'package:sw1_local_ai_spike/local_ai/local_ai_engine.dart';
 
 const promptSistemaLocal =
     '''
-Clasifica una solicitud de negocio en español y extrae sus datos.
+Identifica primero la acción de negocio y luego extrae los mejores datos disponibles.
 La respuesta JSON ya empieza con {"accion":". Completa solamente lo que falta.
 
 Completaciones válidas:
@@ -18,7 +19,9 @@ Usa ${ConfiguracionDominioExamen.accionCrearCliente} para registrar una persona 
 Usa ${ConfiguracionDominioExamen.accionCrearProducto} para agregar un producto con nombre y precio numérico.
 Usa ${ConfiguracionDominioExamen.accionConsultarClientes} para listar o consultar clientes.
 Si la intención no coincide claramente, usa ${ConfiguracionDominioExamen.accionNoSoportada}.
-No repitas el prefijo. No expliques. No uses Markdown. No inventes acciones.
+Una intención conocida conserva su acción aunque un dato falte o sea imperfecto.
+No inventes valores: usa "" para texto ausente y null para precio ausente.
+No valides reglas de campos. No repitas el prefijo. No expliques. No uses Markdown. No inventes acciones.
 ''';
 
 final class ResultadoInterpretacionLocal {
@@ -40,15 +43,18 @@ final class InterpretadorComandoLocal {
     }
     final reloj = Stopwatch()..start();
     final respuesta = StringBuffer();
+    if (kDebugMode) debugPrint('[AI] interpretation_started');
     await for (final fragmento in _engine.generate(
       LocalAiRequest(
         systemPrompt: promptSistemaLocal,
         userPrompt: instruccion.trim(),
+        maxOutputTokens: 64,
       ),
     )) {
       respuesta.write(fragmento);
     }
     reloj.stop();
+    if (kDebugMode) debugPrint('[AI] raw_result="${respuesta.toString()}"');
     return ResultadoInterpretacionLocal(
       comando: validarRespuestaLocal(respuesta.toString()),
       duracion: reloj.elapsed,

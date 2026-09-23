@@ -23,7 +23,7 @@ describe("aplicación atómica de candidato de imagen", () => {
   it("genera ids, posiciones y asociación de forma controlada", () => {
     const resultado = aplicarCandidatoImagen(vacio, candidato, ids())
     expect(resultado.clases.map((clase) => clase.id)).toEqual(["clase-1", "clase-3"])
-    expect(resultado.clases[0]?.atributos[0]).toMatchObject({ id: "atributo-2", nombre: "nombre", tipo: "String" })
+    expect(resultado.clases[0]?.atributos[0]).toMatchObject({ id: "atributo-2", nombre: "nombre", tipo: "String", visibilidad: "privada" })
     expect(resultado.clases.map((clase) => clase.posicion)).toEqual([{ x: 100, y: 100 }, { x: 450, y: 100 }])
     expect(resultado.relaciones[0]).toMatchObject({ id: "relacion-4", claseOrigenId: "clase-1", claseDestinoId: "clase-3", multiplicidadOrigen: "1", multiplicidadDestino: "0..*" })
   })
@@ -54,7 +54,7 @@ describe("aplicación atómica de candidato de imagen", () => {
     const resultado = aplicarCandidatoImagen(vacio, mixto, ids())
 
     expect(mixto.clases[0]?.atributos).toContainEqual({ refTemporal: "tmp_sin_tipo", nombre: "observacion", tipoDato: null })
-    expect(resultado.clases[0]?.atributos).toEqual([{ id: "atributo-2", nombre: "nombre", tipo: "String" }])
+    expect(resultado.clases[0]?.atributos).toEqual([{ id: "atributo-2", nombre: "nombre", tipo: "String", visibilidad: "privada" }])
     expect(resultado.clases[0]?.atributos.some((atributo) => atributo.tipo === "String" && atributo.nombre === "observacion")).toBe(false)
     expect(resultado.clases[0]?.atributos.some((atributo) => atributo.nombre === "saldo")).toBe(false)
     expect(resultado.clases).toHaveLength(2)
@@ -76,10 +76,25 @@ describe("aplicación atómica de candidato de imagen", () => {
     }
     const resultado = aplicarCandidatoImagen(vacio, conId, ids())
     expect(resultado.clases[0].atributos).toEqual([
-      { id: "atributo-2", nombre: "id", tipo: "Long" },
-      { id: "atributo-3", nombre: "numero", tipo: "String" },
+      { id: "atributo-2", nombre: "id", tipo: "Long", visibilidad: "privada" },
+      { id: "atributo-3", nombre: "numero", tipo: "String", visibilidad: "privada" },
     ])
     expect(validarModelo(resultado).valido).toBe(true)
+  })
+
+  it("preserva visibilidad explícita del candidato visual", () => {
+    const explicito: CandidatoModeloUMLImagen = {
+      clases: [{ refTemporal: "tmp_cliente", nombre: "Cliente", atributos: [
+        { refTemporal: "tmp_publico", nombre: "codigo", tipoDato: "String", visibilidad: "publica" },
+        { refTemporal: "tmp_protegido", nombre: "saldo", tipoDato: "Double", visibilidad: "protegida" },
+      ] }],
+      relaciones: [], advertencias: [],
+    }
+    const resultado = aplicarCandidatoImagen(vacio, explicito, ids())
+    expect(resultado.clases[0].atributos).toEqual([
+      expect.objectContaining({ nombre: "codigo", visibilidad: "publica" }),
+      expect.objectContaining({ nombre: "saldo", visibilidad: "protegida" }),
+    ])
   })
 
   it("rechaza id con tipo String sin repararlo ni mutar candidato/modelo", () => {

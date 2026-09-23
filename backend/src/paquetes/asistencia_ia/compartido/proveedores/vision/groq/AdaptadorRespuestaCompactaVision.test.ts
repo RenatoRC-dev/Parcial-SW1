@@ -23,6 +23,22 @@ describe("adaptador de respuesta compacta Groq Vision", () => {
     ])
   })
 
+  it("preserva símbolos de visibilidad explícitos y deja la ausencia para el valor privado al aplicar", () => {
+    const resultado = adaptarRespuestaCompactaVision({
+      c: [["Cliente", [["codigo", "String", "+"], ["saldo", "Double", "#"], ["interno", "String", "~"], ["nombre", "String", null]]]],
+      r: [],
+      w: [],
+    }, "vision")
+    if (resultado.resultado !== "candidato") throw new Error("Se esperaba candidato")
+    expect(resultado.candidato.clases[0].atributos).toEqual([
+      expect.objectContaining({ nombre: "codigo", visibilidad: "publica" }),
+      expect.objectContaining({ nombre: "saldo", visibilidad: "protegida" }),
+      expect.objectContaining({ nombre: "interno", visibilidad: "paquete" }),
+      expect.objectContaining({ nombre: "nombre" }),
+    ])
+    expect(resultado.candidato.clases[0].atributos[3]).not.toHaveProperty("visibilidad")
+  })
+
   it("preserva asociaciones, multiplicidades y roles mediante referencias locales", () => {
     const resultado = adaptarRespuestaCompactaVision({
       c: [["Cliente", []], ["Factura", []]],

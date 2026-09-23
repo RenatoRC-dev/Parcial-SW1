@@ -14,15 +14,20 @@ export function registrarRutaInterpretacionIA(aplicacion: Express, proveedor: Pr
       respuesta.status(200).json(await interpretarInstruccionModelado(entrada, proveedor))
     } catch (error) {
       if (error instanceof ErrorProveedorIA) {
-        const estado = error.tipo === "limite" ? 429 : 503
-        const mensaje = error.tipo === "limite"
-          ? "El servicio de IA alcanzó temporalmente su límite de uso."
-          : "El servicio de IA no está disponible temporalmente."
-        respuesta.status(estado).json({ error: mensaje })
+        const respuestas = {
+          limite: { estado: 429, mensaje: "El servicio de IA está temporalmente limitado. Espera unos segundos e intenta nuevamente. El modelo no fue modificado." },
+          timeout: { estado: 504, mensaje: "La IA tardó demasiado en responder. Intenta nuevamente. El modelo no fue modificado." },
+          respuesta_invalida: { estado: 502, mensaje: "La IA respondió en un formato que no pudo procesarse. El modelo no fue modificado." },
+          configuracion: { estado: 503, mensaje: "No se pudo acceder al servicio de IA por un problema de configuración. El modelo no fue modificado." },
+          autenticacion: { estado: 503, mensaje: "No se pudo acceder al servicio de IA por un problema de configuración. El modelo no fue modificado." },
+          no_disponible: { estado: 503, mensaje: "El servicio de IA no está disponible en este momento. Intenta nuevamente. El modelo no fue modificado." },
+        } as const
+        const salida = respuestas[error.tipo]
+        respuesta.status(salida.estado).json({ error: salida.mensaje, tipo: error.tipo })
         return
       }
-      console.error(error)
-      respuesta.status(500).json({ error: "No se pudo interpretar la instrucción de modelado." })
+      console.error("[CU04][AI] internal_error", error)
+      respuesta.status(500).json({ error: "No se pudo completar la operación. El modelo no fue modificado.", tipo: "interno" })
     }
   })
 }

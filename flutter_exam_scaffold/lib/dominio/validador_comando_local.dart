@@ -29,6 +29,22 @@ ComandoLocal validarRespuestaLocal(String respuestaCruda) {
       'La acción o sus parámetros tienen un tipo inválido.',
     );
   }
+  try {
+    return validarComandoEstructurado(accion, parametros);
+  } on ErrorAccionNoSoportadaLocal {
+    rethrow;
+  } on ErrorComandoLocal catch (error) {
+    throw ErrorParametrosComandoLocal(
+      borrador: crearBorradorComandoEstructurado(accion, parametros),
+      mensaje: error.mensaje,
+    );
+  }
+}
+
+ComandoLocal validarComandoEstructurado(
+  String accion,
+  Map<String, dynamic> parametros,
+) {
   return switch (accion) {
     ConfiguracionDominioExamen.accionCrearCliente => _crearCliente(parametros),
     ConfiguracionDominioExamen.accionCrearProducto => _crearProducto(
@@ -37,10 +53,66 @@ ComandoLocal validarRespuestaLocal(String respuestaCruda) {
     ConfiguracionDominioExamen.accionConsultarClientes => _consultarClientes(
       parametros,
     ),
-    _ => throw const ErrorComandoLocal(
+    _ => throw const ErrorAccionNoSoportadaLocal(
       'La acción solicitada no está soportada.',
     ),
   };
+}
+
+BorradorComandoLocal crearBorradorComandoEstructurado(
+  String accion,
+  Map<String, dynamic> parametros,
+) {
+  switch (accion) {
+    case ConfiguracionDominioExamen.accionCrearCliente:
+      final nombre = parametros['nombre'];
+      final correo = parametros['correo'];
+      return BorradorComandoLocal(
+        accion: TipoAccionLocal.crearCliente,
+        parametros: {
+          'nombre': nombre is String ? nombre.trim() : '',
+          'correo': correo is String ? correo.trim() : '',
+        },
+        errores: {
+          if (nombre is! String || nombre.trim().isEmpty)
+            'nombre': 'Revisa el nombre antes de continuar.',
+          if (correo is! String ||
+              correo.trim().isEmpty ||
+              !_correoValido(correo))
+            'correo': 'Revisa el correo antes de continuar.',
+          if (!_clavesExactas(parametros, {'nombre', 'correo'}))
+            '_comando': 'Faltan datos requeridos o existen datos inesperados.',
+        },
+      );
+    case ConfiguracionDominioExamen.accionCrearProducto:
+      final nombre = parametros['nombre'];
+      final precio = parametros['precio'];
+      return BorradorComandoLocal(
+        accion: TipoAccionLocal.crearProducto,
+        parametros: {
+          'nombre': nombre is String ? nombre.trim() : '',
+          'precio': precio,
+        },
+        errores: {
+          if (nombre is! String || nombre.trim().isEmpty)
+            'nombre': 'Revisa el nombre antes de continuar.',
+          if (precio is! num || !precio.isFinite || precio < 0)
+            'precio': 'Revisa el precio antes de continuar.',
+          if (!_clavesExactas(parametros, {'nombre', 'precio'}))
+            '_comando': 'Faltan datos requeridos o existen datos inesperados.',
+        },
+      );
+    case ConfiguracionDominioExamen.accionConsultarClientes:
+      return BorradorComandoLocal(
+        accion: TipoAccionLocal.consultarClientes,
+        parametros: const {},
+        errores: const {'_comando': 'La consulta no admite datos adicionales.'},
+      );
+    default:
+      throw const ErrorAccionNoSoportadaLocal(
+        'La acción solicitada no está soportada.',
+      );
+  }
 }
 
 ComandoLocal _crearCliente(Map<String, dynamic> parametros) {
@@ -53,7 +125,7 @@ ComandoLocal _crearCliente(Map<String, dynamic> parametros) {
   }
   final nombre = (parametros['nombre'] as String).trim();
   final correo = (parametros['correo'] as String).trim();
-  if (nombre.isEmpty || correo.isEmpty || !correo.contains('@')) {
+  if (nombre.isEmpty || !_correoValido(correo)) {
     throw const ErrorComandoLocal(
       '${ConfiguracionDominioExamen.accionCrearCliente} contiene datos vacíos o un correo inválido.',
     );
@@ -100,3 +172,6 @@ ComandoLocal _consultarClientes(Map<String, dynamic> parametros) {
 bool _clavesExactas(Map<String, dynamic> mapa, Set<String> esperadas) =>
     mapa.keys.toSet().containsAll(esperadas) &&
     esperadas.containsAll(mapa.keys);
+
+bool _correoValido(String correo) =>
+    RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(correo.trim());

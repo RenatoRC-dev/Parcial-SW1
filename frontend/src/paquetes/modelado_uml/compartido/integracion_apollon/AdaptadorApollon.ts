@@ -26,6 +26,8 @@ const TIPOS_RELACION: Readonly<Record<string, TipoRelacionUML>> = {
 const VISIBILIDADES: Readonly<Record<string, VisibilidadUML>> = {
   "+": "publica",
   "-": "privada",
+  "#": "protegida",
+  "~": "paquete",
 }
 
 interface ElementoClaseApollon {
@@ -262,15 +264,15 @@ function convertirRelacion(
     tipo,
     claseOrigenId: arista.source,
     claseDestinoId: arista.target,
-    multiplicidadOrigen: multiplicidadOrigen ?? null,
-    multiplicidadDestino: multiplicidadDestino ?? null,
+    multiplicidadOrigen: tipo === "generalizacion" ? null : multiplicidadOrigen ?? null,
+    multiplicidadDestino: tipo === "generalizacion" ? null : multiplicidadDestino ?? null,
   }
   const nombre = leerTextoOpcional(arista.data.label)
   const rolOrigen = leerTextoOpcional(arista.data.sourceRole)
   const rolDestino = leerTextoOpcional(arista.data.targetRole)
   if (nombre) relacion.nombre = nombre
-  if (rolOrigen) relacion.rolOrigen = rolOrigen
-  if (rolDestino) relacion.rolDestino = rolDestino
+  if (tipo !== "generalizacion" && rolOrigen) relacion.rolOrigen = rolOrigen
+  if (tipo !== "generalizacion" && rolDestino) relacion.rolDestino = rolDestino
 
   return relacion
 }
@@ -327,7 +329,8 @@ export function normalizarAsociacionesSinNavegabilidad(modeloApollon: UMLModel):
 }
 
 function notacionAtributo(atributo: AtributoUML): string {
-  const visibilidad = atributo.visibilidad === "privada" ? "- " : atributo.visibilidad === "publica" ? "+ " : ""
+  const simbolos: Record<VisibilidadUML, string> = { privada: "-", publica: "+", protegida: "#", paquete: "~" }
+  const visibilidad = atributo.visibilidad ? `${simbolos[atributo.visibilidad]} ` : ""
   const tipo = atributo.tipo?.trim()
   return tipo ? `${visibilidad}${atributo.nombre}: ${tipo}` : `${visibilidad}${atributo.nombre}`
 }
