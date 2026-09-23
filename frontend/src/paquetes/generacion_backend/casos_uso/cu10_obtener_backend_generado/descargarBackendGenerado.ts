@@ -1,10 +1,11 @@
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
+import { construirUrlBackend } from "../../../../configuracion/BackendRemoto"
 
 export async function solicitarBackendGenerado(
   modelo: ModeloUMLCanonico,
   ejecutarFetch: typeof fetch = fetch
 ): Promise<Blob> {
-  const respuesta = await ejecutarFetch("/api/generacion/spring", {
+  const respuesta = await ejecutarFetch(construirUrlBackend("/api/generacion/spring"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(modelo),

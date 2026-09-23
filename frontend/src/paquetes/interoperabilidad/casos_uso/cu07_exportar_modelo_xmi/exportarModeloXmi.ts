@@ -1,7 +1,8 @@
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
+import { construirUrlBackend } from "../../../../configuracion/BackendRemoto"
 
 export async function exportarModeloXmi(modelo: ModeloUMLCanonico): Promise<void> {
-  const respuesta = await fetch("/api/interoperabilidad/xmi/exportar", {
+  const respuesta = await fetch(construirUrlBackend("/api/interoperabilidad/xmi/exportar"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(modelo),

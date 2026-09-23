@@ -1,4 +1,5 @@
 import type { RespuestaAnalisisImagen } from "./CandidatoModeloUMLImagen"
+import { construirUrlBackend } from "../../../../configuracion/BackendRemoto"
 
 function esRespuesta(valor: unknown): valor is RespuestaAnalisisImagen {
   if (typeof valor !== "object" || valor === null) return false
@@ -13,7 +14,7 @@ function esRespuesta(valor: unknown): valor is RespuestaAnalisisImagen {
 export async function analizarImagenUML(imagen: File): Promise<RespuestaAnalisisImagen> {
   const datos = new FormData()
   datos.append("imagen", imagen)
-  const respuesta = await fetch("/api/ia/imagen/analizar", { method: "POST", body: datos })
+  const respuesta = await fetch(construirUrlBackend("/api/ia/imagen/analizar"), { method: "POST", body: datos })
   const cuerpo: unknown = await respuesta.json().catch(() => null)
   if (!respuesta.ok) {
     const mensaje = typeof cuerpo === "object" && cuerpo !== null && "error" in cuerpo && typeof cuerpo.error === "string"

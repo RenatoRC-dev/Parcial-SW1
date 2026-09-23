@@ -16,6 +16,27 @@ describe("API de generación", () => {
 
   it("expone salud", async () => {
     await request(aplicacion).get("/api/health").expect(200, { estado: "ok" })
+    await request(aplicacion).get("/health").expect(200, { status: "ok" })
+  })
+
+  it("habilita CORS sólo para localhost o el origen configurado", async () => {
+    const original = process.env.FRONTEND_ORIGIN
+    process.env.FRONTEND_ORIGIN = "https://nexocase.onrender.com"
+    try {
+      const configurada = crearAplicacionGeneracionBackend()
+      await request(configurada)
+        .options("/api/proyectos")
+        .set("Origin", "https://nexocase.onrender.com")
+        .expect(204)
+        .expect("Access-Control-Allow-Origin", "https://nexocase.onrender.com")
+      await request(configurada)
+        .options("/api/proyectos")
+        .set("Origin", "https://origen-no-permitido.example")
+        .expect(403)
+    } finally {
+      if (original === undefined) delete process.env.FRONTEND_ORIGIN
+      else process.env.FRONTEND_ORIGIN = original
+    }
   })
 
   it("rechaza cuerpos malformados", async () => {

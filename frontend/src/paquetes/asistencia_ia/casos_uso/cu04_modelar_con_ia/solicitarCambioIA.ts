@@ -1,7 +1,8 @@
 import type { RespuestaInterpretacionUML, SolicitudInterpretacionUML } from "./ComandoModeloUML"
+import { construirUrlBackend } from "../../../../configuracion/BackendRemoto"
 
 export async function solicitarCambioIA(solicitud: SolicitudInterpretacionUML): Promise<RespuestaInterpretacionUML> {
-  const respuesta = await fetch("/api/ia/modelado/interpretar", {
+  const respuesta = await fetch(construirUrlBackend("/api/ia/modelado/interpretar"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(solicitud),

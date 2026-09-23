@@ -1,4 +1,5 @@
 import type { ContextoAsistente, MensajeConversacionContextual, RespuestaAsistenteContextual } from "./ContextoAsistente"
+import { construirUrlBackend } from "../../../../configuracion/BackendRemoto"
 
 export type TipoErrorConsultaContextual = "no_disponible" | "limite" | "respuesta_invalida" | "solicitud_invalida" | "interno"
 
@@ -9,7 +10,7 @@ export class ErrorConsultaContextual extends Error {
 }
 
 export async function consultarAsistenteContextual(pregunta: string, contexto: ContextoAsistente, conversacion: MensajeConversacionContextual[]): Promise<RespuestaAsistenteContextual> {
-  const respuesta = await fetch("/api/ia/contextual/preguntar", {
+  const respuesta = await fetch(construirUrlBackend("/api/ia/contextual/preguntar"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ pregunta, contexto, conversacion: conversacion.slice(-8) }),

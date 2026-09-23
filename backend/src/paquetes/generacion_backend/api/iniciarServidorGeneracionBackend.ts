@@ -12,6 +12,7 @@ if (process.argv.includes("--datos-proyectos-e2e")) {
 }
 
 const puerto = Number(process.env.PORT || 3001)
+const host = process.env.HOST?.trim() || "127.0.0.1"
 const proveedorIA = process.argv.includes("--proveedor-ia-determinista") ? new ProveedorDeterministaE2E() : undefined
 const proveedorTranscripcion = process.argv.includes("--proveedor-ia-determinista")
   ? new ProveedorTranscripcionDeterministaE2E()
@@ -20,6 +21,6 @@ const proveedorVision = process.argv.includes("--proveedor-ia-determinista")
   ? new ProveedorVisionDeterministaE2E()
   : undefined
 const { servidor } = crearServidorCase({ proveedorIA, proveedorTranscripcion, proveedorVision })
-servidor.listen(puerto, "127.0.0.1", () => {
-  console.log(`Servidor CASE disponible en http://127.0.0.1:${puerto}`)
+servidor.listen(puerto, host, () => {
+  console.log(`Servidor CASE disponible en http://${host}:${puerto}`)
 })

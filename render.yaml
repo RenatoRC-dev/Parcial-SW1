@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: nexocase-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci && python3 -m pip install --target .python-xmi -r requirements-xmi.txt && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.16.0
+      - key: HOST
+        value: 0.0.0.0
+      - key: SW1_PYTHON_PATH
+        value: python3
+      - key: SW1_CRUNCH_UML_PATH
+        value: .python-xmi
+      - key: GROQ_API_KEY
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false
+
+  - type: web
+    name: nexocase-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false

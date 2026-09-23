@@ -47,6 +47,16 @@ describe("conector de colaboración Apollon", () => {
     expect(() => construirUrlColaboracion(" ", { protocol: "https:", host: "sw1.test" })).toThrow(/sala/i)
   })
 
+  it("deriva WSS del backend remoto configurado", () => {
+    vi.stubEnv("VITE_API_BASE_URL", "https://nexocase-backend.onrender.com")
+    try {
+      expect(construirUrlColaboracion("equipo_01"))
+        .toBe("wss://nexocase-backend.onrender.com/api/colaboracion?sala=equipo_01")
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it("conecta transporte, sincroniza, actualiza presencia y limpia recursos", () => {
     const socket = crearSocketFalso()
     const { editor, obtenerSalida, publicarParticipantes } = crearEditorFalso()

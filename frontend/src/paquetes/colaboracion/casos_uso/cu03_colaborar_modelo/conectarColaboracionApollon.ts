@@ -3,6 +3,7 @@ import {
   type CollaborationUser,
   type CollaboratorInfo,
 } from "@tumaet/apollon"
+import { obtenerUbicacionBackend } from "../../../../configuracion/BackendRemoto"
 
 const PATRON_SALA = /^[A-Za-z0-9_-]{1,64}$/
 
@@ -54,7 +55,7 @@ export function normalizarSalaColaboracion(sala: string): string | null {
 
 export function construirUrlColaboracion(
   sala: string,
-  ubicacion: Pick<Location, "protocol" | "host"> = window.location,
+  ubicacion: Pick<Location, "protocol" | "host"> = obtenerUbicacionBackend(),
 ): string {
   const salaNormalizada = normalizarSalaColaboracion(sala)
   if (!salaNormalizada) throw new Error("La sala debe tener entre 1 y 64 caracteres: letras, números, guion o guion bajo.")

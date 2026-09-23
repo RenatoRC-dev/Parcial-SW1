@@ -34,6 +34,26 @@ export function crearAplicacionGeneracionBackend(dependencias: {
   repositorioProyectos?: RepositorioProyectos
 } = {}) {
   const aplicacion = express()
+  const origenProduccion = process.env.FRONTEND_ORIGIN?.trim()
+  const origenesPermitidos = new Set([
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    ...(origenProduccion ? [origenProduccion] : []),
+  ])
+  aplicacion.use((solicitud, respuesta, siguiente) => {
+    const origen = solicitud.headers.origin
+    if (origen && origenesPermitidos.has(origen)) {
+      respuesta.setHeader("Access-Control-Allow-Origin", origen)
+      respuesta.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+      respuesta.setHeader("Access-Control-Allow-Headers", "Content-Type")
+      respuesta.setHeader("Vary", "Origin")
+    }
+    if (solicitud.method === "OPTIONS") {
+      respuesta.sendStatus(origen && origenesPermitidos.has(origen) ? 204 : 403)
+      return
+    }
+    siguiente()
+  })
   aplicacion.use(express.json({ limit: "1mb" }))
   registrarRutaInterpretacionIA(aplicacion, dependencias.proveedorIA ?? new ProveedorGroq())
   registrarRutaTranscripcionVoz(aplicacion, dependencias.proveedorTranscripcion ?? new ProveedorTranscripcionGroq())
@@ -43,6 +63,9 @@ export function crearAplicacionGeneracionBackend(dependencias: {
 
   aplicacion.get("/api/health", (_solicitud, respuesta) => {
     respuesta.json({ estado: "ok" })
+  })
+  aplicacion.get("/health", (_solicitud, respuesta) => {
+    respuesta.json({ status: "ok" })
   })
 
   aplicacion.post(

@@ -1,4 +1,5 @@
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
+import { construirUrlBackend } from "../../../../configuracion/BackendRemoto"
 
 export interface AdvertenciaInteroperabilidad {
   codigo: string
@@ -12,7 +13,7 @@ export interface ResultadoImportacionXmi {
 }
 
 export async function importarModeloXmi(texto: string): Promise<ResultadoImportacionXmi> {
-  const respuesta = await fetch("/api/interoperabilidad/xmi/importar", {
+  const respuesta = await fetch(construirUrlBackend("/api/interoperabilidad/xmi/importar"), {
     method: "POST",
     headers: { "Content-Type": "application/xml" },
     body: texto,

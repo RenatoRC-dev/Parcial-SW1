@@ -11,6 +11,7 @@ backend/coverage/
 backend/generated-test-output/
 backend/.sw1-data/
 backend/.venv-crunch/
+backend/.python-xmi/
 backend/.env
 backend/.env.local
 backend/*.tsbuildinfo
