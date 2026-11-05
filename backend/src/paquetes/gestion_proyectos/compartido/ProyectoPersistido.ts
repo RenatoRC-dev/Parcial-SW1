@@ -5,6 +5,8 @@ export interface ProyectoPersistido {
   nombre: string
   creadoEn: string
   actualizadoEn: string
+  /** Versión durable del snapshot; no representa cambios efímeros de Yjs. */
+  revisionModelo: number
   modelo: ModeloUMLCanonicoIntercambio
 }
 

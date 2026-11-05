@@ -19,9 +19,7 @@ import { registrarRutaTranscripcionVoz } from "../../asistencia_ia/casos_uso/cu0
 import type { ProveedorVisionUML } from "../../asistencia_ia/compartido/proveedores/vision/ProveedorVisionUML.js"
 import { ProveedorVisionGroq } from "../../asistencia_ia/compartido/proveedores/vision/groq/ProveedorVisionGroq.js"
 import { registrarRutaAnalisisImagen } from "../../asistencia_ia/casos_uso/cu05_modelar_desde_imagen/registrarRutaAnalisisImagen.js"
-import type { RepositorioProyectos } from "../../gestion_proyectos/compartido/RepositorioProyectos.js"
-import { RepositorioProyectosArchivos } from "../../gestion_proyectos/infraestructura/RepositorioProyectosArchivos.js"
-import { registrarRutasProyectos } from "../../gestion_proyectos/api/registrarRutasProyectos.js"
+import { registrarRutasProyectos, type DependenciasRutasProyectos } from "../../gestion_proyectos/api/registrarRutasProyectos.js"
 import type { ProveedorAsistenteContextual } from "../../asistencia_contextual/compartido/ProveedorAsistenteContextual.js"
 import { ProveedorAsistenteContextualGroq } from "../../asistencia_contextual/compartido/proveedores/groq/ProveedorAsistenteContextualGroq.js"
 import { registrarRutaAsistenteContextual } from "../../asistencia_contextual/casos_uso/cu12_asistir_usuario/registrarRutaAsistenteContextual.js"
@@ -31,7 +29,7 @@ export function crearAplicacionGeneracionBackend(dependencias: {
   proveedorTranscripcion?: ProveedorTranscripcionAudio
   proveedorVision?: ProveedorVisionUML
   proveedorAsistenteContextual?: ProveedorAsistenteContextual
-  repositorioProyectos?: RepositorioProyectos
+  accesoProyectos?: DependenciasRutasProyectos
 } = {}) {
   const aplicacion = express()
   const origenProduccion = process.env.FRONTEND_ORIGIN?.trim()
@@ -45,7 +43,7 @@ export function crearAplicacionGeneracionBackend(dependencias: {
     if (origen && origenesPermitidos.has(origen)) {
       respuesta.setHeader("Access-Control-Allow-Origin", origen)
       respuesta.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
-      respuesta.setHeader("Access-Control-Allow-Headers", "Content-Type")
+      respuesta.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization")
       respuesta.setHeader("Vary", "Origin")
     }
     if (solicitud.method === "OPTIONS") {
@@ -59,7 +57,7 @@ export function crearAplicacionGeneracionBackend(dependencias: {
   registrarRutaTranscripcionVoz(aplicacion, dependencias.proveedorTranscripcion ?? new ProveedorTranscripcionGroq())
   registrarRutaAnalisisImagen(aplicacion, dependencias.proveedorVision ?? new ProveedorVisionGroq())
   registrarRutaAsistenteContextual(aplicacion, dependencias.proveedorAsistenteContextual ?? new ProveedorAsistenteContextualGroq())
-  registrarRutasProyectos(aplicacion, dependencias.repositorioProyectos ?? new RepositorioProyectosArchivos())
+  if (dependencias.accesoProyectos) registrarRutasProyectos(aplicacion, dependencias.accesoProyectos)
 
   aplicacion.get("/api/health", (_solicitud, respuesta) => {
     respuesta.json({ estado: "ok" })

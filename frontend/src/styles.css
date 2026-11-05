@@ -1266,6 +1266,14 @@ button:disabled {
 
 .project-create button { margin: 0; min-height: 39px; }
 .project-create .primary-create::before { margin-right: 6px; content: "+"; }
+.project-access-actions { display: flex; gap: 12px; margin-top: 24px; }
+.project-access-actions button, .project-created button, .project-form-actions button { padding: 10px 16px; border: 0; border-radius: 7px; background: var(--color-primary); color: #fff; cursor: pointer; }
+.project-access-actions .primary-create::before { margin-right: 6px; content: "+"; }
+.project-form-actions { display: flex; justify-content: flex-end; gap: 10px; align-items: end; }
+.project-form-actions .secondary-action, .project-created .secondary-action { border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); }
+.project-created { margin-top: 24px; padding: 24px; border: 1px solid var(--color-primary); border-radius: 12px; background: var(--color-surface); }
+.project-created h2 { margin-top: 4px; }
+.project-access-code { display: block; width: fit-content; margin: 10px 0; padding: 12px 18px; border-radius: 8px; background: var(--bg-elevated); color: var(--text-primary); font: 700 1.35rem/1.2 monospace; letter-spacing: .08em; user-select: all; }
 
 .section-heading {
   display: flex;
