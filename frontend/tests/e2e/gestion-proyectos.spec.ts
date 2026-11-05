@@ -58,7 +58,7 @@ test("estado Yjs en vivo del mismo proyecto se guarda explícitamente y se recup
 })
 
 test("protege cambios sin guardar al volver a Proyectos recientes", async ({ page }) => {
-  await crearProyectoE2E(page, "Cambios pendientes")
+  const proyecto = await crearProyectoE2E(page, "Cambios pendientes")
   await crearClaseNombradaE2E(page, "Temporal")
   page.once("dialog", (dialog) => dialog.dismiss())
   await page.getByRole("button", { name: "Volver" }).click()
@@ -66,6 +66,54 @@ test("protege cambios sin guardar al volver a Proyectos recientes", async ({ pag
   page.once("dialog", (dialog) => dialog.accept())
   await page.getByRole("button", { name: "Volver" }).click()
   await expect(page.getByRole("heading", { name: "Proyectos de modelado" })).toBeVisible()
+  await abrirProyectoE2E(page, proyecto)
+  await expect(page.getByText("Temporal", { exact: true })).toHaveCount(0)
+})
+
+test("conserva cambios ante conflicto y carga la versión durable sólo por decisión explícita", async ({ page }) => {
+  const nombre = await crearProyectoE2E(page, "Conflicto durable", "Renato")
+  const codigo = obtenerCodigoProyectoE2E(nombre)
+  await crearClaseNombradaE2E(page, "CambioLocal")
+
+  const union = await page.request.post("http://127.0.0.1:3001/api/proyectos/unirse", {
+    data: { codigoAcceso: codigo, nombreParticipante: "Carlos" },
+  })
+  expect(union.ok()).toBeTruthy()
+  const accesoRemoto = await union.json() as {
+    proyecto: { id: string; revisionModelo: number; modelo: { id: string; nombre: string; version: string; clases: unknown[]; relaciones: unknown[] } }
+    credencial: string
+  }
+  const modeloRemoto = {
+    ...accesoRemoto.proyecto.modelo,
+    clases: [{ id: "clase-remota", nombre: "CambioRemoto", tipoClase: "normal", abstracta: false, posicion: { x: 25, y: 25 }, atributos: [], metodos: [] }],
+  }
+  const guardadoRemoto = await page.request.put(`http://127.0.0.1:3001/api/proyectos/${accesoRemoto.proyecto.id}/modelo`, {
+    headers: { Authorization: `Bearer ${accesoRemoto.credencial}` },
+    data: { modelo: modeloRemoto, revisionBase: accesoRemoto.proyecto.revisionModelo },
+  })
+  expect(guardadoRemoto.ok()).toBeTruthy()
+
+  await page.getByRole("button", { name: "Guardar" }).click()
+  await expect(page.getByRole("heading", { name: "El proyecto fue actualizado por otro participante" })).toBeVisible()
+  await expect(page.getByText("CambioLocal", { exact: true }).first()).toBeVisible()
+  await expect(page.getByTestId("estado-guardado")).toHaveText("Cambios sin guardar")
+
+  const remotoTrasConflicto = await page.request.get(`http://127.0.0.1:3001/api/proyectos/${accesoRemoto.proyecto.id}`, {
+    headers: { Authorization: `Bearer ${accesoRemoto.credencial}` },
+  })
+  const proyectoRemoto = await remotoTrasConflicto.json() as { revisionModelo: number; modelo: { clases: Array<{ nombre: string }> } }
+  expect(proyectoRemoto.revisionModelo).toBe(1)
+  expect(proyectoRemoto.modelo.clases.map((clase) => clase.nombre)).toEqual(["CambioRemoto"])
+
+  await page.getByRole("button", { name: "Seguir revisando mis cambios" }).click()
+  await expect(page.getByText("CambioLocal", { exact: true }).first()).toBeVisible()
+  await page.getByRole("button", { name: "Revisar conflicto" }).click()
+  page.once("dialog", (dialog) => dialog.accept())
+  await page.getByRole("button", { name: "Cargar versión guardada" }).click()
+  await expect(page.getByText("Se cargó la última versión guardada del proyecto.")).toBeVisible()
+  await expect(page.getByText("CambioRemoto", { exact: true }).first()).toBeVisible()
+  await expect(page.getByText("CambioLocal", { exact: true })).toHaveCount(0)
+  await expect(page.getByTestId("estado-guardado")).toHaveText("Guardado")
 })
 
 test("un navegador limpio no descubre el proyecto y se une mediante código", async ({ browser }) => {

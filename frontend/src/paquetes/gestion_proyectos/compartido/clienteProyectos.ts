@@ -13,7 +13,7 @@ const mensajesPorCodigo: Record<string, string> = {
   CREDENCIAL_REQUERIDA: "El acceso guardado ya no es válido. Vuelve a unirte con el código del proyecto.",
   CREDENCIAL_INVALIDA: "El acceso guardado ya no es válido. Vuelve a unirte con el código del proyecto.",
   ACCESO_PROYECTO_DENEGADO: "El acceso guardado ya no es válido para este proyecto. Vuelve a unirte con su código.",
-  REVISION_CONFLICTIVA: "El proyecto cambió desde la última versión guardada. Recarga o vuelve a abrir el proyecto antes de guardar nuevamente.",
+  REVISION_CONFLICTIVA: "El proyecto fue guardado por otro participante desde que abriste esta versión. Tus cambios locales no se descartaron.",
   LIMITE_INTENTOS: "Demasiados intentos. Intenta nuevamente más tarde.",
   PERSISTENCIA_NO_DISPONIBLE: "El servicio de proyectos no está disponible temporalmente. Intenta nuevamente más tarde.",
 }

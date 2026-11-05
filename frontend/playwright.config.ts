@@ -1,5 +1,9 @@
 import { defineConfig } from "@playwright/test"
 
+const backendE2E = process.env.MONGODB_E2E_URI?.trim()
+  ? "npx tsx src/paquetes/generacion_backend/api/iniciarServidorGeneracionBackend.ts --proveedor-ia-determinista"
+  : "node scripts/prepararDatosE2E.mjs && npx tsx src/paquetes/generacion_backend/api/iniciarServidorGeneracionBackend.ts --proveedor-ia-determinista --datos-proyectos-e2e"
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
@@ -16,7 +20,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "node scripts/prepararDatosE2E.mjs && npx tsx src/paquetes/generacion_backend/api/iniciarServidorGeneracionBackend.ts --proveedor-ia-determinista --datos-proyectos-e2e",
+      command: backendE2E,
       cwd: "../backend",
       url: "http://127.0.0.1:3001/api/health",
       reuseExistingServer: false,

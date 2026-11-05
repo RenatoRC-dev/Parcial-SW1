@@ -94,17 +94,34 @@ describeIntegracion("RepositorioProyectosMongo con MongoDB real", () => {
     expect(guardado.revisionModelo).toBe(1)
     expect(guardado.modelo).toEqual(modelo)
     expect(guardado.modelo.clases[0]?.atributos[0]?.tipo).toBeNull()
+
+    const modeloSegundo = {
+      ...modelo,
+      clases: [...modelo.clases, {
+        id: "factura", nombre: "Factura", abstracta: false,
+        posicion: { x: 30, y: 40 }, atributos: [],
+      }],
+    }
+    const segundoGuardado = await repositorio.guardarModeloConRevision(
+      creado.id, modeloSegundo, 1, "2026-11-04T12:02:00.000Z",
+    )
+    expect(segundoGuardado.revisionModelo).toBe(2)
+
+    const modeloObsoleto = { ...modelo, clases: [{ ...modelo.clases[0]!, nombre: "No debe persistir" }] }
     await expect(repositorio.guardarModeloConRevision(
       creado.id,
-      modelo,
-      0,
-      "2026-11-04T12:02:00.000Z",
+      modeloObsoleto,
+      1,
+      "2026-11-04T12:03:00.000Z",
     )).rejects.toBeInstanceOf(ErrorConflictoRevisionProyecto)
+    const posteriorAlConflicto = await repositorio.obtenerPorId(creado.id)
+    expect(posteriorAlConflicto?.revisionModelo).toBe(2)
+    expect(posteriorAlConflicto?.modelo).toEqual(modeloSegundo)
     await expect(repositorio.guardarModeloConRevision(
       randomUUID(),
       modelo,
       0,
-      "2026-11-04T12:02:00.000Z",
+      "2026-11-04T12:04:00.000Z",
     )).rejects.toBeInstanceOf(ErrorProyectoNoEncontrado)
   })
 

@@ -1274,6 +1274,9 @@ button:disabled {
 .project-created { margin-top: 24px; padding: 24px; border: 1px solid var(--color-primary); border-radius: 12px; background: var(--color-surface); }
 .project-created h2 { margin-top: 4px; }
 .project-access-code { display: block; width: fit-content; margin: 10px 0; padding: 12px 18px; border-radius: 8px; background: var(--bg-elevated); color: var(--text-primary); font: 700 1.35rem/1.2 monospace; letter-spacing: .08em; user-select: all; }
+.revision-conflict { align-items: center; background: color-mix(in srgb, var(--warning) 12%, var(--bg-elevated)); border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border)); box-shadow: 0 12px 32px rgb(0 0 0 / 24%); display: flex; gap: 1.5rem; justify-content: space-between; left: 50%; max-width: 920px; padding: 1rem 1.25rem; position: fixed; top: 84px; transform: translateX(-50%); width: calc(100% - 2rem); z-index: 100; }
+.revision-conflict h2, .revision-conflict p { margin: .15rem 0; }
+.conflict-action { border-color: var(--warning); }
 
 .section-heading {
   display: flex;
