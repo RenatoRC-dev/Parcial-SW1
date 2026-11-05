@@ -1,12 +1,16 @@
 import { randomUUID } from "node:crypto"
+import { once } from "node:events"
+import { createServer } from "node:http"
 import { MongoClient } from "mongodb"
 import request from "supertest"
+import WebSocket from "ws"
 import { describe, expect, it } from "vitest"
 import { crearIndicesMongo } from "../../../infraestructura/mongodb/crearIndicesMongo.js"
 import { crearAplicacionGeneracionBackend } from "../../generacion_backend/api/ServidorGeneracionBackend.js"
 import { ProtegerAccesoProyecto } from "../acceso/ProtegerAccesoProyecto.js"
 import { RepositorioParticipantesMongo } from "./RepositorioParticipantesMongo.js"
 import { RepositorioProyectosMongo } from "./RepositorioProyectosMongo.js"
+import { adjuntarRelayColaboracion } from "../../colaboracion/casos_uso/cu03_colaborar_modelo/ServidorRelayColaboracion.js"
 
 const uri = process.env.MONGODB_TEST_URI?.trim()
 const describeIntegracion = uri ? describe : describe.skip
@@ -49,15 +53,38 @@ describeIntegracion("continuidad CU11 tras nueva composición backend", () => {
     try {
       await clienteReiniciado.connect()
       const base = clienteReiniciado.db(nombreBase)
-      const aplicacionReiniciada = crearAplicacionGeneracionBackend({ accesoProyectos: {
+      const dependenciasAcceso = {
         proyectos: new RepositorioProyectosMongo(base),
         participantes: new RepositorioParticipantesMongo(base),
         protector: new ProtegerAccesoProyecto(pepper),
-      } })
+      }
+      const aplicacionReiniciada = crearAplicacionGeneracionBackend({ accesoProyectos: dependenciasAcceso })
       const recuperado = await request(aplicacionReiniciada).get(`/api/proyectos/${proyectoId}`)
         .set("Authorization", `Bearer ${credencial}`).expect(200)
       expect(recuperado.body.modelo).toEqual(modeloGuardado)
       expect(recuperado.body.revisionModelo).toBe(1)
+
+      const servidorReiniciado = createServer()
+      const relay = adjuntarRelayColaboracion(servidorReiniciado, dependenciasAcceso)
+      servidorReiniciado.listen(0, "127.0.0.1")
+      await once(servidorReiniciado, "listening")
+      const direccion = servidorReiniciado.address()
+      if (!direccion || typeof direccion === "string") throw new Error("Puerto de integración no disponible")
+      const socket = new WebSocket(`ws://127.0.0.1:${direccion.port}/api/colaboracion`)
+      try {
+        await once(socket, "open")
+        const mensaje = once(socket, "message")
+        socket.send(JSON.stringify({ type: "authenticate", projectId: proyectoId, credential: credencial }))
+        const [ack] = await mensaje
+        expect(JSON.parse(ack.toString())).toMatchObject({
+          type: "authenticated", projectId: proyectoId,
+          participant: { nombreVisible: "Renato" },
+        })
+      } finally {
+        socket.terminate()
+        await relay.cerrar()
+        await new Promise<void>((resolver) => servidorReiniciado.close(() => resolver()))
+      }
     } finally {
       await clienteReiniciado.db(nombreBase).dropDatabase().catch(() => undefined)
       await clienteReiniciado.close()

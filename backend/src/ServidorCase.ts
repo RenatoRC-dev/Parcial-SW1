@@ -13,6 +13,6 @@ export function crearServidorCase(dependencias: {
   proveedorVision?: ProveedorVisionUML
 }) {
   const servidor = createServer(crearAplicacionGeneracionBackend(dependencias))
-  const relayColaboracion = adjuntarRelayColaboracion(servidor)
+  const relayColaboracion = adjuntarRelayColaboracion(servidor, dependencias.accesoProyectos)
   return { servidor, relayColaboracion }
 }

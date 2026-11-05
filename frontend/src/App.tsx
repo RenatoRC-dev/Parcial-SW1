@@ -81,7 +81,7 @@ function Aplicacion() {
   return <div className="case-application">
     <BarraProyectoActivo nombre={proyecto.nombre} nombreParticipante={acceso.displayName} sucio={sucio} guardando={guardando} mensaje={mensaje} conflictoPendiente={conflicto !== null} alGuardar={guardar} alVolver={volver} alMostrarConflicto={() => establecerConflicto("visible")} />
     {conflicto === "visible" ? <PanelConflictoRevision recargando={recargando} alCargarVersionGuardada={cargarVersionGuardada} alSeguirRevisando={() => establecerConflicto("diferido")} /> : null}
-    <PaginaModeladoClases key={`${proyecto.id}:${generacionEditor}`} proyectoId={proyecto.id} proyectoNombre={proyecto.nombre} modeloInicial={proyecto.modelo} cambiosSinGuardar={sucio} alCambiarModeloCanonico={establecerModeloActual} />
+    <PaginaModeladoClases key={`${proyecto.id}:${generacionEditor}`} proyectoId={proyecto.id} proyectoNombre={proyecto.nombre} accesoColaboracion={acceso} modeloInicial={proyecto.modelo} cambiosSinGuardar={sucio} alCambiarModeloCanonico={establecerModeloActual} />
   </div>
 }
 

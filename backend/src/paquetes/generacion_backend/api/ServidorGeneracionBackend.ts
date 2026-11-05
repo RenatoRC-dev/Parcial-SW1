@@ -23,6 +23,7 @@ import { registrarRutasProyectos, type DependenciasRutasProyectos } from "../../
 import type { ProveedorAsistenteContextual } from "../../asistencia_contextual/compartido/ProveedorAsistenteContextual.js"
 import { ProveedorAsistenteContextualGroq } from "../../asistencia_contextual/compartido/proveedores/groq/ProveedorAsistenteContextualGroq.js"
 import { registrarRutaAsistenteContextual } from "../../asistencia_contextual/casos_uso/cu12_asistir_usuario/registrarRutaAsistenteContextual.js"
+import { obtenerOrigenesFrontendPermitidos } from "../../../configuracion/origenesFrontendPermitidos.js"
 
 export function crearAplicacionGeneracionBackend(dependencias: {
   proveedorIA?: ProveedorModeloLenguaje
@@ -32,12 +33,7 @@ export function crearAplicacionGeneracionBackend(dependencias: {
   accesoProyectos?: DependenciasRutasProyectos
 } = {}) {
   const aplicacion = express()
-  const origenProduccion = process.env.FRONTEND_ORIGIN?.trim()
-  const origenesPermitidos = new Set([
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    ...(origenProduccion ? [origenProduccion] : []),
-  ])
+  const origenesPermitidos = obtenerOrigenesFrontendPermitidos()
   aplicacion.use((solicitud, respuesta, siguiente) => {
     const origen = solicitud.headers.origin
     if (origen && origenesPermitidos.has(origen)) {

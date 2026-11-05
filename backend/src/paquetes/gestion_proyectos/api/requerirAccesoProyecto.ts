@@ -1,5 +1,11 @@
 import type express from "express"
 import type { ProtegerAccesoProyecto } from "../acceso/ProtegerAccesoProyecto.js"
+import {
+  autenticarAccesoProyecto,
+  ErrorAccesoProyectoDenegado,
+  ErrorCredencialProyectoInvalida,
+  ErrorProyectoAccesoNoEncontrado,
+} from "../acceso/autenticarAccesoProyecto.js"
 import type { RepositorioParticipantes } from "../compartido/RepositorioParticipantes.js"
 import { ErrorDatosParticipanteCorruptos, ErrorPersistenciaParticipante } from "../compartido/RepositorioParticipantes.js"
 import type { RepositorioProyectos } from "../compartido/RepositorioProyectos.js"
@@ -29,26 +35,21 @@ export function crearRequerirAccesoProyecto(
       return
     }
     try {
-      const participante = await participantes.obtenerPorCredencialDigest(protector.obtenerDigestCredencial(credencial))
-      if (!participante) {
-        respuesta.status(401).json({ error: "La credencial de proyecto no es válida.", codigo: "CREDENCIAL_INVALIDA" })
-        return
-      }
-      if (participante.proyectoId !== solicitud.params.id) {
-        respuesta.status(403).json({ error: "La credencial no autoriza este proyecto.", codigo: "ACCESO_PROYECTO_DENEGADO" })
-        return
-      }
-      if (!await proyectos.obtenerPorId(participante.proyectoId)) {
-        respuesta.status(404).json({ error: "Proyecto no encontrado.", codigo: "PROYECTO_NO_ENCONTRADO" })
-        return
-      }
-      ;(solicitud as SolicitudConAccesoProyecto).accesoProyecto = {
-        projectId: participante.proyectoId,
-        participantId: participante.id,
-        displayName: participante.nombreVisible,
-      }
+      const projectId = Array.isArray(solicitud.params.id) ? "" : solicitud.params.id
+      ;(solicitud as SolicitudConAccesoProyecto).accesoProyecto = await autenticarAccesoProyecto(
+        proyectos, participantes, protector, projectId, credencial,
+      )
       siguiente()
     } catch (error) {
+      if (error instanceof ErrorCredencialProyectoInvalida) {
+        respuesta.status(401).json({ error: error.message, codigo: "CREDENCIAL_INVALIDA" }); return
+      }
+      if (error instanceof ErrorAccesoProyectoDenegado) {
+        respuesta.status(403).json({ error: error.message, codigo: "ACCESO_PROYECTO_DENEGADO" }); return
+      }
+      if (error instanceof ErrorProyectoAccesoNoEncontrado) {
+        respuesta.status(404).json({ error: error.message, codigo: "PROYECTO_NO_ENCONTRADO" }); return
+      }
       if (error instanceof ErrorPersistenciaProyecto || error instanceof ErrorPersistenciaParticipante
         || error instanceof ErrorDatosProyectoCorruptos || error instanceof ErrorDatosParticipanteCorruptos) {
         respuesta.status(503).json({ error: "La persistencia no está disponible.", codigo: "PERSISTENCIA_NO_DISPONIBLE" })

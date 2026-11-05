@@ -19,7 +19,12 @@ test("dos diseñadores colaboran, convergen y aíslan salas", async ({ browser }
     await expect(paginaB.getByText("Cliente", { exact: true }).first()).toBeVisible({ timeout: 15_000 })
     await expect(paginaA.getByTestId("cantidad-participantes")).toContainText("2")
     await expect(paginaB.getByTestId("cantidad-participantes")).toContainText("2")
-    await expect(paginaA.getByRole("list", { name: "Participantes conectados" })).toContainText("Diseñador")
+    for (const pagina of [paginaA, paginaB]) {
+      const lista = pagina.getByRole("list", { name: "Participantes conectados" })
+      await expect(lista).toContainText("Renato E2E")
+      await expect(lista).toContainText("Carlos E2E")
+      await expect(lista).not.toContainText("Diseñador")
+    }
 
     const nombreClase = paginaA.getByTestId("inspector-propiedades").getByLabel("Nombre de la clase seleccionada")
     await nombreClase.fill("ClienteCompartido")
@@ -72,4 +77,16 @@ test("dos diseñadores colaboran, convergen y aíslan salas", async ({ browser }
     await contextoB.close()
     await contextoC.close()
   }
+})
+
+test("un proyecto reciente reutiliza la identidad autorizada sin crear identidad de sesión", async ({ page }) => {
+  const nombre = await crearProyectoE2E(page, "Reconexión reciente", "Renato Persistente")
+  await expect(page.getByRole("list", { name: "Participantes conectados" })).toContainText("Renato Persistente")
+  await page.getByRole("button", { name: "Volver" }).click()
+  const reciente = page.locator(".project-list li").filter({ hasText: nombre })
+  await reciente.getByRole("button", { name: "Abrir" }).click()
+  await expect(page.locator(".react-flow")).toBeVisible()
+  const lista = page.getByRole("list", { name: "Participantes conectados" })
+  await expect(lista).toContainText("Renato Persistente")
+  await expect(lista).not.toContainText("Diseñador")
 })

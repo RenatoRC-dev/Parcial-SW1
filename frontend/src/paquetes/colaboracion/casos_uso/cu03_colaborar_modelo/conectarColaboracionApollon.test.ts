@@ -1,12 +1,14 @@
 import { ApollonEditor, type CollaboratorInfo } from "@tumaet/apollon"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   conectarColaboracionApollon,
   construirUrlColaboracion,
-  normalizarSalaColaboracion,
   type EditorColaborativo,
 } from "./conectarColaboracionApollon"
 import { crearIdentidadColaborador } from "./identidadColaborador"
+
+const PROJECT_ID = "11111111-1111-4111-8111-111111111111"
+const CREDENTIAL = "A".repeat(43)
 
 function crearSocketFalso() {
   return {
@@ -14,7 +16,7 @@ function crearSocketFalso() {
     onopen: null as (() => void) | null,
     onmessage: null as ((evento: { data: unknown }) => void) | null,
     onerror: null as (() => void) | null,
-    onclose: null as (() => void) | null,
+    onclose: null as ((evento: { code: number }) => void) | null,
     send: vi.fn(),
     close: vi.fn(),
   }
@@ -33,31 +35,33 @@ function crearEditorFalso() {
       cambioParticipantes = callback
       return 17
     }),
-    getCollaborators: vi.fn(() => [{ id: "ana", name: "Ana", color: "#2563eb", clientIds: [1], isLocal: true }]),
+    getCollaborators: vi.fn(() => [{ id: "participante-backend", name: "Renato", color: "#2563eb", clientIds: [1], isLocal: true }]),
     unsubscribe: vi.fn(),
   } satisfies EditorColaborativo
   return { editor, obtenerSalida: () => salida, publicarParticipantes: (valor: CollaboratorInfo[]) => cambioParticipantes?.(valor) }
 }
 
-describe("conector de colaboración Apollon", () => {
-  it("construye la URL WebSocket esperada y valida la sala", () => {
-    expect(construirUrlColaboracion(" equipo_01 ", { protocol: "http:", host: "127.0.0.1:4173" }))
-      .toBe("ws://127.0.0.1:4173/api/colaboracion?sala=equipo_01")
-    expect(normalizarSalaColaboracion("../room")).toBeNull()
-    expect(() => construirUrlColaboracion(" ", { protocol: "https:", host: "sw1.test" })).toThrow(/sala/i)
-  })
+const ack = JSON.stringify({
+  type: "authenticated",
+  projectId: PROJECT_ID,
+  participant: { id: "participante-backend", nombreVisible: "Renato" },
+})
 
-  it("deriva WSS del backend remoto configurado", () => {
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllEnvs()
+})
+
+describe("conector autorizado de colaboración Apollon", () => {
+  it("construye URL sin sala ni credencial y deriva WSS del backend remoto", () => {
+    expect(construirUrlColaboracion({ protocol: "http:", host: "127.0.0.1:4173" }))
+      .toBe("ws://127.0.0.1:4173/api/colaboracion")
     vi.stubEnv("VITE_API_BASE_URL", "https://nexocase-backend.onrender.com")
-    try {
-      expect(construirUrlColaboracion("equipo_01"))
-        .toBe("wss://nexocase-backend.onrender.com/api/colaboracion?sala=equipo_01")
-    } finally {
-      vi.unstubAllEnvs()
-    }
+    expect(construirUrlColaboracion()).toBe("wss://nexocase-backend.onrender.com/api/colaboracion")
+    expect(construirUrlColaboracion()).not.toContain(CREDENTIAL)
   })
 
-  it("conecta transporte, sincroniza, actualiza presencia y limpia recursos", () => {
+  it("autentica primero, espera ACK y recién entonces conecta el protocolo raw de Apollon", () => {
     const socket = crearSocketFalso()
     const { editor, obtenerSalida, publicarParticipantes } = crearEditorFalso()
     const estados = vi.fn()
@@ -65,33 +69,33 @@ describe("conector de colaboración Apollon", () => {
     const errores = vi.fn()
     const crearSocket = vi.fn(() => socket)
     const conexion = conectarColaboracionApollon({
-      editor,
-      sala: "parcial-demo",
-      identidad: { id: "ana", name: "Ana", color: "#2563eb" },
-      alCambiarEstado: estados,
-      alCambiarParticipantes: participantes,
-      alOcurrirError: errores,
-      crearSocket,
-      ubicacion: { protocol: "http:", host: "localhost:4173" },
+      editor, projectId: PROJECT_ID, credential: CREDENTIAL,
+      alCambiarEstado: estados, alCambiarParticipantes: participantes, alOcurrirError: errores,
+      crearSocket, ubicacion: { protocol: "http:", host: "localhost:4173" },
     })
 
-    expect(crearSocket).toHaveBeenCalledWith("ws://localhost:4173/api/colaboracion?sala=parcial-demo")
-    expect(editor.setLocalAwarenessUser).toHaveBeenCalledWith({ id: "ana", name: "Ana", color: "#2563eb" })
-    expect(estados).toHaveBeenCalledWith("conectando")
-
+    expect(crearSocket).toHaveBeenCalledWith("ws://localhost:4173/api/colaboracion")
+    expect(editor.setLocalAwarenessUser).not.toHaveBeenCalled()
+    expect(obtenerSalida()).toBeUndefined()
     socket.readyState = WebSocket.OPEN
     socket.onopen?.()
-    expect(socket.send).toHaveBeenNthCalledWith(1, ApollonEditor.generateInitialSyncMessage())
-    expect(socket.send).toHaveBeenNthCalledWith(2, ApollonEditor.generateInitialAwarenessSyncMessage())
+    expect(socket.send).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(socket.send.mock.calls[0]![0])).toEqual({ type: "authenticate", projectId: PROJECT_ID, credential: CREDENTIAL })
+    expect(editor.broadcastFullState).not.toHaveBeenCalled()
+
+    socket.onmessage?.({ data: ack })
+    expect(editor.receiveBroadcastedMessage).not.toHaveBeenCalled()
+    expect(editor.setLocalAwarenessUser).toHaveBeenCalledWith(expect.objectContaining({ id: "participante-backend", name: "Renato" }))
+    expect(socket.send).toHaveBeenNthCalledWith(2, ApollonEditor.generateInitialSyncMessage())
+    expect(socket.send).toHaveBeenNthCalledWith(3, ApollonEditor.generateInitialAwarenessSyncMessage())
     expect(editor.broadcastFullState).toHaveBeenCalledOnce()
     expect(estados).toHaveBeenCalledWith("conectado")
 
     obtenerSalida()?.("FRAME-SALIENTE")
-    expect(socket.send).toHaveBeenCalledWith("FRAME-SALIENTE")
+    expect(socket.send).toHaveBeenLastCalledWith("FRAME-SALIENTE")
     socket.onmessage?.({ data: "FRAME-ENTRANTE" })
     expect(editor.receiveBroadcastedMessage).toHaveBeenCalledWith("FRAME-ENTRANTE")
-
-    const remotos = [{ id: "bruno", name: "Bruno", color: "#047857", clientIds: [2], isLocal: false }]
+    const remotos = [{ id: "carlos", name: "Carlos", color: "#047857", clientIds: [2], isLocal: false }]
     publicarParticipantes(remotos)
     expect(participantes).toHaveBeenCalledWith(remotos)
 
@@ -103,30 +107,71 @@ describe("conector de colaboración Apollon", () => {
     expect(errores).not.toHaveBeenCalled()
   })
 
-  it("impide nombre o sala inválidos antes de abrir una conexión", () => {
-    expect(crearIdentidadColaborador(" ", "sesion")).toBeNull()
-    expect(crearIdentidadColaborador("x".repeat(41), "sesion")).toBeNull()
-    expect(crearIdentidadColaborador("Ana", "sesion")).toMatchObject({ name: "Ana", id: "sesion" })
-  })
-
-  it("limpia la suscripción cuando el transporte se cierra inesperadamente", () => {
+  it("rechaza ACK inválido con error controlado y nunca lo entrega a Apollon", () => {
     const socket = crearSocketFalso()
     const { editor } = crearEditorFalso()
+    const errores = vi.fn()
     const estados = vi.fn()
     conectarColaboracionApollon({
-      editor,
-      sala: "sala",
-      identidad: { id: "ana", name: "Ana", color: "#2563eb" },
-      alCambiarEstado: estados,
-      alCambiarParticipantes: vi.fn(),
-      alOcurrirError: vi.fn(),
-      crearSocket: () => socket,
-      ubicacion: { protocol: "http:", host: "localhost" },
+      editor, projectId: PROJECT_ID, credential: CREDENTIAL,
+      alCambiarEstado: estados, alCambiarParticipantes: vi.fn(), alOcurrirError: errores,
+      crearSocket: () => socket, ubicacion: { protocol: "http:", host: "localhost" },
     })
+    socket.onmessage?.({ data: JSON.stringify({ type: "authenticated", projectId: "otro", participant: {} }) })
+    expect(errores).toHaveBeenCalledWith("El servidor rechazó la identidad de colaboración.")
+    expect(estados).toHaveBeenLastCalledWith("error")
+    expect(editor.receiveBroadcastedMessage).not.toHaveBeenCalled()
+    expect(editor.setLocalAwarenessUser).not.toHaveBeenCalled()
+    expect(socket.close).toHaveBeenCalledOnce()
+  })
 
-    socket.onclose?.()
-    expect(editor.unsubscribe).toHaveBeenCalledWith(17)
-    expect(socket.close).not.toHaveBeenCalled()
-    expect(estados).toHaveBeenLastCalledWith("desconectado")
+  it("usa exclusivamente participantId y nombre del ACK con color estable", () => {
+    const primera = crearIdentidadColaborador({ id: "id-backend", nombreVisible: "Ana" })
+    const segunda = crearIdentidadColaborador({ id: "id-backend", nombreVisible: "Nombre visual actualizado" })
+    expect(primera).toMatchObject({ id: "id-backend", name: "Ana" })
+    expect(segunda?.color).toBe(primera?.color)
+    expect(crearIdentidadColaborador({ id: "", nombreVisible: "Ana" })).toBeNull()
+    expect(crearIdentidadColaborador({ id: "id", nombreVisible: " " })).toBeNull()
+  })
+
+  it("reconecta de forma acotada y vuelve a autenticar la misma identidad", async () => {
+    vi.useFakeTimers()
+    const primero = crearSocketFalso()
+    const segundo = crearSocketFalso()
+    const sockets = [primero, segundo]
+    const { editor } = crearEditorFalso()
+    conectarColaboracionApollon({
+      editor, projectId: PROJECT_ID, credential: CREDENTIAL,
+      alCambiarEstado: vi.fn(), alCambiarParticipantes: vi.fn(), alOcurrirError: vi.fn(),
+      crearSocket: () => sockets.shift()!, ubicacion: { protocol: "http:", host: "localhost" }, demoraReconexionMs: 10,
+    })
+    primero.readyState = WebSocket.OPEN
+    primero.onopen?.()
+    primero.onmessage?.({ data: ack })
+    primero.onclose?.({ code: 1006 })
+    await vi.advanceTimersByTimeAsync(10)
+    segundo.readyState = WebSocket.OPEN
+    segundo.onopen?.()
+    expect(JSON.parse(segundo.send.mock.calls[0]![0])).toEqual({ type: "authenticate", projectId: PROJECT_ID, credential: CREDENTIAL })
+    segundo.onmessage?.({ data: ack })
+    expect(editor.setLocalAwarenessUser).toHaveBeenLastCalledWith(expect.objectContaining({ id: "participante-backend", name: "Renato" }))
+  })
+
+  it("un cierre 1008 no cae a identidad anónima ni inicia reconexión", async () => {
+    vi.useFakeTimers()
+    const socket = crearSocketFalso()
+    const crearSocket = vi.fn(() => socket)
+    const { editor } = crearEditorFalso()
+    const errores = vi.fn()
+    conectarColaboracionApollon({
+      editor, projectId: PROJECT_ID, credential: CREDENTIAL,
+      alCambiarEstado: vi.fn(), alCambiarParticipantes: vi.fn(), alOcurrirError: errores,
+      crearSocket, ubicacion: { protocol: "http:", host: "localhost" }, demoraReconexionMs: 1,
+    })
+    socket.onclose?.({ code: 1008 })
+    await vi.runAllTimersAsync()
+    expect(crearSocket).toHaveBeenCalledTimes(1)
+    expect(editor.setLocalAwarenessUser).not.toHaveBeenCalled()
+    expect(errores).toHaveBeenCalledWith("No se autorizó el acceso al canal de colaboración.")
   })
 })
