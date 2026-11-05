@@ -13,6 +13,11 @@ import {
 } from "../compartido/RepositorioProyectos.js"
 import { crearLimitadorUnionPredeterminado, type LimitadorIntentos } from "./LimitadorIntentos.js"
 import { crearRequerirAccesoProyecto } from "./requerirAccesoProyecto.js"
+import type { RepositorioEventos } from "../../trazabilidad/compartido/RepositorioEventos.js"
+import type { RepositorioMensajes } from "../../mensajeria_colaborativa/compartido/RepositorioMensajes.js"
+import { RegistrarActividadProyecto } from "../../trazabilidad/casos_uso/RegistrarActividadProyecto.js"
+import { registrarRutasMemoriaProyecto } from "../../trazabilidad/api/registrarRutasMemoriaProyecto.js"
+import type { SolicitudConAccesoProyecto } from "./ContextoAccesoProyecto.js"
 
 const patronUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -21,12 +26,18 @@ export interface DependenciasRutasProyectos {
   participantes: RepositorioParticipantes
   protector: ProtegerAccesoProyecto
   limitadorUnion?: LimitadorIntentos
+  eventos?: RepositorioEventos
+  mensajes?: RepositorioMensajes
 }
 
 export function registrarRutasProyectos(aplicacion: express.Express, dependencias: DependenciasRutasProyectos): void {
   const { proyectos, participantes, protector } = dependencias
   const limitador = dependencias.limitadorUnion ?? crearLimitadorUnionPredeterminado()
   const requerirAcceso = crearRequerirAccesoProyecto(proyectos, participantes, protector)
+  const actividad = dependencias.eventos ? new RegistrarActividadProyecto(dependencias.eventos, proyectos) : null
+  const registrarSecundario = async (operacion: () => Promise<unknown>) => {
+    try { await operacion() } catch { console.error("No se pudo registrar una actividad secundaria del proyecto.") }
+  }
 
   aplicacion.post("/api/proyectos", async (solicitud, respuesta) => {
     try {
@@ -34,6 +45,10 @@ export function registrarRutasProyectos(aplicacion: express.Express, dependencia
       const acceso = await crearProyectoConAcceso(
         proyectos, participantes, protector, solicitud.body.nombre, solicitud.body?.nombreParticipante,
       )
+      if (actividad) await registrarSecundario(() => actividad.registrarSistema({
+        contexto: { projectId: acceso.proyecto.id, participantId: acceso.participante.id, displayName: acceso.participante.nombreVisible },
+        tipo: "PROJECT_CREATED", revision: acceso.proyecto.revisionModelo,
+      }))
       respuesta.status(201).json(acceso)
     } catch (error) { responderError(error, respuesta) }
   })
@@ -48,6 +63,10 @@ export function registrarRutasProyectos(aplicacion: express.Express, dependencia
       const acceso = await unirseAProyecto(
         proyectos, participantes, protector, solicitud.body?.codigoAcceso, solicitud.body?.nombreParticipante,
       )
+      if (actividad) await registrarSecundario(() => actividad.registrarSistema({
+        contexto: { projectId: acceso.proyecto.id, participantId: acceso.participante.id, displayName: acceso.participante.nombreVisible },
+        tipo: "PARTICIPANT_JOINED", revision: acceso.proyecto.revisionModelo,
+      }))
       limitador.limpiar(clave)
       respuesta.status(200).json(acceso)
     } catch (error) {
@@ -76,9 +95,17 @@ export function registrarRutasProyectos(aplicacion: express.Express, dependencia
       const proyecto = await guardarTrabajo(
         proyectos, id, solicitud.body?.modelo, solicitud.body?.revisionBase,
       )
+      if (actividad) await registrarSecundario(() => actividad.registrarSistema({
+        contexto: (solicitud as SolicitudConAccesoProyecto).accesoProyecto,
+        tipo: "MODEL_SAVED", revision: proyecto.revisionModelo,
+      }))
       const { modelo: _modelo, ...resumen } = proyecto
       respuesta.json(resumen)
     } catch (error) { responderError(error, respuesta) }
+  })
+
+  if (dependencias.eventos && dependencias.mensajes) registrarRutasMemoriaProyecto(aplicacion, {
+    proyectos, participantes, protector, eventos: dependencias.eventos, mensajes: dependencias.mensajes,
   })
 }
 

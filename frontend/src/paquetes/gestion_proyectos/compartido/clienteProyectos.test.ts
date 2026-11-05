@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { abrirProyecto, crearProyecto, guardarModeloProyecto, unirseProyecto } from "./clienteProyectos"
+import { abrirProyecto, crearProyecto, guardarModeloProyecto, registrarActividadModelado, unirseProyecto } from "./clienteProyectos"
 
 const respuesta = (cuerpo: unknown) => Promise.resolve(new Response(JSON.stringify(cuerpo), { status: 200, headers: { "Content-Type": "application/json" } }))
 
@@ -27,5 +27,18 @@ describe("cliente HTTP de proyectos autorizados", () => {
     await guardarModeloProyecto("proyecto-1", "credencial-opaca", modelo, 7)
     expect(new Headers(fetch.mock.calls[1]?.[1]?.headers).get("Authorization")).toBe("Bearer credencial-opaca")
     expect(JSON.parse(String(fetch.mock.calls[1]?.[1]?.body))).toEqual({ modelo, revisionBase: 7 })
+  })
+
+  it("reporta actividad manual con Bearer y clientChangeId sin campos de autoría", async () => {
+    const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(() => respuesta({}))
+    await registrarActividadModelado("proyecto-1", "credencial-opaca", "11111111-1111-4111-8111-111111111111", {
+      tipo: "UML_ELEMENT_CREATED", elemento: { id: "venta", tipo: "class", nombreSnapshot: "Venta" },
+    })
+    expect(String(fetch.mock.calls[0]?.[0])).toContain("/api/proyectos/proyecto-1/actividad/modelado")
+    expect(new Headers(fetch.mock.calls[0]?.[1]?.headers).get("Authorization")).toBe("Bearer credencial-opaca")
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toEqual({
+      clientChangeId: "11111111-1111-4111-8111-111111111111",
+      tipo: "UML_ELEMENT_CREATED", elemento: { id: "venta", tipo: "class", nombreSnapshot: "Venta" },
+    })
   })
 })

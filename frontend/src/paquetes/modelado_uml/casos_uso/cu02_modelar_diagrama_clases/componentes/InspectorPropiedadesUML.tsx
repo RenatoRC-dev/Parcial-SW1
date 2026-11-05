@@ -20,11 +20,13 @@ import {
 import { TIPOS_GENERACION_SOPORTADOS, TIPOS_RETORNO_METODO, validarModelo } from "../../../../validacion/casos_uso/cu08_validar_modelo_uml/ValidadorModeloUML"
 import { usarPreferenciasUI } from "../../../../../configuracion/PreferenciasUI"
 import { crearEstructuraClaseAsociativa } from "../../../compartido/clases_asociativas/crearEstructuraClaseAsociativa"
+import type { ActividadModeladoManual } from "../../../../gestion_proyectos/compartido/Proyecto"
 
 interface Props {
   editor: ApollonEditor | null
   modelo: ModeloUMLCanonico
   alAplicar: (modelo: ModeloUMLCanonico) => void
+  alRegistrarActividad?: (actividad: ActividadModeladoManual) => void
   alCambiarSeleccion?: (ids: string[]) => void
 }
 
@@ -45,7 +47,7 @@ function confirmarConEnter(evento: KeyboardEvent<HTMLInputElement>) {
   evento.currentTarget.blur()
 }
 
-export function InspectorPropiedadesUML({ editor, modelo, alAplicar, alCambiarSeleccion }: Props) {
+export function InspectorPropiedadesUML({ editor, modelo, alAplicar, alRegistrarActividad, alCambiarSeleccion }: Props) {
   const { t } = usarPreferenciasUI()
   const [seleccion, establecerSeleccion] = useState<string[]>([])
   const [nombreNuevaClase, establecerNombreNuevaClase] = useState("")
@@ -109,6 +111,7 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar, alCambiarSe
     if (nombre === clase.nombre) return
     const siguiente = { ...modelo, clases: modelo.clases.map((item) => item.id === clase.id ? { ...item, nombre } : item) }
     if (!aplicar(siguiente, clase.id)) establecerNombreClase(clase.nombre)
+    else alRegistrarActividad?.({ tipo: "UML_ELEMENT_UPDATED", elemento: { id: clase.id, tipo: "class", nombreSnapshot: nombre }, detalle: { campo: "nombre" } })
   }
 
   const crearClase = () => {
@@ -122,6 +125,7 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar, alCambiarSe
       tipoClase: tipoNuevaClase,
     }
     if (aplicar({ ...modelo, clases: [...modelo.clases, nuevaClase] }, nuevaClase.id)) {
+      alRegistrarActividad?.({ tipo: "UML_ELEMENT_CREATED", elemento: { id: nuevaClase.id, tipo: "class", nombreSnapshot: nuevaClase.nombre } })
       establecerNombreNuevaClase("")
       establecerTipoNuevaClase("normal")
     }
@@ -142,6 +146,7 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar, alCambiarSe
         : item),
     }
     if (aplicar(siguiente, atributo.id)) {
+      alRegistrarActividad?.({ tipo: "UML_ELEMENT_CREATED", elemento: { id: atributo.id, tipo: "attribute", nombreSnapshot: atributo.nombre }, detalle: { elementoPadreId: clase.id } })
       establecerNombreAtributo("")
       establecerTipoAtributo(TIPOS_GENERACION_SOPORTADOS[0])
       establecerVisibilidad("privada")
@@ -173,7 +178,11 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar, alCambiarSe
         <section className="compact-class-editor" aria-label={t("propiedades.clase")}>
           <h3>{t("propiedades.clase")}</h3>
           <label>{t("propiedades.nombreClaseActual")}<input value={nombreClase} onChange={(evento) => establecerNombreClase(evento.target.value)} onBlur={renombrarClase} onKeyDown={confirmarConEnter} /></label>
-          <label>{t("propiedades.tipoClase")}<select value={clase.tipoClase === "asociativa" ? "asociativa" : "normal"} onChange={(evento) => aplicar({ ...modelo, clases: modelo.clases.map((item) => item.id === clase.id ? { ...item, tipoClase: evento.target.value as TipoClaseUML } : item) })}><option value="normal">{t("propiedades.normal")}</option><option value="asociativa">{t("propiedades.asociativa")}</option></select></label>
+          <label>{t("propiedades.tipoClase")}<select value={clase.tipoClase === "asociativa" ? "asociativa" : "normal"} onChange={(evento) => {
+            if (aplicar({ ...modelo, clases: modelo.clases.map((item) => item.id === clase.id ? { ...item, tipoClase: evento.target.value as TipoClaseUML } : item) })) {
+              alRegistrarActividad?.({ tipo: "UML_ELEMENT_UPDATED", elemento: { id: clase.id, tipo: "class", nombreSnapshot: clase.nombre }, detalle: { campo: "tipo" } })
+            }
+          }}><option value="normal">{t("propiedades.normal")}</option><option value="asociativa">{t("propiedades.asociativa")}</option></select></label>
         </section>
 
         <section className="compact-attributes">
@@ -183,9 +192,21 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar, alCambiarSe
             <EditorAtributo
               key={atributo.id}
               atributo={atributo}
-              alRenombrar={(actualizado) => aplicar(reemplazarAtributo(actualizado), actualizado.id, (codigo) => CODIGOS_NOMBRE_ATRIBUTO.has(codigo))}
-              alActualizar={(actualizado) => aplicar(reemplazarAtributo(actualizado))}
-              alEliminar={() => aplicar({ ...modelo, clases: modelo.clases.map((item) => item.id === clase.id ? { ...item, atributos: item.atributos.filter((itemAtributo) => itemAtributo.id !== atributo.id) } : item) })}
+              alRenombrar={(actualizado) => {
+                const ok = aplicar(reemplazarAtributo(actualizado), actualizado.id, (codigo) => CODIGOS_NOMBRE_ATRIBUTO.has(codigo))
+                if (ok) alRegistrarActividad?.({ tipo: "UML_ELEMENT_UPDATED", elemento: { id: actualizado.id, tipo: "attribute", nombreSnapshot: actualizado.nombre }, detalle: { campo: "nombre", elementoPadreId: clase.id } })
+                return ok
+              }}
+              alActualizar={(actualizado) => {
+                const ok = aplicar(reemplazarAtributo(actualizado))
+                if (ok) alRegistrarActividad?.({ tipo: "UML_ELEMENT_UPDATED", elemento: { id: actualizado.id, tipo: "attribute", nombreSnapshot: actualizado.nombre }, detalle: { campo: "propiedades", elementoPadreId: clase.id } })
+                return ok
+              }}
+              alEliminar={() => {
+                if (aplicar({ ...modelo, clases: modelo.clases.map((item) => item.id === clase.id ? { ...item, atributos: item.atributos.filter((itemAtributo) => itemAtributo.id !== atributo.id) } : item) })) {
+                  alRegistrarActividad?.({ tipo: "UML_ELEMENT_DELETED", elemento: { id: atributo.id, tipo: "attribute", nombreSnapshot: atributo.nombre }, detalle: { elementoPadreId: clase.id } })
+                }
+              }}
             />
           ))}
 
@@ -206,10 +227,11 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar, alCambiarSe
           clase={clase}
           modelo={modelo}
           alAplicar={(siguiente, elementoId) => aplicar(siguiente, elementoId)}
+          alRegistrarActividad={alRegistrarActividad}
         />
       </> : <p className="property-empty-state">{t("propiedades.seleccioneElemento")}</p>}
 
-      <EditorRelaciones modelo={modelo} seleccion={seleccion} alAplicar={(siguiente) => aplicar(siguiente)} />
+      <EditorRelaciones modelo={modelo} seleccion={seleccion} alAplicar={(siguiente) => aplicar(siguiente)} alRegistrarActividad={alRegistrarActividad} />
     </section>
   )
 }
@@ -265,10 +287,11 @@ function EditorAtributo({ atributo, alRenombrar, alActualizar, alEliminar }: {
   )
 }
 
-function EditorMetodos({ clase, modelo, alAplicar }: {
+function EditorMetodos({ clase, modelo, alAplicar, alRegistrarActividad }: {
   clase: ClaseUML
   modelo: ModeloUMLCanonico
   alAplicar: (modelo: ModeloUMLCanonico, elementoId?: string) => boolean
+  alRegistrarActividad?: (actividad: ActividadModeladoManual) => void
 }) {
   const { t } = usarPreferenciasUI()
   const [creando, establecerCreando] = useState(false)
@@ -277,12 +300,16 @@ function EditorMetodos({ clase, modelo, alAplicar }: {
   const [visibilidad, establecerVisibilidad] = useState<VisibilidadMetodoUML>("publica")
   const metodos = clase.metodos ?? []
 
-  const reemplazar = (metodo: MetodoUML, elementoId = metodo.id) => alAplicar({
-    ...modelo,
-    clases: modelo.clases.map((item) => item.id === clase.id
-      ? { ...item, metodos: metodos.map((actual) => actual.id === metodo.id ? metodo : actual) }
-      : item),
-  }, elementoId)
+  const reemplazar = (metodo: MetodoUML, elementoId = metodo.id) => {
+    const ok = alAplicar({
+      ...modelo,
+      clases: modelo.clases.map((item) => item.id === clase.id
+        ? { ...item, metodos: metodos.map((actual) => actual.id === metodo.id ? metodo : actual) }
+        : item),
+    }, elementoId)
+    if (ok) alRegistrarActividad?.({ tipo: "UML_ELEMENT_UPDATED", elemento: { id: metodo.id, tipo: "method", nombreSnapshot: metodo.nombre }, detalle: { campo: "propiedades", elementoPadreId: clase.id } })
+    return ok
+  }
 
   const cancelar = () => {
     establecerCreando(false)
@@ -304,7 +331,10 @@ function EditorMetodos({ clase, modelo, alAplicar }: {
       clases: modelo.clases.map((item) => item.id === clase.id
         ? { ...item, metodos: [...metodos, metodo] }
         : item),
-    }, metodo.id)) cancelar()
+    }, metodo.id)) {
+      alRegistrarActividad?.({ tipo: "UML_ELEMENT_CREATED", elemento: { id: metodo.id, tipo: "method", nombreSnapshot: metodo.nombre }, detalle: { elementoPadreId: clase.id } })
+      cancelar()
+    }
   }
 
   return <section className="compact-methods">
@@ -313,12 +343,16 @@ function EditorMetodos({ clase, modelo, alAplicar }: {
       key={metodo.id}
       metodo={metodo}
       alActualizar={reemplazar}
-      alEliminar={() => alAplicar({
-        ...modelo,
-        clases: modelo.clases.map((item) => item.id === clase.id
-          ? { ...item, metodos: metodos.filter((actual) => actual.id !== metodo.id) }
-          : item),
-      })}
+      alEliminar={() => {
+        if (alAplicar({
+          ...modelo,
+          clases: modelo.clases.map((item) => item.id === clase.id
+            ? { ...item, metodos: metodos.filter((actual) => actual.id !== metodo.id) }
+            : item),
+        })) {
+          alRegistrarActividad?.({ tipo: "UML_ELEMENT_DELETED", elemento: { id: metodo.id, tipo: "method", nombreSnapshot: metodo.nombre }, detalle: { elementoPadreId: clase.id } })
+        }
+      }}
     />)}
     {creando ? <div className="compact-method-row compact-new-row" role="group" aria-label={t("metodos.nuevo")}>
       <input aria-label={t("propiedades.nombre")} value={nombre} autoFocus onChange={(evento) => establecerNombre(evento.target.value)} />
@@ -411,7 +445,12 @@ function EditorParametro({ parametro, alActualizar, alEliminar }: {
   </div>
 }
 
-function EditorRelaciones({ modelo, seleccion, alAplicar }: { modelo: ModeloUMLCanonico; seleccion: string[]; alAplicar: (modelo: ModeloUMLCanonico) => void }) {
+function EditorRelaciones({ modelo, seleccion, alAplicar, alRegistrarActividad }: {
+  modelo: ModeloUMLCanonico
+  seleccion: string[]
+  alAplicar: (modelo: ModeloUMLCanonico) => boolean
+  alRegistrarActividad?: (actividad: ActividadModeladoManual) => void
+}) {
   const { t } = usarPreferenciasUI()
   const [creando, establecerCreando] = useState(false)
   const [tipo, establecerTipo] = useState<TipoRelacionUML>("asociacion")
@@ -468,8 +507,10 @@ function EditorRelaciones({ modelo, seleccion, alAplicar }: { modelo: ModeloUMLC
       ...(!esGeneralizacion && rolOrigen.trim() ? { rolOrigen: rolOrigen.trim() } : {}),
       ...(!esGeneralizacion && rolDestino.trim() ? { rolDestino: rolDestino.trim() } : {}),
     }
-    alAplicar({ ...modelo, relaciones: [...modelo.relaciones, relacion] })
-    cancelar()
+    if (alAplicar({ ...modelo, relaciones: [...modelo.relaciones, relacion] })) {
+      alRegistrarActividad?.({ tipo: "UML_ELEMENT_CREATED", elemento: { id: relacion.id, tipo: "relationship", nombreSnapshot: nombreRelacionSnapshot(modelo, relacion) } })
+      cancelar()
+    }
   }
 
   const convertirEnClaseAsociativa = () => {
@@ -515,10 +556,18 @@ function EditorRelaciones({ modelo, seleccion, alAplicar }: { modelo: ModeloUMLC
           key={relacionEditada.id}
           relacion={relacionEditada}
           modelo={modelo}
-          alActualizar={(actualizada) => alAplicar({ ...modelo, relaciones: modelo.relaciones.map((item) => item.id === actualizada.id ? actualizada : item) })}
+          alActualizar={(actualizada) => {
+            const anterior = modelo.relaciones.find((item) => item.id === actualizada.id)
+            const aplicada = alAplicar({ ...modelo, relaciones: modelo.relaciones.map((item) => item.id === actualizada.id ? actualizada : item) })
+            if (aplicada && anterior && JSON.stringify(anterior) !== JSON.stringify(actualizada)) {
+              alRegistrarActividad?.({ tipo: "UML_ELEMENT_UPDATED", elemento: { id: actualizada.id, tipo: "relationship", nombreSnapshot: nombreRelacionSnapshot(modelo, actualizada) }, detalle: { campo: "propiedades" } })
+            }
+          }}
           alEliminar={() => {
-            alAplicar({ ...modelo, relaciones: modelo.relaciones.filter((item) => item.id !== relacionEditada.id) })
-            establecerRelacionEditadaId(null)
+            if (alAplicar({ ...modelo, relaciones: modelo.relaciones.filter((item) => item.id !== relacionEditada.id) })) {
+              alRegistrarActividad?.({ tipo: "UML_ELEMENT_DELETED", elemento: { id: relacionEditada.id, tipo: "relationship", nombreSnapshot: nombreRelacionSnapshot(modelo, relacionEditada) } })
+              establecerRelacionEditadaId(null)
+            }
           }}
         />
       ) : null}
@@ -561,6 +610,10 @@ function EditorRelaciones({ modelo, seleccion, alAplicar }: { modelo: ModeloUMLC
 
 function nombreClase(modelo: ModeloUMLCanonico, id: string): string {
   return modelo.clases.find((clase) => clase.id === id)?.nombre ?? id
+}
+
+function nombreRelacionSnapshot(modelo: ModeloUMLCanonico, relacion: RelacionUML): string {
+  return relacion.nombre?.trim() || `${nombreClase(modelo, relacion.claseOrigenId)} → ${nombreClase(modelo, relacion.claseDestinoId)}`
 }
 
 function preguntaCantidad(plantilla: string, origen: string, destino: string): string {

@@ -13,6 +13,11 @@ import type { RepositorioParticipantes } from "../../gestion_proyectos/compartid
 import { RepositorioParticipantesMongo } from "../../gestion_proyectos/infraestructura/RepositorioParticipantesMongo.js"
 import { ProtegerAccesoProyecto, obtenerPepperAccesoProyecto } from "../../gestion_proyectos/acceso/ProtegerAccesoProyecto.js"
 import { RepositorioParticipantesMemoria } from "../../gestion_proyectos/pruebas/RepositorioParticipantesMemoria.js"
+import type { RepositorioEventos } from "../../trazabilidad/compartido/RepositorioEventos.js"
+import type { RepositorioMensajes } from "../../mensajeria_colaborativa/compartido/RepositorioMensajes.js"
+import { RepositorioEventosMongo } from "../../trazabilidad/infraestructura/RepositorioEventosMongo.js"
+import { RepositorioMensajesMongo } from "../../mensajeria_colaborativa/infraestructura/RepositorioMensajesMongo.js"
+import { RepositorioEventosMemoria, RepositorioMensajesMemoria } from "../../trazabilidad/pruebas/RepositoriosMemoriaProyecto.js"
 
 async function iniciar(): Promise<void> {
   cargarConfiguracionEntorno()
@@ -33,12 +38,16 @@ async function iniciar(): Promise<void> {
   let repositorioProyectos: RepositorioProyectos
   let repositorioParticipantes: RepositorioParticipantes
   let protectorAcceso: ProtegerAccesoProyecto
+  let repositorioEventos: RepositorioEventos
+  let repositorioMensajes: RepositorioMensajes
   try {
     if (usarDatosE2E) {
       // Infraestructura explícita de pruebas: conserva archivos sin omitir la autorización F4-B.
       repositorioProyectos = new RepositorioProyectosArchivos()
       repositorioParticipantes = new RepositorioParticipantesMemoria()
       protectorAcceso = new ProtegerAccesoProyecto("pepper-exclusivo-del-modo-e2e")
+      repositorioEventos = new RepositorioEventosMemoria()
+      repositorioMensajes = new RepositorioMensajesMemoria()
     } else {
       protectorAcceso = new ProtegerAccesoProyecto(obtenerPepperAccesoProyecto())
       conexionMongo = new ConexionMongo(obtenerConfiguracionMongo(), { serverSelectionTimeoutMS: 5_000 })
@@ -46,6 +55,8 @@ async function iniciar(): Promise<void> {
       await crearIndicesMongo(baseDatos)
       repositorioProyectos = new RepositorioProyectosMongo(baseDatos)
       repositorioParticipantes = new RepositorioParticipantesMongo(baseDatos)
+      repositorioEventos = new RepositorioEventosMongo(baseDatos)
+      repositorioMensajes = new RepositorioMensajesMongo(baseDatos)
     }
   } catch (error) {
     await conexionMongo?.cerrar().catch(() => undefined)
@@ -60,6 +71,8 @@ async function iniciar(): Promise<void> {
       proyectos: repositorioProyectos,
       participantes: repositorioParticipantes,
       protector: protectorAcceso,
+      eventos: repositorioEventos,
+      mensajes: repositorioMensajes,
     },
   })
 

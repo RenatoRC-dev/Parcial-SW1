@@ -6,6 +6,7 @@ import { MULTIPLICIDADES_UML, TIPOS_RELACION_UML, VISIBILIDADES_UML } from "../.
 import { TIPOS_GENERACION_SOPORTADOS, TIPOS_RETORNO_METODO } from "../../../../validacion/casos_uso/cu08_validar_modelo_uml/ValidadorModeloUML"
 import { ProveedorPreferenciasUI } from "../../../../../configuracion/PreferenciasUI"
 import { InspectorPropiedadesUML } from "./InspectorPropiedadesUML"
+import type { ActividadModeladoManual } from "../../../../gestion_proyectos/compartido/Proyecto"
 
 const modelo: ModeloUMLCanonico = {
   id: "m",
@@ -32,8 +33,8 @@ const editor = {
   unsubscribe: vi.fn(),
 } as unknown as ApollonEditor
 
-function renderizar(modeloActual = modelo, aplicar = vi.fn()) {
-  render(<ProveedorPreferenciasUI><InspectorPropiedadesUML editor={editor} modelo={modeloActual} alAplicar={aplicar} /></ProveedorPreferenciasUI>)
+function renderizar(modeloActual = modelo, aplicar = vi.fn(), registrarActividad?: (actividad: ActividadModeladoManual) => void) {
+  render(<ProveedorPreferenciasUI><InspectorPropiedadesUML editor={editor} modelo={modeloActual} alAplicar={aplicar} alRegistrarActividad={registrarActividad} /></ProveedorPreferenciasUI>)
   return aplicar
 }
 
@@ -57,6 +58,27 @@ describe("InspectorPropiedadesUML compacto", () => {
     expect(clase).not.toHaveProperty("methods")
   })
 
+  it("reporta sólo operaciones locales explícitas con IDs estables y snapshot de eliminación", () => {
+    const registrar = vi.fn()
+    renderizar({ ...modelo, clases: [], relaciones: [] }, vi.fn(), registrar)
+    const grupo = screen.getByRole("group", { name: "Nueva clase" })
+    fireEvent.change(within(grupo).getByLabelText("Nombre de clase"), { target: { value: "Venta" } })
+    fireEvent.click(within(grupo).getByRole("button", { name: "Crear clase" }))
+    expect(registrar).toHaveBeenCalledWith(expect.objectContaining({
+      tipo: "UML_ELEMENT_CREATED", elemento: expect.objectContaining({ tipo: "class", nombreSnapshot: "Venta" }),
+    }))
+    expect(registrar.mock.calls[0][0].elemento.id).toMatch(/^clase-/)
+
+    registrar.mockClear()
+    renderizar(modeloConRelacion, vi.fn(), registrar)
+    fireEvent.click(screen.getByRole("button", { name: "Factura → Cliente" }))
+    fireEvent.click(within(screen.getByRole("group", { name: "Relación Factura → Cliente" })).getByRole("button", { name: "Eliminar relación" }))
+    expect(registrar).toHaveBeenCalledWith({
+      tipo: "UML_ELEMENT_DELETED",
+      elemento: { id: "relacion-1", tipo: "relationship", nombreSnapshot: "Factura → Cliente" },
+    })
+  })
+
   it("crea explícitamente una clase asociativa vacía", () => {
     const aplicar = renderizar({ ...modelo, clases: [], relaciones: [] })
     const grupo = screen.getByRole("group", { name: "Nueva clase" })
@@ -77,7 +99,8 @@ describe("InspectorPropiedadesUML compacto", () => {
   })
 
   it("representa cada atributo en una fila compacta con edición controlada y borrado inmediato", () => {
-    const aplicar = renderizar()
+    const registrar = vi.fn()
+    const aplicar = renderizar(modelo, vi.fn(), registrar)
     seleccionarCliente()
     const fila = screen.getByRole("group", { name: "Atributo saldo" })
     expect(within(fila).getByLabelText("Nombre saldo")).toBeVisible()
@@ -88,6 +111,11 @@ describe("InspectorPropiedadesUML compacto", () => {
     fireEvent.click(within(fila).getByRole("button", { name: "Eliminar atributo saldo" }))
     expect(aplicar).toHaveBeenCalledOnce()
     expect(aplicar.mock.calls[0][0].clases[0].atributos).toEqual([])
+    expect(registrar).toHaveBeenCalledWith({
+      tipo: "UML_ELEMENT_DELETED",
+      elemento: { id: "saldo", tipo: "attribute", nombreSnapshot: "saldo" },
+      detalle: { elementoPadreId: "cliente" },
+    })
   })
 
   it("abre una sola fila temporal y cancelar no produce mutación canónica", () => {
@@ -133,7 +161,8 @@ describe("InspectorPropiedadesUML compacto", () => {
   })
 
   it("crea un método compacto con retorno y visibilidad controlados", () => {
-    const aplicar = renderizar()
+    const registrar = vi.fn()
+    const aplicar = renderizar(modelo, vi.fn(), registrar)
     seleccionarCliente()
     fireEvent.click(screen.getByRole("button", { name: "+ Agregar método" }))
     const fila = screen.getByRole("group", { name: "Nuevo método" })
@@ -142,6 +171,11 @@ describe("InspectorPropiedadesUML compacto", () => {
     fireEvent.change(within(fila).getByLabelText("Tipo de retorno"), { target: { value: "Double" } })
     fireEvent.click(within(fila).getByRole("button", { name: "Confirmar método" }))
     expect(aplicar.mock.calls[0][0].clases[0].metodos[0]).toMatchObject({ nombre: "calcularTotal", tipoRetorno: "Double", visibilidad: "publica", parametros: [] })
+    expect(registrar).toHaveBeenCalledWith(expect.objectContaining({
+      tipo: "UML_ELEMENT_CREATED",
+      elemento: expect.objectContaining({ tipo: "method", nombreSnapshot: "calcularTotal" }),
+      detalle: { elementoPadreId: "cliente" },
+    }))
   })
 
   it("cancelar método no muta y un nombre vacío se rechaza", () => {

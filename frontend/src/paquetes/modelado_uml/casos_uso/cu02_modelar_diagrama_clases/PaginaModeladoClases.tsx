@@ -20,7 +20,8 @@ import { etiquetasApollon, usarPreferenciasUI } from "../../../../configuracion/
 import { InspectorPropiedadesUML } from "./componentes/InspectorPropiedadesUML"
 import { construirContextoAsistente } from "../../../asistencia_contextual/casos_uso/cu12_asistir_usuario/ContextoAsistente"
 import { PanelAsistenteContextual } from "../../../asistencia_contextual/casos_uso/cu12_asistir_usuario/PanelAsistenteContextual"
-import type { AccesoProyectoActivo } from "../../../gestion_proyectos/compartido/Proyecto"
+import type { AccesoProyectoActivo, ActividadModeladoManual } from "../../../gestion_proyectos/compartido/Proyecto"
+import { registrarActividadModelado } from "../../../gestion_proyectos/compartido/clienteProyectos"
 
 type HerramientaModelado = "ia" | "imagen" | "validacion" | "xmi" | "generacion"
 
@@ -66,6 +67,10 @@ export function PaginaModeladoClases({ proyectoId, proyectoNombre, accesoColabor
     establecerModelo(modeloApollon)
     establecerModeloImportado(modeloApollon)
   }, [])
+  const registrarActividadLocal = useCallback((actividad: ActividadModeladoManual) => {
+    const clientChangeId = crypto.randomUUID()
+    void registrarActividadModelado(proyectoId, accesoColaboracion.credential, clientChangeId, actividad).catch(() => undefined)
+  }, [accesoColaboracion.credential, proyectoId])
 
   const resultadoCanonico = useMemo(
     () =>
@@ -175,7 +180,7 @@ export function PaginaModeladoClases({ proyectoId, proyectoNombre, accesoColabor
         </div>
 
         <aside className="workspace-inspector" aria-label={t("propiedades.titulo")}>
-          {resultadoCanonico ? <InspectorPropiedadesUML editor={editor} modelo={resultadoCanonico.modelo} alAplicar={aplicarDesdeInspector} alCambiarSeleccion={establecerSeleccionIds} /> : <p className="inspector-empty">{t("propiedades.seleccioneElemento")}</p>}
+          {resultadoCanonico ? <InspectorPropiedadesUML editor={editor} modelo={resultadoCanonico.modelo} alAplicar={aplicarDesdeInspector} alRegistrarActividad={registrarActividadLocal} alCambiarSeleccion={establecerSeleccionIds} /> : <p className="inspector-empty">{t("propiedades.seleccioneElemento")}</p>}
           <PanelColaboracion editor={editor} acceso={accesoColaboracion} habilitada={modeloInicialAplicado} />
           <details className="technical-diagnostics"><summary>{t("shell.diagnostico")}</summary><InspectorModeloDesarrollo modeloApollon={modelo} resultadoCanonico={resultadoCanonico} resultadoValidacion={resultadoValidacion} error={errorEditor} /></details>
         </aside>

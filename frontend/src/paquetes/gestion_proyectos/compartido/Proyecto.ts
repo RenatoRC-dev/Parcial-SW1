@@ -37,3 +37,9 @@ export interface RespuestaUnirseProyecto {
   credencial: string
 }
 
+export interface ActividadModeladoManual {
+  tipo: "UML_ELEMENT_CREATED" | "UML_ELEMENT_UPDATED" | "UML_ELEMENT_DELETED"
+  elemento: { id: string; tipo: "class" | "relationship" | "attribute" | "method" | "parameter"; nombreSnapshot: string }
+  detalle?: { campo?: string; elementoPadreId?: string }
+}
+
