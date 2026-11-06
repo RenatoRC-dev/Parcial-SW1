@@ -16,6 +16,9 @@ export async function asistirUsuario(solicitud: SolicitudAsistenteContextual, pr
   if (respuesta.elementoRelacionadoId !== null && !idsPermitidos.has(respuesta.elementoRelacionadoId)) {
     throw new ErrorAsistenteContextual("respuesta_invalida", "La respuesta contextual referencia un elemento inexistente en el contexto.")
   }
+  if (respuesta.recomendacion && respuesta.recomendacion.targetElementIds.some((id) => !idsPermitidos.has(id))) {
+    throw new ErrorAsistenteContextual("respuesta_invalida", "La recomendacion referencia un elemento inexistente en el contexto.")
+  }
   if (respuesta.accionSugerida === "ENFOCAR_ELEMENTO" && respuesta.elementoRelacionadoId === null) {
     throw new ErrorAsistenteContextual("respuesta_invalida", "La acción de enfoque requiere un elemento del contexto.")
   }

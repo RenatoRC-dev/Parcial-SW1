@@ -93,7 +93,7 @@ test("P5-05 mentor de producto responde XMI sin Groq", async ({ page }) => {
   await expect(panel).toContainText("XMI no es necesario para generar Spring")
 })
 
-test("P5-06 consulta actividad y atribuye Venta a Carlos", async ({ browser }) => {
+test("P6-12 pregunta histórica permanece consultiva y atribuye Venta a Carlos", async ({ browser }) => {
   const equipo = await dosParticipantes(browser, "P5-06")
   try {
     await crearClaseNombradaE2E(equipo.carlos, "Venta")
@@ -119,19 +119,19 @@ test("P5-08 conserva continuidad en una pregunta de seguimiento", async ({ page 
   await expect(panel).toContainText("Explícame Venta")
 })
 
-test("P5-09 CU12 no modifica el modelo ni la revisión", async ({ page }) => {
+test("P6-01 solicitud explícita aplica una vez sin avanzar revisión durable", async ({ page }) => {
   await crearProyectoE2E(page, "P5-09", "Renato")
   await crearClaseNombradaE2E(page, "Venta")
   const acceso = await accesoActual(page)
   const revisionAntes = await page.evaluate(async ({ projectId, credential }) => (await (await fetch(`/api/proyectos/${projectId}`, { headers: { Authorization: `Bearer ${credential}` } })).json()).revisionModelo, acceso)
   const panel = await preguntar(page, "Agrega total Double a Venta")
-  await expect(panel).toContainText("no modifica el UML")
-  await expect(page.locator(".react-flow__node").filter({ hasText: "Venta" })).not.toContainText("total")
+  await expect(panel).toContainText("Se agregó total")
+  await expect(page.locator(".react-flow__node").filter({ hasText: "Venta" })).toContainText("total")
   const revisionDespues = await page.evaluate(async ({ projectId, credential }) => (await (await fetch(`/api/proyectos/${projectId}`, { headers: { Authorization: `Bearer ${credential}` } })).json()).revisionModelo, acceso)
   expect(revisionDespues).toBe(revisionAntes)
 })
 
-test("P5-10 conversación aislada por proyecto", async ({ browser }) => {
+test("P6-13 acción y conversación permanecen aisladas por proyecto", async ({ browser }) => {
   const contextoA = await browser.newContext(); const contextoB = await browser.newContext()
   const a = await contextoA.newPage(); const b = await contextoB.newPage()
   try {
@@ -141,7 +141,7 @@ test("P5-10 conversación aislada por proyecto", async ({ browser }) => {
     const estados = await b.evaluate(async ({ projectId, credential }) => {
       const headers = { Authorization: `Bearer ${credential}`, "Content-Type": "application/json" }
       const get = await fetch(`/api/proyectos/${projectId}/mensajes`, { headers })
-      const post = await fetch(`/api/proyectos/${projectId}/asistente-colaborativo/preguntar`, { method: "POST", headers,
+      const post = await fetch(`/api/proyectos/${projectId}/asistente-colaborativo/interactuar`, { method: "POST", headers,
         body: JSON.stringify({ requestId: crypto.randomUUID(), contenido: "intrusión" }) })
       return [get.status, post.status]
     }, { projectId: accesoA.projectId, credential: accesoB.credential })
@@ -159,4 +159,113 @@ test("P5-11 conversación sobrevive a cero usuarios y reapertura", async ({ brow
     await abrirProyectoE2E(reabierto, nombre, "Renato nuevo dispositivo")
     await expect(await abrirPanel(reabierto)).toContainText("modelo.xmi")
   } finally { await segundo.close() }
+})
+
+test("P6-02 accion contextual resuelve la recomendacion del mismo participante", async ({ page }) => {
+  await crearProyectoE2E(page, "P6-02", "Renato")
+  await crearClaseNombradaE2E(page, "Venta")
+  const panel = await preguntar(page, "¿Qué problema tiene Venta?")
+  await expect(panel).toContainText("recomiendo agregar el atributo total")
+  await preguntar(page, "Corrígelo.")
+  await expect(page.locator(".react-flow__node").filter({ hasText: "Venta" })).toContainText("total")
+  await expect(panel).toContainText("Se agregó total")
+})
+
+test("P6-03 accion contextual ambigua aclara y no modifica", async ({ page }) => {
+  await crearProyectoE2E(page, "P6-03", "Renato")
+  await crearClaseNombradaE2E(page, "Venta")
+  const panel = await preguntar(page, "Corrígelo.")
+  await expect(panel).toContainText("No encuentro una recomendacion previa inequivoca")
+  await expect(page.locator(".react-flow__node").filter({ hasText: "Venta" })).not.toContainText("total")
+})
+
+test("P6-04 borrado contextual ambiguo no elimina", async ({ page }) => {
+  await crearProyectoE2E(page, "P6-04", "Renato")
+  await crearClaseNombradaE2E(page, "Venta"); await crearClaseNombradaE2E(page, "Cliente")
+  await page.locator(".react-flow__pane").click({ position: { x: 20, y: 20 } })
+  const panel = await preguntar(page, "Bórralo.")
+  await expect(panel).toContainText("No puedo determinar de forma inequivoca")
+  await expect(page.getByText("Venta", { exact: true }).first()).toBeVisible()
+  await expect(page.getByText("Cliente", { exact: true }).first()).toBeVisible()
+})
+
+test("P6-05 borrado explicito elimina solo el elemento nombrado", async ({ page }) => {
+  await crearProyectoE2E(page, "P6-05", "Renato")
+  await crearClaseNombradaE2E(page, "Venta"); await crearClaseNombradaE2E(page, "Cliente")
+  await preguntar(page, "Elimina la clase Venta.")
+  await expect(page.locator(".react-flow__node").filter({ hasText: "Venta" })).toHaveCount(0)
+  await expect(page.getByText("Cliente", { exact: true }).first()).toBeVisible()
+})
+
+test("P6-06 solo Renato ejecuta y Carlos observa el resultado por Yjs", async ({ browser }) => {
+  const equipo = await dosParticipantes(browser, "P6-06")
+  try {
+    await crearClaseNombradaE2E(equipo.renato, "Venta")
+    await expect(equipo.carlos.getByText("Venta", { exact: true }).first()).toBeVisible({ timeout: 15_000 })
+    await abrirPanel(equipo.carlos)
+    await preguntar(equipo.renato, "Agrega total Double a Venta.")
+    await expect(equipo.renato.locator(".react-flow__node").filter({ hasText: "Venta" })).toContainText("total")
+    await expect(equipo.carlos.locator(".react-flow__node").filter({ hasText: "Venta" })).toContainText("total", { timeout: 15_000 })
+    await expect(equipo.carlos.getByTestId("panel-asistente-colaborativo")).toContainText("Se agregó total")
+  } finally { await equipo.contextoRenato.close(); await equipo.contextoCarlos.close() }
+})
+
+test("P6-07 reintento y confirmacion duplicada conservan una sola accion durable", async ({ page }) => {
+  await crearProyectoE2E(page, "P6-07", "Renato"); const acceso = await accesoActual(page)
+  const resultado = await page.evaluate(async ({ projectId, credential }) => {
+    const requestId = crypto.randomUUID(); const headers = { Authorization: `Bearer ${credential}`, "Content-Type": "application/json" }
+    const modelo = { id: "m", nombre: "Ventas", version: "1", clases: [{ id: "venta", nombre: "Venta", abstracta: false, posicion: { x: 0, y: 0 }, atributos: [] }], relaciones: [] }
+    const cuerpo = { requestId, instruccion: "Agrega total Double a Venta", modelo, revision: 1 }
+    const backend = "http://127.0.0.1:3001"
+    const primero = await (await fetch(`${backend}/api/proyectos/${projectId}/modelado-ia/interpretar`, { method: "POST", headers, body: JSON.stringify(cuerpo) })).json()
+    const segundo = await (await fetch(`${backend}/api/proyectos/${projectId}/modelado-ia/interpretar`, { method: "POST", headers, body: JSON.stringify(cuerpo) })).json()
+    const cambio = { commandIndex: 0, tipo: "UML_ELEMENT_CREATED", elemento: { id: "total-e2e", tipo: "attribute", nombreSnapshot: "total" } }
+    const ruta = `${backend}/api/proyectos/${projectId}/modelado-ia/acciones/${primero.actionId}/completar`
+    const cierre1 = await (await fetch(ruta, { method: "POST", headers, body: JSON.stringify({ resultado: "applied", cambios: [cambio] }) })).json()
+    const cierre2 = await (await fetch(ruta, { method: "POST", headers, body: JSON.stringify({ resultado: "applied", cambios: [cambio] }) })).json()
+    const eventos = await (await fetch(`${backend}/api/proyectos/${projectId}/actividad?limite=100`, { headers })).json()
+    return { primero: primero.actionId, segundo: segundo.actionId, cierre1: cierre1.kind, cierre2: cierre2.kind,
+      cantidad: eventos.items.filter((evento: { mecanismo: string; detalle: { actionId?: string } }) => evento.mecanismo === "ai_cu04" && evento.detalle.actionId === primero.actionId).length }
+  }, acceso)
+  expect(resultado).toEqual(expect.objectContaining({ primero: resultado.segundo, cierre1: "action_applied", cierre2: "action_already_applied", cantidad: 1 }))
+})
+
+test("P6-08 un plan obsoleto no se aplica ciegamente", async ({ page }) => {
+  await crearProyectoE2E(page, "P6-08", "Renato"); await crearClaseNombradaE2E(page, "Venta")
+  let liberar!: () => void; const espera = new Promise<void>((resolver) => { liberar = resolver }); let primera = true
+  await page.route("**/asistente-colaborativo/interactuar", async (route) => {
+    const respuesta = await route.fetch()
+    if (primera) { primera = false; await espera }
+    await route.fulfill({ response: respuesta })
+  })
+  const panel = await abrirPanel(page)
+  await panel.getByLabel("Pregunta al asistente colaborativo").fill("Agrega total Double a Venta.")
+  await panel.getByRole("button", { name: "Enviar", exact: true }).click()
+  const nuevaClase = page.getByTestId("inspector-propiedades").getByRole("group", { name: "Nueva clase" })
+  await nuevaClase.getByLabel("Nombre de clase").fill("CambioConcurrente")
+  await nuevaClase.getByRole("button", { name: "Crear clase" }).click()
+  await expect(page.locator(".react-flow__node").filter({ hasText: "CambioConcurrente" })).toBeVisible()
+  liberar()
+  await expect(panel.getByRole("alert")).toContainText("modelo cambio", { timeout: 15_000 })
+  await expect(page.locator(".react-flow__node").filter({ hasText: "Venta" })).not.toContainText("total")
+  await page.unroute("**/asistente-colaborativo/interactuar")
+})
+
+test("P6-09 mensajes intercalados conservan el foco de Renato", async ({ browser }) => {
+  const equipo = await dosParticipantes(browser, "P6-09")
+  try {
+    await crearClaseNombradaE2E(equipo.renato, "Venta"); await crearClaseNombradaE2E(equipo.renato, "Cliente")
+    const panelRenato = await preguntar(equipo.renato, "Revisa Venta."); await expect(panelRenato).toContainText("total: Double a Venta")
+    const panelCarlos = await preguntar(equipo.carlos, "Revisa Cliente."); await expect(panelCarlos).toContainText("total: Double a Cliente")
+    await preguntar(equipo.renato, "Hazlo.")
+    await expect(equipo.renato.locator(".react-flow__node").filter({ hasText: "Venta" })).toContainText("total")
+    await expect(equipo.renato.locator(".react-flow__node").filter({ hasText: "Cliente" })).not.toContainText("total")
+  } finally { await equipo.contextoRenato.close(); await equipo.contextoCarlos.close() }
+})
+
+test("P6-11 revisar recomienda pero nunca actua sin segunda solicitud humana", async ({ page }) => {
+  await crearProyectoE2E(page, "P6-11", "Renato"); await crearClaseNombradaE2E(page, "Venta")
+  const panel = await preguntar(page, "Revisa Venta.")
+  await expect(panel).toContainText("recomiendo agregar")
+  await expect(page.locator(".react-flow__node").filter({ hasText: "Venta" })).not.toContainText("total")
 })

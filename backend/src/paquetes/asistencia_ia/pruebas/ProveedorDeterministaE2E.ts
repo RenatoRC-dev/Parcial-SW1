@@ -30,6 +30,13 @@ export class ProveedorDeterministaE2E implements ProveedorModeloLenguaje {
       }
     }
 
+    const eliminarClase = instruccion.match(/elimina (?:la )?clase ([A-Za-z][A-Za-z0-9 _-]*?)(?: con ID|\.|$)/i)
+    if (eliminarClase) {
+      const clase = modelo.clases.find((candidata) => candidata.nombre.toLowerCase() === eliminarClase[1].trim().toLowerCase())
+      if (!clase) return { resultado: "aclarar", mensaje: `No existe la clase ${eliminarClase[1]}.`, comandos: [] }
+      return { resultado: "aplicar", mensaje: `Se eliminó ${clase.nombre}.`, comandos: [{ tipo: "eliminar_clase", claseId: clase.id }] }
+    }
+
     const buscarClase = (nombre: string) => modelo.clases.find((clase) => normalizarNombreClaseAsistido(clase.nombre) === normalizarNombreClaseAsistido(nombre))
     const buscarMetodo = (nombre: string) => modelo.clases.flatMap((clase) => clase.metodos ?? []).filter((metodo) => metodo.nombre.toLowerCase() === nombre.toLowerCase())
 
@@ -40,7 +47,7 @@ export class ProveedorDeterministaE2E implements ProveedorModeloLenguaje {
       }
     }
 
-    const formaFinal = instruccion.match(/agrega (?:un )?atributo ([a-z][A-Za-z0-9]*) (?:de tipo )?([A-Za-z][A-Za-z0-9]*) a(?: la clase)? ([A-Za-z][A-Za-z0-9 _-]*)/i)
+    const formaFinal = instruccion.match(/agrega (?:un )?(?:atributo )?([a-z][A-Za-z0-9]*) (?:de tipo )?([A-Za-z][A-Za-z0-9]*) a(?: la clase)? ([A-Za-z][A-Za-z0-9 _-]*)/i)
     const formaInicial = instruccion.match(/agrega a ([A-Za-z][A-Za-z0-9 _-]*?) (?:el )?atributo ([a-z][A-Za-z0-9]*) de tipo ([A-Za-z][A-Za-z0-9]*)/i)
       ?? instruccion.match(/a ([A-Za-z][A-Za-z0-9 _-]*?) agr[eé]gale (?:un atributo )?([a-z][A-Za-z0-9]*) de tipo ([A-Za-z][A-Za-z0-9]*)/i)
     const agregar = formaFinal

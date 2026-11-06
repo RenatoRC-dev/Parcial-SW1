@@ -51,20 +51,29 @@ export function crearAplicacionGeneracionBackend(dependencias: {
     siguiente()
   })
   aplicacion.use(express.json({ limit: "1mb" }))
-  registrarRutaInterpretacionIA(aplicacion, dependencias.proveedorIA ?? new ProveedorGroq())
   registrarRutaTranscripcionVoz(aplicacion, dependencias.proveedorTranscripcion ?? new ProveedorTranscripcionGroq())
   registrarRutaAnalisisImagen(aplicacion, dependencias.proveedorVision ?? new ProveedorVisionGroq())
   if (dependencias.accesoProyectos) {
     registrarRutasProyectos(aplicacion, dependencias.accesoProyectos)
-    if (dependencias.accesoProyectos.eventos && dependencias.accesoProyectos.mensajes) registrarRutaAsistenteColaborativo(aplicacion, {
+    if (dependencias.accesoProyectos.eventos && dependencias.accesoProyectos.mensajes) {
+      const proveedorCU04 = dependencias.proveedorIA ?? new ProveedorGroq()
+      registrarRutaInterpretacionIA(aplicacion, {
+        proveedor: proveedorCU04,
+        proyectos: dependencias.accesoProyectos.proyectos, participantes: dependencias.accesoProyectos.participantes,
+        protector: dependencias.accesoProyectos.protector, eventos: dependencias.accesoProyectos.eventos,
+        mensajes: dependencias.accesoProyectos.mensajes, publicador: dependencias.publicadorMensajes ?? PUBLICADOR_MENSAJES_NULO,
+      })
+      registrarRutaAsistenteColaborativo(aplicacion, {
       proyectos: dependencias.accesoProyectos.proyectos,
       participantes: dependencias.accesoProyectos.participantes,
       protector: dependencias.accesoProyectos.protector,
       eventos: dependencias.accesoProyectos.eventos,
       mensajes: dependencias.accesoProyectos.mensajes,
       proveedor: dependencias.proveedorAsistenteContextual ?? new ProveedorAsistenteContextualGroq(),
+      proveedorCU04,
       publicador: dependencias.publicadorMensajes ?? PUBLICADOR_MENSAJES_NULO,
-    })
+      })
+    }
   }
 
   aplicacion.get("/api/health", (_solicitud, respuesta) => {

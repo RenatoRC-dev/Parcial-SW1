@@ -29,10 +29,18 @@ export interface RespuestaInterpretacionUML {
   mensaje: string
   comandos: ComandoModeloUML[]
   revision: number
+  actionId?: string
 }
 
 export interface SolicitudInterpretacionUML {
+  requestId: string
   instruccion: string
   modelo: ModeloUMLCanonico
   revision: number
+}
+
+export interface CambioAplicadoIA {
+  commandIndex: number
+  tipo: "UML_ELEMENT_CREATED" | "UML_ELEMENT_UPDATED" | "UML_ELEMENT_DELETED"
+  elemento: { id: string; tipo: "class" | "attribute" | "method" | "parameter" | "relationship"; nombreSnapshot: string }
 }

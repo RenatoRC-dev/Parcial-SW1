@@ -1,5 +1,5 @@
 import type { ConsultaMensajes, MensajeProyecto, PaginaMensajes } from "../../mensajeria_colaborativa/compartido/MensajeProyecto.js"
-import { ErrorRequestMensajeDuplicado, type RepositorioMensajes } from "../../mensajeria_colaborativa/compartido/RepositorioMensajes.js"
+import { ErrorRequestMensajeDuplicado, type AccionIAModeladoPersistida, type RepositorioMensajes } from "../../mensajeria_colaborativa/compartido/RepositorioMensajes.js"
 import type { ConsultaEventos, EventoProyecto, PaginaEventos } from "../compartido/EventoProyecto.js"
 import { ErrorClientChangeIdDuplicado, type RepositorioEventos } from "../compartido/RepositorioEventos.js"
 
@@ -35,6 +35,7 @@ export class RepositorioEventosMemoria implements RepositorioEventos {
 
 export class RepositorioMensajesMemoria implements RepositorioMensajes {
   private readonly datos: MensajeProyecto[] = []
+  private readonly acciones = new Map<string, AccionIAModeladoPersistida>()
   async crear(mensaje: MensajeProyecto): Promise<MensajeProyecto> {
     if (mensaje.requestId && this.datos.some((item) => item.projectId === mensaje.projectId && item.requestId === mensaje.requestId && item.tipoRemitente === mensaje.tipoRemitente)) {
       throw new ErrorRequestMensajeDuplicado("El mensaje de la solicitud ya existe.")
@@ -48,6 +49,27 @@ export class RepositorioMensajesMemoria implements RepositorioMensajes {
   async obtenerPorRequestId(projectId: string, requestId: string, tipoRemitente: "human" | "ai"): Promise<MensajeProyecto | null> {
     const item = this.datos.find((mensaje) => mensaje.projectId === projectId && mensaje.requestId === requestId && mensaje.tipoRemitente === tipoRemitente)
     return item ? structuredClone(item) : null
+  }
+  async reservarAccionIA(accion: AccionIAModeladoPersistida): Promise<AccionIAModeladoPersistida> {
+    const existente = [...this.acciones.values()].find((item) => item.projectId === accion.projectId && item.sourceMessageId === accion.sourceMessageId)
+    if (existente) return structuredClone(existente)
+    const mensaje = this.datos.find((item) => item.id === accion.sourceMessageId && item.projectId === accion.projectId && item.tipoRemitente === "human")
+    if (!mensaje) throw new Error("El mensaje fuente de la accion IA no existe.")
+    this.acciones.set(accion.actionId, structuredClone(accion)); return structuredClone(accion)
+  }
+  async obtenerAccionIAPorId(projectId: string, actionId: string): Promise<AccionIAModeladoPersistida | null> {
+    const accion = this.acciones.get(actionId); return accion?.projectId === projectId ? structuredClone(accion) : null
+  }
+  async obtenerAccionIAPorMensaje(projectId: string, sourceMessageId: string): Promise<AccionIAModeladoPersistida | null> {
+    const accion = [...this.acciones.values()].find((item) => item.projectId === projectId && item.sourceMessageId === sourceMessageId)
+    return accion ? structuredClone(accion) : null
+  }
+  async completarAccionIA(projectId: string, actionId: string, participantId: string, estado: "applied" | "failed", completadoEn: string): Promise<{ accion: AccionIAModeladoPersistida | null; transicion: boolean }> {
+    const accion = this.acciones.get(actionId)
+    if (!accion || accion.projectId !== projectId) return { accion: null, transicion: false }
+    if (accion.requestingParticipantId !== participantId || accion.estado !== "planned") return { accion: structuredClone(accion), transicion: false }
+    accion.estado = estado; accion.completadoEn = completadoEn
+    return { accion: structuredClone(accion), transicion: true }
   }
   async listarPorProyecto(consulta: ConsultaMensajes): Promise<PaginaMensajes> {
     let items = this.datos.filter((mensaje) => mensaje.projectId === consulta.projectId)

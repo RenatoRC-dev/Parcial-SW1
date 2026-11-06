@@ -13,8 +13,9 @@ import type { RepositorioEventos } from "../../../trazabilidad/compartido/Reposi
 import { ErrorDatosEventoCorruptos, ErrorPersistenciaEvento } from "../../../trazabilidad/compartido/RepositorioEventos.js"
 import { leerPreguntaAsistenteColaborativo } from "../../compartido/ContratoPreguntaColaborativa.js"
 import { ErrorAsistenteContextual, type ProveedorAsistenteContextual } from "../../compartido/ProveedorAsistenteContextual.js"
-import { AsistirColaborativamente } from "./AsistirColaborativamente.js"
 import { ConstruirContextoAsistenteColaborativo } from "./ConstruirContextoAsistenteColaborativo.js"
+import type { ProveedorModeloLenguaje } from "../../../asistencia_ia/compartido/proveedores/ProveedorModeloLenguaje.js"
+import { OrquestarInteraccionIA } from "./OrquestarInteraccionIA.js"
 
 export function registrarRutaAsistenteColaborativo(aplicacion: Express, dependencias: {
   proyectos: RepositorioProyectos
@@ -23,16 +24,14 @@ export function registrarRutaAsistenteColaborativo(aplicacion: Express, dependen
   mensajes: RepositorioMensajes
   eventos: RepositorioEventos
   proveedor: ProveedorAsistenteContextual
+  proveedorCU04: ProveedorModeloLenguaje
   publicador: PublicadorMensajesProyecto
 }): void {
   const requerir = crearRequerirAccesoProyecto(dependencias.proyectos, dependencias.participantes, dependencias.protector)
-  const servicio = new AsistirColaborativamente(
-    new GestionarMensajesProyecto(dependencias.mensajes, dependencias.proyectos),
-    new ConstruirContextoAsistenteColaborativo(dependencias.proyectos, dependencias.mensajes, dependencias.eventos),
-    dependencias.proveedor,
-    dependencias.publicador,
-  )
-  aplicacion.post("/api/proyectos/:id/asistente-colaborativo/preguntar", requerir, async (solicitud, respuesta) => {
+  const gestionar = new GestionarMensajesProyecto(dependencias.mensajes, dependencias.proyectos)
+  const construir = new ConstruirContextoAsistenteColaborativo(dependencias.proyectos, dependencias.mensajes, dependencias.eventos)
+  const servicio = new OrquestarInteraccionIA(gestionar, dependencias.mensajes, construir, dependencias.proveedor, dependencias.proveedorCU04, dependencias.publicador)
+  aplicacion.post("/api/proyectos/:id/asistente-colaborativo/interactuar", requerir, async (solicitud, respuesta) => {
     const pregunta = leerPreguntaAsistenteColaborativo(solicitud.body)
     if (!pregunta) {
       respuesta.status(400).json({ error: "La pregunta colaborativa no cumple el contrato permitido.", codigo: "SOLICITUD_INVALIDA" })

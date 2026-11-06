@@ -66,6 +66,10 @@ export async function crearIndicesMongo(baseDatos: Db): Promise<void> {
       { projectId: 1, requestId: 1, tipoRemitente: 1 },
       { name: "project_request_remitente_unique", unique: true, partialFilterExpression: { requestId: { $type: "string" } } },
     )
+    await baseDatos.collection(COLECCION_MENSAJES).createIndex(
+      { projectId: 1, "accionIA.actionId": 1 },
+      { name: "project_ai_action_unique", unique: true, partialFilterExpression: { "accionIA.actionId": { $type: "string" } } },
+    )
     await baseDatos.collection(COLECCION_PARTICIPANTES).createIndex(
       { projectId: 1, nombreNormalizado: 1 },
       { name: "project_nombre_normalizado" },

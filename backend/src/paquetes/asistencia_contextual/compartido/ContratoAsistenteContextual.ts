@@ -58,7 +58,7 @@ export interface ContextoAsistente {
   participanteActual?: { id: string; nombreVisible: string }
   modeloDurable?: { revision: number; actualizadoEn: string; resumen: ModeloActualContextual }
   fuenteModeloActual?: "vista_actual_validada" | "snapshot_durable"
-  conversacionCompartida?: Array<{ id: string; tipoRemitente: "human" | "ai" | "system"; participantId: string | null; nombreVisibleSnapshot: string | null; contenido: string; requestId: string | null; replyToMessageId: string | null; creadoEn: string }>
+  conversacionCompartida?: Array<{ id: string; tipoRemitente: "human" | "ai" | "system"; participantId: string | null; nombreVisibleSnapshot: string | null; contenido: string; requestId: string | null; replyToMessageId: string | null; creadoEn: string; recomendacion?: { resumen: string; targetElementIds: string[]; normalizedInstruction: string } | null }>
   actividadReciente?: Array<{ id: string; tipo: string; solicitadoPorParticipantId: string; nombreParticipanteSnapshot: string; mecanismo: string; elemento: { id: string; tipo: string; nombreSnapshot: string } | null; revisionModeloObservada: number; creadoEn: string }>
 }
 
@@ -79,6 +79,7 @@ export interface RespuestaAsistenteContextual {
   elementoRelacionadoId: string | null
   nivel: NivelRespuestaContextual
   categoriaRecomendacion: CategoriaRecomendacionContextual
+  recomendacion?: { resumen: string; targetElementIds: string[]; normalizedInstruction: string } | null
   origen?: "determinista" | "groq"
 }
 
@@ -140,4 +141,9 @@ export function esRespuestaAsistenteContextual(valor: unknown): valor is Respues
     && typeof valor.categoriaRecomendacion === "string"
     && categorias.has(valor.categoriaRecomendacion)
     && (valor.origen === undefined || valor.origen === "determinista" || valor.origen === "groq")
+    && (valor.recomendacion === undefined || valor.recomendacion === null || (esObjeto(valor.recomendacion)
+      && typeof valor.recomendacion.resumen === "string" && valor.recomendacion.resumen.length <= 500
+      && typeof valor.recomendacion.normalizedInstruction === "string" && valor.recomendacion.normalizedInstruction.length <= 2000
+      && Array.isArray(valor.recomendacion.targetElementIds) && valor.recomendacion.targetElementIds.length <= 8
+      && valor.recomendacion.targetElementIds.every((id) => typeof id === "string" && id.length <= 160)))
 }

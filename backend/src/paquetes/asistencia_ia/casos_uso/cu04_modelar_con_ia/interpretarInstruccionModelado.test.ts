@@ -5,11 +5,31 @@ import type { ProveedorModeloLenguaje } from "../../compartido/proveedores/Prove
 import { ErrorProveedorIA } from "../../compartido/proveedores/ProveedorModeloLenguaje.js"
 import type { ModeloUMLCanonicoIA } from "../../compartido/contrato/ComandoModeloUML.js"
 import { interpretarInstruccionModelado } from "./interpretarInstruccionModelado.js"
+import { mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { RepositorioProyectosArchivos } from "../../../gestion_proyectos/infraestructura/RepositorioProyectosArchivos.js"
+import { RepositorioParticipantesMemoria } from "../../../gestion_proyectos/pruebas/RepositorioParticipantesMemoria.js"
+import { ProtegerAccesoProyecto } from "../../../gestion_proyectos/acceso/ProtegerAccesoProyecto.js"
+import { RepositorioEventosMemoria, RepositorioMensajesMemoria } from "../../../trazabilidad/pruebas/RepositoriosMemoriaProyecto.js"
 
 const modelo: ModeloUMLCanonicoIA = {
   id: "modelo", nombre: "Modelo", version: "4.2.0",
   clases: [{ id: "cliente", nombre: "Cliente", abstracta: false, posicion: { x: 100, y: 100 }, atributos: [] }],
   relaciones: [],
+}
+
+async function prepararApi(proveedor: ProveedorModeloLenguaje) {
+  const directorio = await mkdtemp(join(tmpdir(), "nexocase-cu04-"))
+  const aplicacion = crearAplicacionGeneracionBackend({ proveedorIA: proveedor, accesoProyectos: {
+    proyectos: new RepositorioProyectosArchivos(directorio), participantes: new RepositorioParticipantesMemoria(),
+    protector: new ProtegerAccesoProyecto("pepper-cu04-test"), eventos: new RepositorioEventosMemoria(), mensajes: new RepositorioMensajesMemoria(),
+  } })
+  const creado = await request(aplicacion).post("/api/proyectos").send({ nombre: "Prueba CU04", nombreParticipante: "Renato" }).expect(201)
+  const ruta = `/api/proyectos/${creado.body.proyecto.id}/modelado-ia/interpretar`
+  const enviar = (cuerpo: Record<string, unknown>) => request(aplicacion).post(ruta).set({ Authorization: `Bearer ${creado.body.credencial}` })
+    .send({ requestId: crypto.randomUUID(), ...cuerpo })
+  return { enviar, cerrar: () => rm(directorio, { recursive: true, force: true }) }
 }
 
 describe("interpretarInstruccionModelado", () => {
@@ -64,21 +84,22 @@ describe("interpretarInstruccionModelado", () => {
 describe("API CU04", () => {
   it("rechaza entrada malformada sin llamar al proveedor", async () => {
     const interpretarCambiosUML = vi.fn()
-    await request(crearAplicacionGeneracionBackend({ proveedorIA: { interpretarCambiosUML } })).post("/api/ia/modelado/interpretar").send({ instruccion: "", modelo, revision: -1 }).expect(400)
+    const api = await prepararApi({ interpretarCambiosUML })
+    await api.enviar({ instruccion: "", modelo, revision: -1 }).expect(400); await api.cerrar()
     expect(interpretarCambiosUML).not.toHaveBeenCalled()
   })
 
   it("devuelve la revisión y los comandos validados", async () => {
     const proveedor: ProveedorModeloLenguaje = { interpretarCambiosUML: vi.fn(async () => ({ resultado: "aplicar", mensaje: "Clase creada.", comandos: [{ tipo: "crear_clase", refTemporal: "tmp_factura", nombre: "Factura", abstracta: false }] })) }
-    const respuesta = await request(crearAplicacionGeneracionBackend({ proveedorIA: proveedor })).post("/api/ia/modelado/interpretar").send({ instruccion: "Crea Factura", modelo, revision: 8 }).expect(200)
-    expect(respuesta.body).toMatchObject({ resultado: "aplicar", revision: 8 })
+    const api = await prepararApi(proveedor); const respuesta = await api.enviar({ instruccion: "Crea Factura", modelo, revision: 8 }).expect(200); await api.cerrar()
+    expect(respuesta.body.plan).toMatchObject({ resultado: "aplicar", revision: 8 })
   })
 
   it("mapea el límite del proveedor sin filtrar detalles", async () => {
     const proveedor: ProveedorModeloLenguaje = { interpretarCambiosUML: vi.fn(async () => { throw new ErrorProveedorIA("limite", "detalle privado") }) }
-    const respuesta = await request(crearAplicacionGeneracionBackend({ proveedorIA: proveedor })).post("/api/ia/modelado/interpretar").send({ instruccion: "Crea Factura", modelo, revision: 0 }).expect(429)
+    const api = await prepararApi(proveedor); const respuesta = await api.enviar({ instruccion: "Crea Factura", modelo, revision: 0 }).expect(429); await api.cerrar()
     expect(respuesta.body.error).not.toContain("detalle privado")
-    expect(respuesta.body.error).toContain("temporalmente limitado")
+    expect(respuesta.body.tipo).toBe("limite")
     expect(respuesta.body.error).toContain("El modelo no fue modificado")
   })
 
@@ -90,7 +111,7 @@ describe("API CU04", () => {
     ["no_disponible", 503],
   ] as const)("normaliza el error de proveedor %s sin filtrar detalles", async (tipo, estado) => {
     const proveedor: ProveedorModeloLenguaje = { interpretarCambiosUML: vi.fn(async () => { throw new ErrorProveedorIA(tipo, "detalle privado") }) }
-    const respuesta = await request(crearAplicacionGeneracionBackend({ proveedorIA: proveedor })).post("/api/ia/modelado/interpretar").send({ instruccion: "Crea Factura", modelo, revision: 0 }).expect(estado)
+    const api = await prepararApi(proveedor); const respuesta = await api.enviar({ instruccion: "Crea Factura", modelo, revision: 0 }).expect(estado); await api.cerrar()
     expect(respuesta.body).toMatchObject({ tipo })
     expect(respuesta.body.error).not.toContain("detalle privado")
     expect(respuesta.body.error).toContain("El modelo no fue modificado")
@@ -99,10 +120,8 @@ describe("API CU04", () => {
   it("distingue el timeout del límite y conserva el modelo de la solicitud", async () => {
     const original = structuredClone(modelo)
     const interpretarCambiosUML = vi.fn(async () => { throw new ErrorProveedorIA("timeout", "detalle privado") })
-    const respuesta = await request(crearAplicacionGeneracionBackend({ proveedorIA: { interpretarCambiosUML } }))
-      .post("/api/ia/modelado/interpretar")
-      .send({ instruccion: "Agrega correo", modelo, revision: 0 })
-      .expect(504)
+    const api = await prepararApi({ interpretarCambiosUML })
+    const respuesta = await api.enviar({ instruccion: "Agrega correo", modelo, revision: 0 }).expect(504); await api.cerrar()
 
     expect(respuesta.body).toEqual({
       tipo: "timeout",

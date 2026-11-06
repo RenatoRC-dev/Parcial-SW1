@@ -7,6 +7,12 @@ export class ProveedorAsistenteContextualDeterministaE2E implements ProveedorAsi
     const foco = solicitud.contexto.elementoSeleccionado
     const pregunta = solicitud.pregunta.toLocaleLowerCase()
     let respuesta: string
+    const claseRevisada = solicitud.contexto.modeloActual.clases.find((clase) => pregunta.includes(clase.nombre.toLowerCase()))
+    if ((pregunta.includes("problema") || pregunta.includes("revisa")) && claseRevisada) {
+      respuesta = `${nombre}, recomiendo agregar el atributo total: Double a ${claseRevisada.nombre}.`
+      return { respuesta, accionSugerida: "NINGUNA", elementoRelacionadoId: claseRevisada.id, nivel: "sugerencia", categoriaRecomendacion: "RECOMENDADO",
+        recomendacion: { resumen: `Agregar total a ${claseRevisada.nombre}`, targetElementIds: [claseRevisada.id], normalizedInstruction: `Agrega atributo total Double a la clase ${claseRevisada.nombre}.` } }
+    }
     if (pregunta.includes("composición") || pregunta.includes("composicion")) {
       respuesta = `${nombre}, una composición representa una relación fuerte de todo-parte: la parte depende del ciclo de vida del todo.`
     } else if (pregunta.includes("métodos") || pregunta.includes("metodos")) {

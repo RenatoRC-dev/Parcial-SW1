@@ -1,5 +1,7 @@
 import { construirUrlBackend } from "../../../../configuracion/BackendRemoto"
 import type { ContextoAsistente } from "./ContextoAsistente"
+import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
+import type { RespuestaInterpretacionUML } from "../../../asistencia_ia/casos_uso/cu04_modelar_con_ia/ComandoModeloUML"
 
 export interface MensajeColaborativo {
   id: string
@@ -17,6 +19,10 @@ export interface MensajeColaborativo {
 
 export interface PaginaMensajesColaborativos { items: MensajeColaborativo[]; siguienteCursor: string | null }
 export interface RespuestaPreguntaColaborativa { mensajeHumano: MensajeColaborativo; mensajeIA: MensajeColaborativo }
+export type RespuestaInteraccionColaborativa =
+  | ({ kind: "advisory" | "clarification" } & RespuestaPreguntaColaborativa)
+  | { kind: "action"; mensajeHumano: MensajeColaborativo; actionId: string; sourceMessageId: string; normalizedInstruction: string; baseEditorRevision: number; plan: RespuestaInterpretacionUML }
+  | { kind: "action_already_applied" | "action_already_finished"; mensajeHumano: MensajeColaborativo; actionId: string; mensajeIA: MensajeColaborativo | null }
 export type TipoErrorConsultaContextual = "no_disponible" | "limite" | "respuesta_invalida" | "solicitud_invalida" | "conflicto" | "interno"
 
 export class ErrorConsultaContextual extends Error {
@@ -46,16 +52,18 @@ export async function consultarAsistenteContextual(
   requestId: string,
   pregunta: string,
   contexto: ContextoAsistente,
-): Promise<RespuestaPreguntaColaborativa> {
+  modeloEjecucion?: ModeloUMLCanonico,
+  revisionEditor = 0,
+): Promise<RespuestaInteraccionColaborativa> {
   const vistaActual = {
     idioma: contexto.idioma, modeloActual: contexto.modeloActual, estadoUml: contexto.estadoUml,
     generacion: contexto.generacion, cambiosSinGuardar: contexto.cambiosSinGuardar,
     candidatoImagenPendiente: contexto.candidatoImagenPendiente,
   }
   const elementoId = contexto.elementoSeleccionado?.id
-  return leer(await fetch(construirUrlBackend(`/api/proyectos/${projectId}/asistente-colaborativo/preguntar`), {
+  return leer(await fetch(construirUrlBackend(`/api/proyectos/${projectId}/asistente-colaborativo/interactuar`), {
     method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${credencial}` },
-    body: JSON.stringify({ requestId, contenido: pregunta, ...(elementoId ? { foco: { elementoId } } : {}), vistaActual }),
+    body: JSON.stringify({ requestId, contenido: pregunta, ...(elementoId ? { foco: { elementoId } } : {}), vistaActual, ...(modeloEjecucion ? { modeloEjecucion, revisionEditor } : {}) }),
   }))
 }
 

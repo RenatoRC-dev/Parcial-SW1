@@ -95,7 +95,7 @@ export class ConstruirContextoAsistenteColaborativo {
       conversacionCompartida: mensajesCronologicos.map((mensaje) => ({
         id: mensaje.id, tipoRemitente: mensaje.tipoRemitente, participantId: mensaje.participantId,
         nombreVisibleSnapshot: mensaje.nombreVisibleSnapshot, contenido: mensaje.contenido, requestId: mensaje.requestId,
-        replyToMessageId: mensaje.replyToMessageId, creadoEn: mensaje.creadoEn,
+        replyToMessageId: mensaje.replyToMessageId, creadoEn: mensaje.creadoEn, recomendacion: mensaje.recomendacion ?? null,
       })),
       actividadReciente: paginaEventos.items.map((evento) => ({
         id: evento.id, tipo: evento.tipo, solicitadoPorParticipantId: evento.solicitadoPorParticipantId,

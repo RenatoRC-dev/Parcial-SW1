@@ -45,16 +45,16 @@ describe("CU12 colaborativo autenticado", () => {
 
   const crear = (nombre = "Ventas", participante = "Renato") => request(aplicacion).post("/api/proyectos").send({ nombre, nombreParticipante: participante }).expect(201)
   const preguntar = (proyectoId: string, credencial: string, contenido: string, id = requestId) => request(aplicacion)
-    .post(`/api/proyectos/${proyectoId}/asistente-colaborativo/preguntar`).set(bearer(credencial))
+    .post(`/api/proyectos/${proyectoId}/asistente-colaborativo/interactuar`).set(bearer(credencial))
     .send({ requestId: id, contenido })
 
   it("exige acceso, aísla proyectos y atribuye el mensaje a la identidad autenticada", async () => {
     const a = await crear("A", "Carlos")
     const b = await crear("B", "Renato")
     await request(aplicacion).post("/api/ia/contextual/preguntar").send({}).expect(404)
-    await request(aplicacion).post(`/api/proyectos/${a.body.proyecto.id}/asistente-colaborativo/preguntar`).send({ requestId, contenido: "Analiza el modelo" }).expect(401)
+    await request(aplicacion).post(`/api/proyectos/${a.body.proyecto.id}/asistente-colaborativo/interactuar`).send({ requestId, contenido: "Analiza el modelo" }).expect(401)
     await preguntar(a.body.proyecto.id, b.body.credencial, "Analiza el modelo").expect(403)
-    const respuesta = await request(aplicacion).post(`/api/proyectos/${a.body.proyecto.id}/asistente-colaborativo/preguntar`)
+    const respuesta = await request(aplicacion).post(`/api/proyectos/${a.body.proyecto.id}/asistente-colaborativo/interactuar`)
       .set(bearer(a.body.credencial)).send({ requestId, contenido: "Analiza el modelo", participantId: "suplantado", nombreVisible: "Renato" }).expect(200)
     expect(respuesta.body.mensajeHumano).toMatchObject({ participantId: a.body.participante.id, nombreVisibleSnapshot: "Carlos", contenido: "Analiza el modelo" })
     expect(respuesta.body.mensajeIA).toMatchObject({ tipoRemitente: "ai", participantId: null, replyToMessageId: respuesta.body.mensajeHumano.id })
@@ -102,7 +102,7 @@ describe("CU12 colaborativo autenticado", () => {
 
   it("acepta una vista consultiva acotada pero elimina campos desconocidos antes de Groq", async () => {
     const creado = await crear()
-    await request(aplicacion).post(`/api/proyectos/${creado.body.proyecto.id}/asistente-colaborativo/preguntar`)
+    await request(aplicacion).post(`/api/proyectos/${creado.body.proyecto.id}/asistente-colaborativo/interactuar`)
       .set(bearer(creado.body.credencial)).send({
         requestId, contenido: "Analiza la vista actual", credencial: "no-debe-propagarse",
         vistaActual: {
@@ -126,7 +126,7 @@ describe("CU12 colaborativo autenticado", () => {
     const hecho = await preguntar(creado.body.proyecto.id, creado.body.credencial, "¿Quién creó Venta?").expect(200)
     expect(hecho.body.mensajeIA.contenido).toContain("Renato")
     const orden = await preguntar(creado.body.proyecto.id, creado.body.credencial, "Crea una clase Factura", "22222222-2222-4222-8222-222222222222").expect(200)
-    expect(orden.body.mensajeIA.contenido).toContain("no modifica el UML")
+    expect(orden.body.mensajeIA.contenido).toContain("vista actual")
     expect(responder).not.toHaveBeenCalled()
     expect((await proyectos.obtenerPorId(creado.body.proyecto.id))?.revisionModelo).toBe(0)
   })

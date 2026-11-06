@@ -50,7 +50,7 @@ describeIntegracion("continuidad CU11/CU12 tras nueva composición backend", () 
         .set("Authorization", `Bearer ${credencial}`)
         .send({ modelo: modeloGuardado, revisionBase: 0 }).expect(200)
       expect(guardado.body.revisionModelo).toBe(1)
-      await request(aplicacion).post(`/api/proyectos/${proyectoId}/asistente-colaborativo/preguntar`)
+      await request(aplicacion).post(`/api/proyectos/${proyectoId}/asistente-colaborativo/interactuar`)
         .set("Authorization", `Bearer ${credencial}`)
         .send({ requestId: randomUUID(), contenido: "Analiza el proyecto después del guardado" }).expect(200)
     } finally {

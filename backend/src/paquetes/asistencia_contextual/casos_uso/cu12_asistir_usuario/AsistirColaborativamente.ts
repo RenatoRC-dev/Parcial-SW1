@@ -85,7 +85,7 @@ export class AsistirColaborativamente {
       ?? responderAccionNoEjecutable(solicitud)
       ?? await asistirUsuario(solicitud, this.proveedor)
     const ids = respuesta.elementoRelacionadoId ? [respuesta.elementoRelacionadoId] : []
-    const ia = await this.mensajes.registrarMensajeIAIdempotente(acceso.projectId, respuesta.respuesta, pregunta.requestId, humano.mensaje.id, ids)
+    const ia = await this.mensajes.registrarMensajeIAIdempotente(acceso.projectId, respuesta.respuesta, pregunta.requestId, humano.mensaje.id, ids, respuesta.recomendacion ?? null)
     if (ia.creado) this.publicador.publicar(ia.mensaje)
     return { mensajeHumano: humano.mensaje, mensajeIA: ia.mensaje }
   }

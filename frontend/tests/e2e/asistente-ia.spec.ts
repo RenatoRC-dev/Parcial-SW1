@@ -11,7 +11,7 @@ async function instruir(page: Page, texto: string) {
   return panel
 }
 
-test("CU04 aplica clase y atributo automáticamente y aclara sin mutar", async ({ page }) => {
+test("P6-10 CU04 directo conserva texto, aplicación automática y aclaración", async ({ page }) => {
   await crearProyectoE2E(page, "IA")
   await expect(page.getByText("NexoCASE", { exact: true })).toBeVisible()
   await expect(page.locator(".react-flow")).toBeVisible()

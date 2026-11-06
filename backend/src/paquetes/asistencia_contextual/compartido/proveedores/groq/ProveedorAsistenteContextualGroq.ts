@@ -27,6 +27,8 @@ Clasifica cada respuesta: OBLIGATORIO solo ante un problema concreto; RECOMENDAD
 
 Si una pregunta parece una orden de cambio, puedes analizarla o proponerla, pero indica que se aplica mediante Asistente IA; no produzcas comandos ejecutables. Distingue UML válido, aptitud Spring y completitud de negocio: esta última no puede afirmarse sin requisitos o casos de uso. Responde en contextoAplicacion.idioma, de forma breve, en texto plano y con encabezados cortos como Resultado:, Cómo hacerlo:, Nota: o Condición de negocio:. No uses Markdown. Si la pregunta está fuera de NexoCASE/UML, redirige al producto.
 
+Cuando recomiendes un cambio UML concreto y sustentado, incluye recomendacion con resumen, IDs estables existentes y una instruccion autocontenida para CU04. Esa recomendacion es solo evidencia contextual: nunca autoriza ni ejecuta. Si no existe un cambio concreto, usa null.
+
 Devuelve exclusivamente el JSON solicitado y usa solo acciones permitidas.`
 
 const ESQUEMA = {
@@ -38,8 +40,18 @@ const ESQUEMA = {
     elementoRelacionadoId: { type: ["string", "null"] },
     nivel: { type: "string", enum: ["informacion", "sugerencia", "advertencia"] },
     categoriaRecomendacion: { type: "string", enum: ["INFORMATIVO", "OBLIGATORIO", "RECOMENDADO", "OPCIONAL"] },
+    recomendacion: {
+      anyOf: [
+        { type: "null" },
+        { type: "object", additionalProperties: false, properties: {
+          resumen: { type: "string", maxLength: 500 },
+          targetElementIds: { type: "array", maxItems: 8, items: { type: "string" } },
+          normalizedInstruction: { type: "string", maxLength: 2000 },
+        }, required: ["resumen", "targetElementIds", "normalizedInstruction"] },
+      ],
+    },
   },
-  required: ["respuesta", "accionSugerida", "elementoRelacionadoId", "nivel", "categoriaRecomendacion"],
+  required: ["respuesta", "accionSugerida", "elementoRelacionadoId", "nivel", "categoriaRecomendacion", "recomendacion"],
 } as const
 
 export function construirContenidoPreguntaContextual(solicitud: SolicitudAsistenteContextual): string {

@@ -9,17 +9,24 @@ import {
   type MensajeColaborativo,
 } from "./consultarAsistenteContextual"
 import { obtenerGrupoPreguntasRapidas, obtenerOrientacionDeterminista, type ContextoAsistente } from "./ContextoAsistente"
+import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
+import { aplicarPlanIA } from "../../../asistencia_ia/casos_uso/cu04_modelar_con_ia/procesarInstruccionIA"
+import { completarCambioIA } from "../../../asistencia_ia/casos_uso/cu04_modelar_con_ia/solicitarCambioIA"
+import type { CambioAplicadoIA } from "../../../asistencia_ia/casos_uso/cu04_modelar_con_ia/ComandoModeloUML"
 
 interface PropiedadesPanelAsistenteContextual {
   projectId: string
   credential: string
   contexto: ContextoAsistente
+  modelo: ModeloUMLCanonico
+  revisionEditor: number
+  alAplicarModelo: (modelo: ModeloUMLCanonico) => void
   consultar?: typeof consultarAsistenteContextual
   cargar?: typeof cargarMensajesColaborativos
   conectar?: typeof conectarConversacionColaborativa
 }
 
-export function PanelAsistenteContextual({ projectId, credential, contexto, consultar = consultarAsistenteContextual, cargar = cargarMensajesColaborativos, conectar = conectarConversacionColaborativa }: PropiedadesPanelAsistenteContextual) {
+export function PanelAsistenteContextual({ projectId, credential, contexto, modelo, revisionEditor, alAplicarModelo, consultar = consultarAsistenteContextual, cargar = cargarMensajesColaborativos, conectar = conectarConversacionColaborativa }: PropiedadesPanelAsistenteContextual) {
   const { t } = usarPreferenciasUI()
   const [pregunta, establecerPregunta] = useState("")
   const [mensajes, establecerMensajes] = useState<MensajeColaborativo[]>([])
@@ -28,6 +35,9 @@ export function PanelAsistenteContextual({ projectId, credential, contexto, cons
   const [consultando, establecerConsultando] = useState(false)
   const [cargando, establecerCargando] = useState(true)
   const solicitudPendiente = useRef<{ contenido: string; requestId: string } | null>(null)
+  const estadoModelo = useRef({ modelo, revision: revisionEditor })
+  const accionesAplicadas = useRef(new Map<string, CambioAplicadoIA[]>())
+  estadoModelo.current = { modelo, revision: revisionEditor }
   const orientacion = obtenerOrientacionDeterminista(contexto)
   const claveOrientacion: Record<typeof orientacion, ClaveTexto> = {
     SIN_CLASES: "contextual.hintSinClases", UML_INVALIDO: "contextual.hintInvalido", IMAGEN_PENDIENTE: "contextual.hintImagen",
@@ -70,8 +80,18 @@ export function PanelAsistenteContextual({ projectId, credential, contexto, cons
     solicitudPendiente.current = { contenido: limpia, requestId }
     establecerConsultando(true); establecerError(null)
     try {
-      const resultado = await consultar(projectId, credential, requestId, limpia, contexto)
-      establecerMensajes((actuales) => combinarMensajes(actuales, [resultado.mensajeHumano, resultado.mensajeIA]))
+      const resultado = await consultar(projectId, credential, requestId, limpia, contexto, estadoModelo.current.modelo, estadoModelo.current.revision)
+      establecerMensajes((actuales) => combinarMensajes(actuales, [resultado.mensajeHumano, ...resultadoMensajes(resultado)]))
+      if (resultado.kind === "action") {
+        const cambiosPrevios = accionesAplicadas.current.get(resultado.actionId)
+        const ejecucion = cambiosPrevios
+          ? { resultado: "aplicado" as const, mensaje: "El cambio ya fue aplicado localmente.", cambios: cambiosPrevios }
+          : aplicarPlanIA({ plan: resultado.plan, baseEditorRevision: resultado.baseEditorRevision, obtenerEstado: () => estadoModelo.current, aplicar: alAplicarModelo })
+        if (!cambiosPrevios && ejecucion.resultado === "aplicado") accionesAplicadas.current.set(resultado.actionId, ejecucion.cambios)
+        const cierre = await completarCambioIA(projectId, credential, resultado.actionId, ejecucion.resultado === "aplicado" ? "applied" : "failed", ejecucion.cambios, ejecucion.mensaje)
+        if (cierre.mensajeIA) establecerMensajes((actuales) => combinarMensajes(actuales, [cierre.mensajeIA as MensajeColaborativo]))
+        if (ejecucion.resultado !== "aplicado") establecerError(ejecucion.mensaje)
+      }
       solicitudPendiente.current = null
       establecerPregunta("")
     } catch (fallo) {
@@ -98,4 +118,8 @@ export function PanelAsistenteContextual({ projectId, credential, contexto, cons
     </div>
     <p className="ai-note">{t("contextual.noMuta")}</p>
   </aside>
+}
+
+function resultadoMensajes(resultado: Awaited<ReturnType<typeof consultarAsistenteContextual>>): MensajeColaborativo[] {
+  return "mensajeIA" in resultado && resultado.mensajeIA ? [resultado.mensajeIA] : []
 }

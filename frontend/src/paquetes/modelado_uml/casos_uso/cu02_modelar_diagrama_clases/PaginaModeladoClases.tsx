@@ -160,8 +160,8 @@ export function PaginaModeladoClases({ proyectoId, proyectoNombre, accesoColabor
             <div className="tool-drawer-heading"><strong>{herramientaActiva ? t(`shell.${herramientaActiva}`) : t("shell.herramientas")}</strong><button type="button" aria-label={t("shell.cerrarPanel")} title={t("shell.cerrarPanel")} onClick={() => establecerHerramientaActiva(null)}>×</button></div>
             <div className="tool-drawer-content">
               <div hidden={herramientaActiva !== "ia"}>
-                {resultadoCanonico ? <PanelAsistenteModelado modelo={resultadoCanonico.modelo} revision={revisionModelo} alAplicarModelo={(modeloCanonico) => establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico))} /> : null}
-                {contextoAsistente ? <PanelAsistenteContextual projectId={proyectoId} credential={accesoColaboracion.credential} contexto={contextoAsistente} /> : null}
+                {resultadoCanonico ? <PanelAsistenteModelado projectId={proyectoId} credential={accesoColaboracion.credential} modelo={resultadoCanonico.modelo} revision={revisionModelo} alAplicarModelo={(modeloCanonico) => establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico))} /> : null}
+                {contextoAsistente && resultadoCanonico ? <PanelAsistenteContextual projectId={proyectoId} credential={accesoColaboracion.credential} contexto={contextoAsistente} modelo={resultadoCanonico.modelo} revisionEditor={revisionModelo} alAplicarModelo={(modeloCanonico) => establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico))} /> : null}
               </div>
               <div hidden={herramientaActiva !== "imagen"}>
                 {resultadoCanonico ? <PanelModeladoDesdeImagen modelo={resultadoCanonico.modelo} alAplicarModelo={(modeloCanonico) => establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico))} alCambiarEstadoCandidato={establecerCandidatoImagenPendiente} /> : null}

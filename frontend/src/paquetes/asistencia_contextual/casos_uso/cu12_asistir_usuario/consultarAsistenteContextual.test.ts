@@ -21,7 +21,7 @@ describe("cliente del asistente colaborativo", () => {
     vi.stubGlobal("fetch", fetch)
     await consultarAsistenteContextual("proyecto-1", "secreto-opaco", "11111111-1111-4111-8111-111111111111", "¿Y ahora?", contexto)
     const [url, opciones] = fetch.mock.calls[0]
-    expect(String(url)).toContain("/api/proyectos/proyecto-1/asistente-colaborativo/preguntar")
+    expect(String(url)).toContain("/api/proyectos/proyecto-1/asistente-colaborativo/interactuar")
     expect(opciones?.headers).toEqual(expect.objectContaining({ Authorization: "Bearer secreto-opaco" }))
     const cuerpo = JSON.parse(String(opciones?.body))
     expect(cuerpo).toEqual(expect.objectContaining({ requestId: "11111111-1111-4111-8111-111111111111", contenido: "¿Y ahora?", foco: { elementoId: "factura" } }))

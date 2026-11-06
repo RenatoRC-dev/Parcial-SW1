@@ -1,5 +1,11 @@
 export type TipoRemitenteMensaje = "human" | "ai" | "system"
 
+export interface RecomendacionMensajeIA {
+  resumen: string
+  targetElementIds: string[]
+  normalizedInstruction: string
+}
+
 export interface MensajeProyecto {
   id: string
   projectId: string
@@ -10,6 +16,7 @@ export interface MensajeProyecto {
   requestId: string | null
   replyToMessageId: string | null
   elementosRelacionadosIds: string[]
+  recomendacion?: RecomendacionMensajeIA | null
   revisionModeloObservada: number
   creadoEn: string
 }

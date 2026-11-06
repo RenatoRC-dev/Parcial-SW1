@@ -16,6 +16,12 @@ export interface SolicitudActividadManual {
   detalle?: Record<string, unknown>
 }
 
+export interface CambioAplicadoIA {
+  commandIndex: number
+  tipo: "UML_ELEMENT_CREATED" | "UML_ELEMENT_UPDATED" | "UML_ELEMENT_DELETED"
+  elemento: ReferenciaElementoEvento
+}
+
 function validarElemento(elemento: ReferenciaElementoEvento): ReferenciaElementoEvento {
   if (!elemento || typeof elemento.id !== "string" || !elemento.id.trim() || elemento.id.length > 160
     || !TIPOS_ELEMENTO_UML.includes(elemento.tipo)
@@ -71,9 +77,29 @@ export class RegistrarActividadProyecto {
     return this.eventos.crear(this.construir({ ...entrada, mecanismo: "system", elemento: null, detalle: {}, clientChangeId: null }))
   }
 
+  async registrarIA(contexto: ContextoAccesoProyecto, actionId: string, sourceMessageId: string | null, cambios: CambioAplicadoIA[]): Promise<EventoProyecto[]> {
+    const proyecto = await this.proyectos.obtenerPorId(contexto.projectId)
+    if (!proyecto) throw new ErrorProyectoNoEncontrado("Proyecto no encontrado.")
+    const salida: EventoProyecto[] = []
+    for (const cambio of cambios) {
+      const evento = this.construir({ contexto, tipo: cambio.tipo, mecanismo: "ai_cu04", elemento: validarElemento(cambio.elemento),
+        detalle: { actionId, commandIndex: String(cambio.commandIndex) }, revision: proyecto.revisionModelo,
+        clientChangeId: `${actionId}:${cambio.commandIndex}`, sourceMessageId })
+      try { salida.push(await this.eventos.crear(evento)) }
+      catch (error) {
+        if (error instanceof ErrorClientChangeIdDuplicado) {
+          const repetido = await this.eventos.obtenerPorClientChangeId(contexto.projectId, evento.clientChangeId!)
+          if (repetido) { salida.push(repetido); continue }
+        }
+        throw error
+      }
+    }
+    return salida
+  }
+
   private construir(entrada: {
     contexto: ContextoAccesoProyecto; tipo: TipoEventoProyecto; mecanismo: MecanismoEvento
-    elemento: ReferenciaElementoEvento | null; detalle: Record<string, string>; revision: number; clientChangeId: string | null
+    elemento: ReferenciaElementoEvento | null; detalle: Record<string, string>; revision: number; clientChangeId: string | null; sourceMessageId?: string | null
   }): EventoProyecto {
     return {
       id: randomUUID(), projectId: entrada.contexto.projectId, tipo: entrada.tipo,
@@ -81,7 +107,7 @@ export class RegistrarActividadProyecto {
       nombreParticipanteSnapshot: entrada.contexto.displayName,
       mecanismo: entrada.mecanismo, elemento: entrada.elemento, detalle: entrada.detalle,
       revisionModeloObservada: entrada.revision, clientChangeId: entrada.clientChangeId,
-      sourceMessageId: null, creadoEn: new Date().toISOString(),
+      sourceMessageId: entrada.sourceMessageId ?? null, creadoEn: new Date().toISOString(),
     }
   }
 }

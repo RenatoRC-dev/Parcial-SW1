@@ -5,6 +5,7 @@ import { ProveedorPreferenciasUI } from "../../../../configuracion/PreferenciasU
 import { PanelAsistenteModelado } from "./PanelAsistenteModelado"
 
 const modelo: ModeloUMLCanonico = { id: "m", nombre: "Modelo", version: "4.2.0", clases: [{ id: "cliente", nombre: "Cliente", abstracta: false, posicion: { x: 0, y: 0 }, atributos: [] }], relaciones: [] }
+const acceso = { projectId: "p", credential: "cred" }
 
 class MediaRecorderPanelFalso {
   static isTypeSupported(tipo: string) { return tipo.startsWith("audio/webm") }
@@ -35,7 +36,7 @@ afterEach(() => vi.unstubAllGlobals())
 
 describe("PanelAsistenteModelado", () => {
   it("rechaza instrucción vacía y no contiene confirmación", async () => {
-    render(<PanelAsistenteModelado modelo={modelo} revision={1} alAplicarModelo={vi.fn()} />)
+    render(<PanelAsistenteModelado {...acceso} modelo={modelo} revision={1} alAplicarModelo={vi.fn()} />)
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
     expect(await screen.findByRole("alert").catch(() => null)).toBeNull()
     expect(screen.getByRole("status")).toHaveTextContent("Escribe una instrucción")
@@ -46,7 +47,7 @@ describe("PanelAsistenteModelado", () => {
     let resolver!: (valor: Response) => void
     vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => { resolver = resolve })))
     const aplicar = vi.fn()
-    render(<PanelAsistenteModelado modelo={modelo} revision={3} alAplicarModelo={aplicar} />)
+    render(<PanelAsistenteModelado {...acceso} modelo={modelo} revision={3} alAplicarModelo={aplicar} />)
     fireEvent.change(screen.getByLabelText("Instrucción UML"), { target: { value: "Agrega correo" } })
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
     expect(screen.getByRole("status")).toHaveTextContent("Interpretando")
@@ -60,7 +61,7 @@ describe("PanelAsistenteModelado", () => {
     const fetchMock = vi.fn(() => new Promise<Response>((resolve) => { resolver = resolve }))
     vi.stubGlobal("fetch", fetchMock)
     const aplicar = vi.fn()
-    render(<PanelAsistenteModelado modelo={modelo} revision={3} alAplicarModelo={aplicar} />)
+    render(<PanelAsistenteModelado {...acceso} modelo={modelo} revision={3} alAplicarModelo={aplicar} />)
     const entrada = screen.getByLabelText(/Instrucci.n UML/)
     const enviar = screen.getByRole("button", { name: "Enviar" })
     fireEvent.change(entrada, { target: { value: "Agrega telefono" } })
@@ -88,7 +89,7 @@ describe("PanelAsistenteModelado", () => {
     vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => { resolver = resolve })))
     const aplicar = vi.fn()
     const modeloAntes = JSON.stringify(modelo)
-    render(<ProveedorPreferenciasUI><PanelAsistenteModelado modelo={modelo} revision={3} alAplicarModelo={aplicar} /></ProveedorPreferenciasUI>)
+    render(<ProveedorPreferenciasUI><PanelAsistenteModelado {...acceso} modelo={modelo} revision={3} alAplicarModelo={aplicar} /></ProveedorPreferenciasUI>)
     fireEvent.change(screen.getByLabelText("UML instruction"), { target: { value: "Add email" } })
     fireEvent.click(screen.getByRole("button", { name: "Send" }))
     expect(screen.getByRole("status")).toHaveTextContent("Interpreting...")
@@ -104,7 +105,7 @@ describe("PanelAsistenteModelado", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ resultado: "aplicar", mensaje: "Identificador agregado.", comandos: [{ tipo: "agregar_atributo", claseRef: "cliente", refTemporal: "tmp_id", nombre: "id", tipoDato: "Long", visibilidad: "privada" }], revision: 3 }), { status: 200 }))
     vi.stubGlobal("fetch", fetchMock)
     const aplicar = vi.fn()
-    render(<PanelAsistenteModelado modelo={modelo} revision={3} alAplicarModelo={aplicar} />)
+    render(<PanelAsistenteModelado {...acceso} modelo={modelo} revision={3} alAplicarModelo={aplicar} />)
     fireEvent.click(screen.getByRole("button", { name: "🎙 Hablar" }))
     await screen.findByText("Escuchando...")
     fireEvent.click(screen.getByRole("button", { name: "⏹ Detener" }))
@@ -118,7 +119,7 @@ describe("PanelAsistenteModelado", () => {
 
   it("conserva el texto escrito cuando falla la transcripción", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "Servicio no disponible" }), { status: 503 })))
-    render(<PanelAsistenteModelado modelo={modelo} revision={1} alAplicarModelo={vi.fn()} />)
+    render(<PanelAsistenteModelado {...acceso} modelo={modelo} revision={1} alAplicarModelo={vi.fn()} />)
     fireEvent.change(screen.getByLabelText("Instrucción UML"), { target: { value: "Texto pendiente" } })
     fireEvent.click(screen.getByRole("button", { name: "🎙 Hablar" }))
     await screen.findByText("Escuchando...")
@@ -129,7 +130,7 @@ describe("PanelAsistenteModelado", () => {
 
   it("mantiene disponible el asistente de texto cuando MediaRecorder no existe", () => {
     vi.stubGlobal("MediaRecorder", undefined)
-    render(<PanelAsistenteModelado modelo={modelo} revision={1} alAplicarModelo={vi.fn()} />)
+    render(<PanelAsistenteModelado {...acceso} modelo={modelo} revision={1} alAplicarModelo={vi.fn()} />)
     expect(screen.getByRole("button", { name: "🎙 Hablar" })).toBeDisabled()
     expect(screen.getByRole("button", { name: "Enviar" })).toBeEnabled()
     expect(screen.getByLabelText("Instrucción UML")).toBeEnabled()

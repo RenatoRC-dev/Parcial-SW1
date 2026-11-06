@@ -1,4 +1,6 @@
 import type { ContextoAsistente } from "./ContratoAsistenteContextual.js"
+import type { ModeloUMLCanonicoIA } from "../../asistencia_ia/compartido/contrato/ComandoModeloUML.js"
+import { validarSolicitudInterpretacion } from "../../asistencia_ia/casos_uso/cu04_modelar_con_ia/ValidarSolicitudInterpretacion.js"
 
 export interface VistaActualColaborativa {
   idioma: "es" | "en"
@@ -14,6 +16,8 @@ export interface PreguntaAsistenteColaborativo {
   contenido: string
   foco?: { elementoId: string }
   vistaActual?: VistaActualColaborativa
+  modeloEjecucion?: ModeloUMLCanonicoIA
+  revisionEditor?: number
 }
 
 const PATRON_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -52,6 +56,8 @@ export function esPreguntaAsistenteColaborativo(valor: unknown): valor is Pregun
   if (!esObjeto(valor) || typeof valor.requestId !== "string" || !PATRON_UUID.test(valor.requestId)
     || typeof valor.contenido !== "string" || !valor.contenido.trim() || valor.contenido.length > 2_000) return false
   if (valor.foco !== undefined && (!esObjeto(valor.foco) || typeof valor.foco.elementoId !== "string" || !valor.foco.elementoId || valor.foco.elementoId.length > 160)) return false
+  if ((valor.modeloEjecucion === undefined) !== (valor.revisionEditor === undefined)) return false
+  if (valor.modeloEjecucion !== undefined && !validarSolicitudInterpretacion({ instruccion: "validar", modelo: valor.modeloEjecucion, revision: valor.revisionEditor })) return false
   if (valor.vistaActual === undefined) return true
   const vista = valor.vistaActual
   if (!esObjeto(vista) || (vista.idioma !== "es" && vista.idioma !== "en") || !esModeloAcotado(vista.modeloActual)
@@ -70,6 +76,7 @@ export function leerPreguntaAsistenteColaborativo(valor: unknown): PreguntaAsist
     requestId: valor.requestId,
     contenido: valor.contenido,
     ...(valor.foco ? { foco: { elementoId: valor.foco.elementoId } } : {}),
+    ...(valor.modeloEjecucion && typeof valor.revisionEditor === "number" ? { modeloEjecucion: structuredClone(valor.modeloEjecucion), revisionEditor: valor.revisionEditor } : {}),
   }
   if (!valor.vistaActual) return pregunta
   const vista = valor.vistaActual

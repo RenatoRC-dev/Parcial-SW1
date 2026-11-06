@@ -71,7 +71,7 @@ describeIntegracion("events y messages con MongoDB real", () => {
     expect(segunda.items[0]?.id).not.toBe(primera.items[0]?.id)
     expect((await mensajes.listarPorProyecto({ projectId: randomUUID(), limite: 30 })).items).toEqual([])
     expect((await base.collection(COLECCION_MENSAJES).findOne({ _id: humano.id }))?.creadoEn).toBeInstanceOf(Date)
-    expect((await base.collection(COLECCION_MENSAJES).indexes()).map((i) => i.name)).toEqual(["_id_", "project_fecha_mensaje", "project_request_remitente_unique"])
+    expect((await base.collection(COLECCION_MENSAJES).indexes()).map((i) => i.name)).toEqual(["_id_", "project_fecha_mensaje", "project_request_remitente_unique", "project_ai_action_unique"])
     const requestId = randomUUID()
     const idempotente1 = await servicio.registrarMensajeHumanoIdempotente(contexto, "Pregunta estable", requestId)
     const idempotente2 = await servicio.registrarMensajeHumanoIdempotente(contexto, "Pregunta estable", requestId)
