@@ -1,52 +1,51 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import type { ContextoAsistente, MensajeConversacionContextual } from "./ContextoAsistente"
-import { consultarAsistenteContextual, ErrorConsultaContextual } from "./consultarAsistenteContextual"
+import type { ContextoAsistente } from "./ContextoAsistente"
+import { cargarMensajesColaborativos, combinarMensajes, consultarAsistenteContextual, ErrorConsultaContextual } from "./consultarAsistenteContextual"
 
 const contexto: ContextoAsistente = {
-  proyecto: { id: "p", nombre: "Ventas" },
-  area: "modelado_uml",
-  idioma: "es",
-  revisionModelo: 7,
-  modeloActual: {
-    id: "m", nombre: "Ventas", version: "1", truncado: false,
-    clases: [{ id: "factura", nombre: "Factura", tipoClase: "normal", abstracta: false, atributos: [{ nombre: "total", tipo: "Double", visibilidad: "privada" }], operaciones: [] }],
-    relaciones: [],
-  },
-  elementoSeleccionado: { tipo: "clase", id: "factura", nombre: "Factura", tipoClase: "normal", abstracta: false, atributos: [{ nombre: "total", tipo: "Double", visibilidad: "privada" }], operaciones: [], relacionesConectadas: [] },
-  elementosRelevantes: [],
-  resumenModelo: { clases: 1, relaciones: 0 },
+  proyecto: { id: "p", nombre: "Ventas" }, area: "modelado_uml", idioma: "es", revisionModelo: 7,
+  modeloActual: { id: "m", nombre: "Ventas", version: "1", truncado: false,
+    clases: [{ id: "factura", nombre: "Factura", tipoClase: "normal", abstracta: false, atributos: [{ nombre: "total", tipo: "Double", visibilidad: "privada" }], operaciones: [] }], relaciones: [] },
+  elementoSeleccionado: { tipo: "clase", id: "factura", nombre: "Factura", tipoClase: "normal", abstracta: false, atributos: [], operaciones: [], relacionesConectadas: [] },
+  elementosRelevantes: [], resumenModelo: { clases: 1, relaciones: 0 },
   estadoUml: { estado: "valido", problemas: [], errores: [], advertencias: ["Revisar total"] },
-  generacion: { estado: "apto", bloqueos: [], advertencias: ["Regla mínima"] },
-  cambiosSinGuardar: true,
-  candidatoImagenPendiente: false,
-  accionesDisponibles: ["NINGUNA", "ENFOCAR_ELEMENTO", "IR_A_GENERACION"],
+  generacion: { estado: "apto", bloqueos: [], advertencias: [] }, cambiosSinGuardar: true,
+  candidatoImagenPendiente: false, accionesDisponibles: ["NINGUNA", "ENFOCAR_ELEMENTO"],
 }
 
 afterEach(() => vi.unstubAllGlobals())
 
-describe("consultarAsistenteContextual", () => {
-  it("envía el modelo actual, selección, estados y solamente ocho mensajes recientes", async () => {
-    const fetch = vi.fn(async (_entrada: RequestInfo | URL, _opciones?: RequestInit) => new Response(JSON.stringify({ respuesta: "Lista.", accionSugerida: "NINGUNA", elementoRelacionadoId: null, nivel: "informacion", categoriaRecomendacion: "INFORMATIVO" }), { status: 200, headers: { "Content-Type": "application/json" } }))
+describe("cliente del asistente colaborativo", () => {
+  it("envía Bearer, requestId, foco y solo la vista actual acotada", async () => {
+    const fetch = vi.fn(async (_entrada: RequestInfo | URL, _opciones?: RequestInit) => new Response(JSON.stringify({ mensajeHumano: {}, mensajeIA: {} }), { status: 200, headers: { "Content-Type": "application/json" } }))
     vi.stubGlobal("fetch", fetch)
-    const conversacion: MensajeConversacionContextual[] = Array.from({ length: 12 }, (_, indice) => ({ rol: indice % 2 === 0 ? "usuario" : "asistente", contenido: `mensaje-${indice}` }))
-
-    await consultarAsistenteContextual("¿Y ahora?", contexto, conversacion)
-
-    const cuerpo = JSON.parse(String(fetch.mock.calls[0][1]?.body))
-    expect(cuerpo.contexto.modeloActual.clases[0].atributos[0]).toEqual(expect.objectContaining({ nombre: "total", tipo: "Double" }))
-    expect(cuerpo.contexto.elementoSeleccionado).toEqual(expect.objectContaining({ tipo: "clase", nombre: "Factura" }))
-    expect(cuerpo.contexto.estadoUml.advertencias).toEqual(["Revisar total"])
-    expect(cuerpo.contexto.generacion).toEqual(expect.objectContaining({ estado: "apto", advertencias: ["Regla mínima"] }))
-    expect(cuerpo.conversacion).toHaveLength(8)
-    expect(cuerpo.conversacion[0].contenido).toBe("mensaje-4")
+    await consultarAsistenteContextual("proyecto-1", "secreto-opaco", "11111111-1111-4111-8111-111111111111", "¿Y ahora?", contexto)
+    const [url, opciones] = fetch.mock.calls[0]
+    expect(String(url)).toContain("/api/proyectos/proyecto-1/asistente-colaborativo/preguntar")
+    expect(opciones?.headers).toEqual(expect.objectContaining({ Authorization: "Bearer secreto-opaco" }))
+    const cuerpo = JSON.parse(String(opciones?.body))
+    expect(cuerpo).toEqual(expect.objectContaining({ requestId: "11111111-1111-4111-8111-111111111111", contenido: "¿Y ahora?", foco: { elementoId: "factura" } }))
+    expect(cuerpo.vistaActual.modeloActual.clases[0].nombre).toBe("Factura")
+    expect(cuerpo).not.toHaveProperty("conversacion")
   })
 
-  it.each([
-    [429, "limite"],
-    [503, "no_disponible"],
-    [502, "respuesta_invalida"],
-  ] as const)("conserva el tipo controlado para HTTP %s", async (estado, tipo) => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "Mensaje seguro", tipo }), { status: estado, headers: { "Content-Type": "application/json" } })))
-    await expect(consultarAsistenteContextual("Pregunta", contexto, [])).rejects.toEqual(expect.objectContaining<Partial<ErrorConsultaContextual>>({ tipo, message: "Mensaje seguro" }))
+  it("carga historial paginado con autorización", async () => {
+    const fetch = vi.fn(async (_entrada: RequestInfo | URL, _opciones?: RequestInit) => new Response(JSON.stringify({ items: [], siguienteCursor: null }), { status: 200, headers: { "Content-Type": "application/json" } }))
+    vi.stubGlobal("fetch", fetch)
+    await cargarMensajesColaborativos("p", "cred", "cursor seguro")
+    expect(String(fetch.mock.calls[0][0])).toContain("cursor=cursor+seguro")
+    expect(fetch.mock.calls[0][1]?.headers).toEqual({ Authorization: "Bearer cred" })
+  })
+
+  it("combina, deduplica y ordena mensajes estables", () => {
+    const base = { projectId: "p", tipoRemitente: "human" as const, participantId: "u", nombreVisibleSnapshot: "Ana", contenido: "x", requestId: null, replyToMessageId: null, elementosRelacionadosIds: [], revisionModeloObservada: 0 }
+    const a = { ...base, id: "a", creadoEn: "2026-01-01T00:00:02.000Z" }
+    const b = { ...base, id: "b", creadoEn: "2026-01-01T00:00:01.000Z" }
+    expect(combinarMensajes([a], [b, a]).map((mensaje) => mensaje.id)).toEqual(["b", "a"])
+  })
+
+  it.each([[409, "conflicto"], [429, "limite"], [503, "no_disponible"], [502, "respuesta_invalida"]] as const)("conserva el tipo controlado para HTTP %s", async (estado, tipo) => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "Mensaje seguro" }), { status: estado, headers: { "Content-Type": "application/json" } })))
+    await expect(consultarAsistenteContextual("p", "c", crypto.randomUUID(), "Pregunta", contexto)).rejects.toEqual(expect.objectContaining<Partial<ErrorConsultaContextual>>({ tipo, message: "Mensaje seguro" }))
   })
 })

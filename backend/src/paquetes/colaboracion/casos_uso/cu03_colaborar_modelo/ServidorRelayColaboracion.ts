@@ -5,6 +5,7 @@ import { obtenerOrigenesFrontendPermitidos } from "../../../../configuracion/ori
 import { autenticarAccesoProyecto } from "../../../gestion_proyectos/acceso/autenticarAccesoProyecto.js"
 import type { DependenciasRutasProyectos } from "../../../gestion_proyectos/api/registrarRutasProyectos.js"
 import { obtenerSalaColaboracionProyecto } from "./validarSalaColaboracion.js"
+import { RUTA_CANAL_APLICACION } from "./ServidorCanalAplicacionProyecto.js"
 
 const RUTA_COLABORACION = "/api/colaboracion"
 const MAXIMO_PAYLOAD = 1024 * 1024
@@ -162,7 +163,7 @@ export function adjuntarRelayColaboracion(
   const alActualizar = (solicitud: IncomingMessage, socket: Duplex, cabecera: Buffer) => {
     const url = new URL(solicitud.url ?? "", `http://${solicitud.headers.host ?? "localhost"}`)
     if (url.pathname !== RUTA_COLABORACION) {
-      socket.destroy()
+      if (url.pathname !== RUTA_CANAL_APLICACION) socket.destroy()
       return
     }
     servidorWebSocket.handleUpgrade(solicitud, socket, cabecera, (webSocket) => {

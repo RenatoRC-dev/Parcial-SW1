@@ -18,6 +18,7 @@ import type { RepositorioMensajes } from "../../mensajeria_colaborativa/comparti
 import { RepositorioEventosMongo } from "../../trazabilidad/infraestructura/RepositorioEventosMongo.js"
 import { RepositorioMensajesMongo } from "../../mensajeria_colaborativa/infraestructura/RepositorioMensajesMongo.js"
 import { RepositorioEventosMemoria, RepositorioMensajesMemoria } from "../../trazabilidad/pruebas/RepositoriosMemoriaProyecto.js"
+import { ProveedorAsistenteContextualDeterministaE2E } from "../../asistencia_contextual/pruebas/ProveedorAsistenteContextualDeterministaE2E.js"
 
 async function iniciar(): Promise<void> {
   cargarConfiguracionEntorno()
@@ -33,6 +34,7 @@ async function iniciar(): Promise<void> {
   const proveedorIA = proveedorDeterminista ? new ProveedorDeterministaE2E() : undefined
   const proveedorTranscripcion = proveedorDeterminista ? new ProveedorTranscripcionDeterministaE2E() : undefined
   const proveedorVision = proveedorDeterminista ? new ProveedorVisionDeterministaE2E() : undefined
+  const proveedorAsistenteContextual = proveedorDeterminista ? new ProveedorAsistenteContextualDeterministaE2E() : undefined
 
   let conexionMongo: ConexionMongo | null = null
   let repositorioProyectos: RepositorioProyectos
@@ -63,10 +65,11 @@ async function iniciar(): Promise<void> {
     throw error
   }
 
-  const { servidor, relayColaboracion } = crearServidorCase({
+  const { servidor, relayColaboracion, canalAplicacion } = crearServidorCase({
     proveedorIA,
     proveedorTranscripcion,
     proveedorVision,
+    proveedorAsistenteContextual,
     accesoProyectos: {
       proyectos: repositorioProyectos,
       participantes: repositorioParticipantes,
@@ -82,6 +85,7 @@ async function iniciar(): Promise<void> {
     cerrando = true
     console.info(`Cerrando servidor por ${senal}.`)
     await relayColaboracion.cerrar().catch(() => undefined)
+    await canalAplicacion.cerrar().catch(() => undefined)
     if (servidor.listening) {
       await new Promise<void>((resolver) => servidor.close(() => resolver()))
     }

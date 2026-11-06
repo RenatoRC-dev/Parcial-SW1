@@ -62,16 +62,16 @@ export function responderAyudaProductoDeterminista(solicitud: SolicitudAsistente
       : `Resultado:\n${resumenEstado(solicitud)}\n\nLa completitud del negocio no puede demostrarse solo con el diagrama UML. NexoCASE puede determinar validez estructural y aptitud para Spring. Para evaluar completitud funcional, proporciona los requisitos del negocio o casos de uso.`)
   }
 
-  if (/(asistente contextual|contextual assistant|que puedes hacer|what can you do)/.test(pregunta)) {
+  if (/(asistente contextual|asistente colaborativo|contextual assistant|collaborative assistant|que puedes hacer|what can you do)/.test(pregunta)) {
     return crearRespuesta(ingles
       ? "The Contextual assistant teaches how to use NexoCASE and explains objective facts from the current UML, selection, validation and generation status. It is advisory: it never changes or saves the model, imports or exports XMI, or generates the backend by itself."
       : CONTEXTO_PRODUCTO_SW1.responsabilidadesIa.asistenteContextual)
   }
 
-  if (/(guardar|mis proyectos|crear proyecto|abrir proyecto|save|projects|create project|open project)/.test(pregunta)) {
+  if (/(guardar|proyectos recientes|crear proyecto|abrir proyecto|unirse|codigo|save|recent projects|join|projects|create project|open project)/.test(pregunta)) {
     return crearRespuesta(ingles
-      ? "Use My projects to create or open a project. In the modeling workspace, use Save in the top bar to persist current changes."
-      : `Usa ${CONTEXTO_PRODUCTO_SW1.capacidades.proyectos.acceso} para crear o abrir proyectos. En el espacio de modelado, pulsa Guardar en la barra superior para persistir los cambios actuales.`)
+      ? "Use Create project, Join with code or Recent projects. In the modeling workspace, use Save in the top bar to persist current UML changes."
+      : `Usa ${CONTEXTO_PRODUCTO_SW1.capacidades.proyectos.acceso}. Un dispositivo nuevo necesita el código; un acceso local válido puede reabrirse desde Proyectos recientes.`)
   }
 
   if (/(asistente ia|ia de modelado|crear clase con ia|modificar.* ia|modeling ai|create.*with ai|use ai)/.test(pregunta)) {

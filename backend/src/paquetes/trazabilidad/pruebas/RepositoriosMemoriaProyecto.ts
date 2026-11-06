@@ -1,5 +1,5 @@
 import type { ConsultaMensajes, MensajeProyecto, PaginaMensajes } from "../../mensajeria_colaborativa/compartido/MensajeProyecto.js"
-import type { RepositorioMensajes } from "../../mensajeria_colaborativa/compartido/RepositorioMensajes.js"
+import { ErrorRequestMensajeDuplicado, type RepositorioMensajes } from "../../mensajeria_colaborativa/compartido/RepositorioMensajes.js"
 import type { ConsultaEventos, EventoProyecto, PaginaEventos } from "../compartido/EventoProyecto.js"
 import { ErrorClientChangeIdDuplicado, type RepositorioEventos } from "../compartido/RepositorioEventos.js"
 
@@ -35,9 +35,18 @@ export class RepositorioEventosMemoria implements RepositorioEventos {
 
 export class RepositorioMensajesMemoria implements RepositorioMensajes {
   private readonly datos: MensajeProyecto[] = []
-  async crear(mensaje: MensajeProyecto): Promise<MensajeProyecto> { this.datos.push(structuredClone(mensaje)); return structuredClone(mensaje) }
+  async crear(mensaje: MensajeProyecto): Promise<MensajeProyecto> {
+    if (mensaje.requestId && this.datos.some((item) => item.projectId === mensaje.projectId && item.requestId === mensaje.requestId && item.tipoRemitente === mensaje.tipoRemitente)) {
+      throw new ErrorRequestMensajeDuplicado("El mensaje de la solicitud ya existe.")
+    }
+    this.datos.push(structuredClone(mensaje)); return structuredClone(mensaje)
+  }
   async obtenerPorId(projectId: string, id: string): Promise<MensajeProyecto | null> {
     const item = this.datos.find((mensaje) => mensaje.projectId === projectId && mensaje.id === id)
+    return item ? structuredClone(item) : null
+  }
+  async obtenerPorRequestId(projectId: string, requestId: string, tipoRemitente: "human" | "ai"): Promise<MensajeProyecto | null> {
+    const item = this.datos.find((mensaje) => mensaje.projectId === projectId && mensaje.requestId === requestId && mensaje.tipoRemitente === tipoRemitente)
     return item ? structuredClone(item) : null
   }
   async listarPorProyecto(consulta: ConsultaMensajes): Promise<PaginaMensajes> {

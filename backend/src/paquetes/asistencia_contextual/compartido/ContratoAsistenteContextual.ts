@@ -11,13 +11,43 @@ export type AccionAsistenteContextual = typeof ACCIONES_ASISTENTE_CONTEXTUAL[num
 export type NivelRespuestaContextual = "informacion" | "sugerencia" | "advertencia"
 export type CategoriaRecomendacionContextual = "INFORMATIVO" | "OBLIGATORIO" | "RECOMENDADO" | "OPCIONAL"
 
+export interface ClaseContextual {
+  id: string
+  nombre: string
+  tipoClase: "normal" | "asociativa"
+  abstracta: boolean
+  atributos: Array<{ nombre: string; tipo: string | null; visibilidad: string | null }>
+  operaciones: Array<{ nombre: string; tipoRetorno: string | null; parametros: Array<{ nombre: string; tipo: string | null }> }>
+}
+
+export interface RelacionContextual {
+  id: string
+  nombre: string | null
+  tipoRelacion: string
+  origen: { id: string; nombre: string; multiplicidad: string | null; rol: string | null }
+  destino: { id: string; nombre: string; multiplicidad: string | null; rol: string | null }
+}
+
+export interface ModeloActualContextual {
+  id: string
+  nombre: string
+  version: string
+  clases: ClaseContextual[]
+  relaciones: RelacionContextual[]
+  truncado: boolean
+}
+
+export type ElementoSeleccionadoContextual =
+  | (ClaseContextual & { tipo: "clase"; relacionesConectadas: string[] })
+  | (RelacionContextual & { tipo: "relacion" })
+
 export interface ContextoAsistente {
   proyecto: { id: string; nombre: string } | null
   area: "modelado_uml"
   idioma: "es" | "en"
   revisionModelo: number
-  modeloActual: Record<string, unknown>
-  elementoSeleccionado: Record<string, unknown> | null
+  modeloActual: ModeloActualContextual
+  elementoSeleccionado: ElementoSeleccionadoContextual | null
   elementosRelevantes: Array<{ id: string; tipo: "clase" | "relacion"; nombre: string }>
   resumenModelo: { clases: number; relaciones: number }
   estadoUml: { estado: "valido" | "invalido" | "incompleto"; problemas: string[]; errores: string[]; advertencias: string[] }
@@ -25,6 +55,11 @@ export interface ContextoAsistente {
   cambiosSinGuardar: boolean
   candidatoImagenPendiente: boolean
   accionesDisponibles: AccionAsistenteContextual[]
+  participanteActual?: { id: string; nombreVisible: string }
+  modeloDurable?: { revision: number; actualizadoEn: string; resumen: ModeloActualContextual }
+  fuenteModeloActual?: "vista_actual_validada" | "snapshot_durable"
+  conversacionCompartida?: Array<{ id: string; tipoRemitente: "human" | "ai" | "system"; participantId: string | null; nombreVisibleSnapshot: string | null; contenido: string; requestId: string | null; replyToMessageId: string | null; creadoEn: string }>
+  actividadReciente?: Array<{ id: string; tipo: string; solicitadoPorParticipantId: string; nombreParticipanteSnapshot: string; mecanismo: string; elemento: { id: string; tipo: string; nombreSnapshot: string } | null; revisionModeloObservada: number; creadoEn: string }>
 }
 
 export interface MensajeConversacionContextual {
@@ -85,6 +120,9 @@ export function esSolicitudAsistenteContextual(valor: unknown): valor is Solicit
   if (contexto.proyecto !== null && (!esObjeto(contexto.proyecto) || typeof contexto.proyecto.id !== "string" || typeof contexto.proyecto.nombre !== "string")) return false
   if (contexto.elementoSeleccionado !== null && (!esObjeto(contexto.elementoSeleccionado) || typeof contexto.elementoSeleccionado.id !== "string" || (contexto.elementoSeleccionado.tipo !== "clase" && contexto.elementoSeleccionado.tipo !== "relacion"))) return false
   if (!Array.isArray(contexto.elementosRelevantes) || contexto.elementosRelevantes.length > 8 || !contexto.elementosRelevantes.every((elemento) => esObjeto(elemento) && typeof elemento.id === "string" && typeof elemento.nombre === "string" && (elemento.tipo === "clase" || elemento.tipo === "relacion"))) return false
+  if (contexto.participanteActual !== undefined && (!esObjeto(contexto.participanteActual) || typeof contexto.participanteActual.id !== "string" || typeof contexto.participanteActual.nombreVisible !== "string")) return false
+  if (contexto.conversacionCompartida !== undefined && (!Array.isArray(contexto.conversacionCompartida) || contexto.conversacionCompartida.length > 20)) return false
+  if (contexto.actividadReciente !== undefined && (!Array.isArray(contexto.actividadReciente) || contexto.actividadReciente.length > 30)) return false
   return true
 }
 

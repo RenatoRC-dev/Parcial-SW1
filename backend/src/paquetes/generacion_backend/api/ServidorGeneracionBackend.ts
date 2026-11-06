@@ -22,8 +22,9 @@ import { registrarRutaAnalisisImagen } from "../../asistencia_ia/casos_uso/cu05_
 import { registrarRutasProyectos, type DependenciasRutasProyectos } from "../../gestion_proyectos/api/registrarRutasProyectos.js"
 import type { ProveedorAsistenteContextual } from "../../asistencia_contextual/compartido/ProveedorAsistenteContextual.js"
 import { ProveedorAsistenteContextualGroq } from "../../asistencia_contextual/compartido/proveedores/groq/ProveedorAsistenteContextualGroq.js"
-import { registrarRutaAsistenteContextual } from "../../asistencia_contextual/casos_uso/cu12_asistir_usuario/registrarRutaAsistenteContextual.js"
+import { registrarRutaAsistenteColaborativo } from "../../asistencia_contextual/casos_uso/cu12_asistir_usuario/registrarRutaAsistenteColaborativo.js"
 import { obtenerOrigenesFrontendPermitidos } from "../../../configuracion/origenesFrontendPermitidos.js"
+import { PUBLICADOR_MENSAJES_NULO, type PublicadorMensajesProyecto } from "../../mensajeria_colaborativa/compartido/PublicadorMensajesProyecto.js"
 
 export function crearAplicacionGeneracionBackend(dependencias: {
   proveedorIA?: ProveedorModeloLenguaje
@@ -31,6 +32,7 @@ export function crearAplicacionGeneracionBackend(dependencias: {
   proveedorVision?: ProveedorVisionUML
   proveedorAsistenteContextual?: ProveedorAsistenteContextual
   accesoProyectos?: DependenciasRutasProyectos
+  publicadorMensajes?: PublicadorMensajesProyecto
 } = {}) {
   const aplicacion = express()
   const origenesPermitidos = obtenerOrigenesFrontendPermitidos()
@@ -52,8 +54,18 @@ export function crearAplicacionGeneracionBackend(dependencias: {
   registrarRutaInterpretacionIA(aplicacion, dependencias.proveedorIA ?? new ProveedorGroq())
   registrarRutaTranscripcionVoz(aplicacion, dependencias.proveedorTranscripcion ?? new ProveedorTranscripcionGroq())
   registrarRutaAnalisisImagen(aplicacion, dependencias.proveedorVision ?? new ProveedorVisionGroq())
-  registrarRutaAsistenteContextual(aplicacion, dependencias.proveedorAsistenteContextual ?? new ProveedorAsistenteContextualGroq())
-  if (dependencias.accesoProyectos) registrarRutasProyectos(aplicacion, dependencias.accesoProyectos)
+  if (dependencias.accesoProyectos) {
+    registrarRutasProyectos(aplicacion, dependencias.accesoProyectos)
+    if (dependencias.accesoProyectos.eventos && dependencias.accesoProyectos.mensajes) registrarRutaAsistenteColaborativo(aplicacion, {
+      proyectos: dependencias.accesoProyectos.proyectos,
+      participantes: dependencias.accesoProyectos.participantes,
+      protector: dependencias.accesoProyectos.protector,
+      eventos: dependencias.accesoProyectos.eventos,
+      mensajes: dependencias.accesoProyectos.mensajes,
+      proveedor: dependencias.proveedorAsistenteContextual ?? new ProveedorAsistenteContextualGroq(),
+      publicador: dependencias.publicadorMensajes ?? PUBLICADOR_MENSAJES_NULO,
+    })
+  }
 
   aplicacion.get("/api/health", (_solicitud, respuesta) => {
     respuesta.json({ estado: "ok" })

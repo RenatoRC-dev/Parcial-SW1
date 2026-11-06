@@ -5,14 +5,19 @@ import type { ProveedorModeloLenguaje } from "./paquetes/asistencia_ia/compartid
 import type { ProveedorTranscripcionAudio } from "./paquetes/asistencia_ia/compartido/proveedores/transcripcion/ProveedorTranscripcionAudio.js"
 import type { ProveedorVisionUML } from "./paquetes/asistencia_ia/compartido/proveedores/vision/ProveedorVisionUML.js"
 import type { DependenciasRutasProyectos } from "./paquetes/gestion_proyectos/api/registrarRutasProyectos.js"
+import type { ProveedorAsistenteContextual } from "./paquetes/asistencia_contextual/compartido/ProveedorAsistenteContextual.js"
+import { ServidorCanalAplicacionProyecto } from "./paquetes/colaboracion/casos_uso/cu03_colaborar_modelo/ServidorCanalAplicacionProyecto.js"
 
 export function crearServidorCase(dependencias: {
   accesoProyectos: DependenciasRutasProyectos
   proveedorIA?: ProveedorModeloLenguaje
   proveedorTranscripcion?: ProveedorTranscripcionAudio
   proveedorVision?: ProveedorVisionUML
+  proveedorAsistenteContextual?: ProveedorAsistenteContextual
 }) {
-  const servidor = createServer(crearAplicacionGeneracionBackend(dependencias))
+  const canalAplicacion = new ServidorCanalAplicacionProyecto(dependencias.accesoProyectos)
+  const servidor = createServer(crearAplicacionGeneracionBackend({ ...dependencias, publicadorMensajes: canalAplicacion }))
   const relayColaboracion = adjuntarRelayColaboracion(servidor, dependencias.accesoProyectos)
-  return { servidor, relayColaboracion }
+  canalAplicacion.adjuntar(servidor)
+  return { servidor, relayColaboracion, canalAplicacion }
 }

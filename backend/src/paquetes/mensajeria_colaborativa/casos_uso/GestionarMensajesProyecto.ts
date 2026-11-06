@@ -2,10 +2,12 @@ import { randomUUID } from "node:crypto"
 import type { ContextoAccesoProyecto } from "../../gestion_proyectos/api/ContextoAccesoProyecto.js"
 import { ErrorProyectoNoEncontrado, type RepositorioProyectos } from "../../gestion_proyectos/compartido/RepositorioProyectos.js"
 import type { MensajeProyecto, PaginaMensajes } from "../compartido/MensajeProyecto.js"
-import type { RepositorioMensajes } from "../compartido/RepositorioMensajes.js"
+import { ErrorRequestMensajeDuplicado, type RepositorioMensajes } from "../compartido/RepositorioMensajes.js"
 
 export class ErrorMensajeInvalido extends Error {}
+export class ErrorConflictoRequestMensaje extends Error {}
 const MAXIMO_CONTENIDO = 8_000
+const PATRON_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export class GestionarMensajesProyecto {
   constructor(private readonly mensajes: RepositorioMensajes, private readonly proyectos: RepositorioProyectos) {}
@@ -24,6 +26,48 @@ export class GestionarMensajesProyecto {
 
   async listarRecientes(projectId: string, limite = 30): Promise<PaginaMensajes> {
     return this.mensajes.listarPorProyecto({ projectId, limite: Math.min(Math.max(limite, 1), 100) })
+  }
+
+  async obtenerPorRequestId(projectId: string, requestId: string, tipo: "human" | "ai"): Promise<MensajeProyecto | null> {
+    if (!PATRON_UUID.test(requestId)) throw new ErrorMensajeInvalido("El requestId no es válido.")
+    return this.mensajes.obtenerPorRequestId(projectId, requestId, tipo)
+  }
+
+  async registrarMensajeHumanoIdempotente(contexto: ContextoAccesoProyecto, contenido: string, requestId: string, elementosRelacionadosIds: string[] = []): Promise<{ mensaje: MensajeProyecto; creado: boolean }> {
+    if (!PATRON_UUID.test(requestId)) throw new ErrorMensajeInvalido("El requestId no es válido.")
+    const limpio = contenido?.trim() ?? ""
+    const existente = await this.mensajes.obtenerPorRequestId(contexto.projectId, requestId, "human")
+    if (existente) {
+      if (existente.contenido !== limpio || existente.participantId !== contexto.participantId) {
+        throw new ErrorConflictoRequestMensaje("El requestId ya fue utilizado con otra pregunta.")
+      }
+      return { mensaje: existente, creado: false }
+    }
+    try {
+      return { mensaje: await this.registrarMensajeHumano(contexto, limpio, { requestId, elementosRelacionadosIds }), creado: true }
+    } catch (error) {
+      if (error instanceof ErrorRequestMensajeDuplicado) {
+        const repetido = await this.mensajes.obtenerPorRequestId(contexto.projectId, requestId, "human")
+        if (repetido && repetido.contenido === limpio && repetido.participantId === contexto.participantId) return { mensaje: repetido, creado: false }
+        throw new ErrorConflictoRequestMensaje("El requestId ya fue utilizado con otra pregunta.")
+      }
+      throw error
+    }
+  }
+
+  async registrarMensajeIAIdempotente(projectId: string, contenido: string, requestId: string, replyToMessageId: string, elementosRelacionadosIds: string[] = []): Promise<{ mensaje: MensajeProyecto; creado: boolean }> {
+    if (!PATRON_UUID.test(requestId)) throw new ErrorMensajeInvalido("El requestId no es válido.")
+    const existente = await this.mensajes.obtenerPorRequestId(projectId, requestId, "ai")
+    if (existente) return { mensaje: existente, creado: false }
+    try {
+      return { mensaje: await this.registrarMensajeIA(projectId, contenido, { requestId, replyToMessageId, elementosRelacionadosIds }), creado: true }
+    } catch (error) {
+      if (error instanceof ErrorRequestMensajeDuplicado) {
+        const repetido = await this.mensajes.obtenerPorRequestId(projectId, requestId, "ai")
+        if (repetido) return { mensaje: repetido, creado: false }
+      }
+      throw error
+    }
   }
 
   private async registrar(

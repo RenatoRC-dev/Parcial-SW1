@@ -1,6 +1,4 @@
-import request from "supertest"
 import { describe, expect, it, vi } from "vitest"
-import { crearAplicacionGeneracionBackend } from "../../../generacion_backend/api/ServidorGeneracionBackend.js"
 import type { SolicitudAsistenteContextual } from "../../compartido/ContratoAsistenteContextual.js"
 import { ErrorAsistenteContextual, type ProveedorAsistenteContextual } from "../../compartido/ProveedorAsistenteContextual.js"
 import { CONTEXTO_PRODUCTO_SW1 } from "../../compartido/ContextoProductoSW1.js"
@@ -88,10 +86,9 @@ describe("CU12 asistir usuario", () => {
       nivel: "advertencia" as const,
       categoriaRecomendacion: "OBLIGATORIO" as const,
     }))
-    const aplicacion = crearAplicacionGeneracionBackend({ proveedorAsistenteContextual: { responder } })
-    const respuesta = await request(aplicacion).post("/api/ia/contextual/preguntar").send(solicitud).expect(200)
+    const respuesta = await asistirUsuario(solicitud, { responder })
 
-    expect(respuesta.body.respuesta).toContain("N:M")
+    expect(respuesta.respuesta).toContain("N:M")
     expect(responder).toHaveBeenCalledWith(expect.objectContaining({ contexto: expect.objectContaining({ generacion: expect.objectContaining({ bloqueos: expect.arrayContaining([expect.stringContaining("clase asociativa")]) }) }) }))
     const enviado = JSON.stringify(responder.mock.calls[0][0])
     expect(enviado).not.toContain("UMLModel")
@@ -146,21 +143,15 @@ describe("CU12 asistir usuario", () => {
     await expect(asistirUsuario(solicitud, proveedor)).rejects.toMatchObject({ tipo: "respuesta_invalida" })
   })
 
-  it("degrada una indisponibilidad sin afectar el resto de la aplicación", async () => {
+  it("propaga una indisponibilidad como error controlado", async () => {
     const proveedor: ProveedorAsistenteContextual = { responder: async () => { throw new ErrorAsistenteContextual("no_disponible", "sin servicio") } }
-    const aplicacion = crearAplicacionGeneracionBackend({ proveedorAsistenteContextual: proveedor })
-    const respuesta = await request(aplicacion).post("/api/ia/contextual/preguntar").send(solicitud).expect(503)
-    expect(respuesta.body.error).toContain("ayuda de uso, validación y orientación local continúan disponibles")
-    expect(respuesta.body.tipo).toBe("no_disponible")
-    await request(aplicacion).get("/api/health").expect(200)
+    await expect(asistirUsuario(solicitud, proveedor)).rejects.toMatchObject({ tipo: "no_disponible" })
   })
 
   it("distingue límite temporal de una respuesta contractual inválida", async () => {
     const limitada: ProveedorAsistenteContextual = { responder: async () => { throw new ErrorAsistenteContextual("limite", "límite") } }
     const invalida: ProveedorAsistenteContextual = { responder: async () => { throw new ErrorAsistenteContextual("respuesta_invalida", "contrato") } }
-    const respuestaLimite = await request(crearAplicacionGeneracionBackend({ proveedorAsistenteContextual: limitada })).post("/api/ia/contextual/preguntar").send(solicitud).expect(429)
-    const respuestaInvalida = await request(crearAplicacionGeneracionBackend({ proveedorAsistenteContextual: invalida })).post("/api/ia/contextual/preguntar").send(solicitud).expect(502)
-    expect(respuestaLimite.body.tipo).toBe("limite")
-    expect(respuestaInvalida.body.tipo).toBe("respuesta_invalida")
+    await expect(asistirUsuario(solicitud, limitada)).rejects.toMatchObject({ tipo: "limite" })
+    await expect(asistirUsuario(solicitud, invalida)).rejects.toMatchObject({ tipo: "respuesta_invalida" })
   })
 })

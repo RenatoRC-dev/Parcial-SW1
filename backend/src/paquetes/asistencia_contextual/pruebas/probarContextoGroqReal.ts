@@ -12,13 +12,27 @@ function normalizar(texto: string): string {
 }
 
 function contextoBase(clases: Array<Record<string, unknown>>, relaciones: Array<Record<string, unknown>> = []): ContextoAsistente {
+  const clasesNormalizadas: ContextoAsistente["modeloActual"]["clases"] = clases.map((clase) => ({
+    id: String(clase.id), nombre: String(clase.nombre), tipoClase: "normal", abstracta: false,
+    atributos: Array.isArray(clase.atributos) ? clase.atributos as ContextoAsistente["modeloActual"]["clases"][number]["atributos"] : [],
+    operaciones: [],
+  }))
+  const relacionesNormalizadas: ContextoAsistente["modeloActual"]["relaciones"] = relaciones.map((relacion) => {
+    const origen = relacion.origen as Record<string, unknown>
+    const destino = relacion.destino as Record<string, unknown>
+    return {
+      id: String(relacion.id), nombre: null, tipoRelacion: "asociacion",
+      origen: { id: String(origen.id ?? origen.nombre), nombre: String(origen.nombre), multiplicidad: String(origen.multiplicidad ?? ""), rol: null },
+      destino: { id: String(destino.id ?? destino.nombre), nombre: String(destino.nombre), multiplicidad: String(destino.multiplicidad ?? ""), rol: null },
+    }
+  })
   const elementosRelevantes: ContextoAsistente["elementosRelevantes"] = [
     ...clases.map((clase) => ({ id: String(clase.id), tipo: "clase" as const, nombre: String(clase.nombre) })),
     ...relaciones.map((relacion) => ({ id: String(relacion.id), tipo: "relacion" as const, nombre: String(relacion.id) })),
   ].slice(0, 8)
   return {
     proyecto: { id: "prueba-contextual", nombre: "Prueba Contextual" }, area: "modelado_uml", idioma: "es", revisionModelo: 1,
-    modeloActual: { id: "modelo-contextual", nombre: "Prueba Contextual", version: "1", clases, relaciones, truncado: false },
+    modeloActual: { id: "modelo-contextual", nombre: "Prueba Contextual", version: "1", clases: clasesNormalizadas, relaciones: relacionesNormalizadas, truncado: false },
     elementoSeleccionado: null, elementosRelevantes, resumenModelo: { clases: clases.length, relaciones: relaciones.length },
     estadoUml: { estado: "valido", problemas: [], errores: [], advertencias: [] },
     generacion: { estado: "apto", bloqueos: [], advertencias: [] }, cambiosSinGuardar: false, candidatoImagenPendiente: false,

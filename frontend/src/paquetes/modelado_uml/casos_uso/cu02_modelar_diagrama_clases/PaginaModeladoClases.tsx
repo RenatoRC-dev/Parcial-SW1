@@ -161,7 +161,7 @@ export function PaginaModeladoClases({ proyectoId, proyectoNombre, accesoColabor
             <div className="tool-drawer-content">
               <div hidden={herramientaActiva !== "ia"}>
                 {resultadoCanonico ? <PanelAsistenteModelado modelo={resultadoCanonico.modelo} revision={revisionModelo} alAplicarModelo={(modeloCanonico) => establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico))} /> : null}
-                {contextoAsistente ? <PanelAsistenteContextual contexto={contextoAsistente} /> : null}
+                {contextoAsistente ? <PanelAsistenteContextual projectId={proyectoId} credential={accesoColaboracion.credential} contexto={contextoAsistente} /> : null}
               </div>
               <div hidden={herramientaActiva !== "imagen"}>
                 {resultadoCanonico ? <PanelModeladoDesdeImagen modelo={resultadoCanonico.modelo} alAplicarModelo={(modeloCanonico) => establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico))} alCambiarEstadoCandidato={establecerCandidatoImagenPendiente} /> : null}

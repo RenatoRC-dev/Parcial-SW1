@@ -7,7 +7,7 @@ export interface ContextoProductoSW1 {
     asistenteContextual: string
   }
   capacidades: {
-    proyectos: { disponible: true; crear: true; abrir: true; guardarExplicitamente: true; acceso: string }
+    proyectos: { disponible: true; crear: true; abrir: true; guardarExplicitamente: true; acceso: string; unionPorCodigo: true; recientesPorDispositivo: true }
     modeladoManual: { disponible: true; acceso: string; permite: string[] }
     iaModelado: { disponible: true; acceso: string; texto: string; voz: string; aplicaCambiosValidosAutomaticamente: true; requiereConfirmacion: false }
     imagenUml: { disponible: true; acceso: string; flujo: string[]; produceCandidato: true; requiereConfirmacion: true }
@@ -20,22 +20,22 @@ export interface ContextoProductoSW1 {
 }
 
 export const CONTEXTO_PRODUCTO_SW1: ContextoProductoSW1 = {
-  version: "2026.09",
+  version: "2026.11",
   producto: "NexoCASE",
   responsabilidadesIa: {
     iaModelado: "CU04 interpreta instrucciones UML incrementales sobre el modelo canónico actual y aplica automáticamente los cambios claros y válidos; no usa confirmación.",
     desdeImagen: "CU05 analiza una imagen y produce un candidato; el modelo canónico solo cambia cuando el usuario elige Agregar al diagrama.",
-    asistenteContextual: "CU12 explica el producto y analiza el modelo actual; nunca modifica, guarda, importa, exporta ni genera por sí mismo.",
+    asistenteContextual: "CU12 es el Asistente colaborativo compartido: enseña, explica, revisa y recomienda usando identidad, modelo, validación, conversación y actividad reales; nunca modifica el UML. Las modificaciones se aplican mediante Asistente IA.",
   },
   capacidades: {
-    proyectos: { disponible: true, crear: true, abrir: true, guardarExplicitamente: true, acceso: "Mis proyectos y barra superior" },
+    proyectos: { disponible: true, crear: true, abrir: true, guardarExplicitamente: true, acceso: "Crear proyecto, Unirse con código, Proyectos recientes y Guardar en la barra superior", unionPorCodigo: true, recientesPorDispositivo: true },
     modeladoManual: { disponible: true, acceso: "Espacio de modelado UML e inspector Propiedades UML", permite: ["clases", "atributos", "operaciones", "relaciones", "multiplicidades", "roles"] },
     iaModelado: { disponible: true, acceso: "Asistente IA en la barra izquierda", texto: "Escribir una Instrucción UML y pulsar Enviar", voz: "Pulsar Hablar y dictar la instrucción; NexoCASE transcribe el audio y envía automáticamente la instrucción por el mismo flujo CU04, sin pulsar Enviar después", aplicaCambiosValidosAutomaticamente: true, requiereConfirmacion: false },
     imagenUml: { disponible: true, acceso: "Desde imagen en la barra izquierda", flujo: ["Seleccionar imagen", "Analizar imagen", "revisar Modelo UML candidato", "Agregar al diagrama o Cancelar"], produceCandidato: true, requiereConfirmacion: true },
     validacion: { disponible: true, acceso: "Validación en la barra izquierda", analizaModeloCanonico: true },
     xmi: { disponible: true, acceso: "XMI en la barra izquierda", importar: "Importar XMI permite seleccionar .xmi o .xml; NexoCASE solicita confirmación porque reemplazará el diagrama actual y, si se confirma, importa el modelo canónico y muestra advertencias cuando corresponda", exportar: "Exportar XMI descarga el modelo actual como modelo.xmi para interoperabilidad con herramientas compatibles; XMI no es un requisito ni el flujo de generación Spring", archivoExportado: "modelo.xmi", produceCandidato: false },
     generacionSpring: { disponible: true, acceso: "Generar en la barra izquierda", requiereModeloApto: true, accionVisible: "Generar backend Spring Boot", descargaBackend: true },
-    colaboracion: { disponible: true, descripcion: "Participantes del mismo proyecto comparten cambios del diagrama en vivo; el guardado durable sigue siendo explícito." },
+    colaboracion: { disponible: true, descripcion: "Participantes autorizados del mismo proyecto comparten cambios del diagrama y la conversación del Asistente colaborativo. El modelo se guarda explícitamente; la conversación se persiste al enviarse." },
     diagnosticoTecnico: { disponible: true, acceso: "Diagnóstico técnico en el inspector derecho", uso: "evidencia y diagnóstico; no es el flujo principal" },
   },
 }

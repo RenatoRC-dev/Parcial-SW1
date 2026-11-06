@@ -1,7 +1,7 @@
-import type { Collection, Db, Filter } from "mongodb"
+import { MongoServerError, type Collection, type Db, type Filter } from "mongodb"
 import { COLECCION_MENSAJES } from "../../../infraestructura/mongodb/crearIndicesMongo.js"
 import type { ConsultaMensajes, MensajeProyecto, PaginaMensajes } from "../compartido/MensajeProyecto.js"
-import { ErrorDatosMensajeCorruptos, ErrorPersistenciaMensaje, type RepositorioMensajes } from "../compartido/RepositorioMensajes.js"
+import { ErrorDatosMensajeCorruptos, ErrorPersistenciaMensaje, ErrorRequestMensajeDuplicado, type RepositorioMensajes } from "../compartido/RepositorioMensajes.js"
 
 interface DocumentoMensaje extends Omit<MensajeProyecto, "id" | "creadoEn"> { _id: string; creadoEn: Date }
 const esFecha = (valor: unknown): valor is Date => valor instanceof Date && !Number.isNaN(valor.getTime())
@@ -34,11 +34,24 @@ export class RepositorioMensajesMongo implements RepositorioMensajes {
   constructor(baseDatos: Db) { this.mensajes = baseDatos.collection<DocumentoMensaje>(COLECCION_MENSAJES) }
   async crear(mensaje: MensajeProyecto): Promise<MensajeProyecto> {
     try { const documento = aDocumento(mensaje); await this.mensajes.insertOne(documento); return aDominio(documento) }
-    catch (error) { if (error instanceof ErrorDatosMensajeCorruptos) throw error; throw new ErrorPersistenciaMensaje("No se pudo persistir el mensaje.", { cause: error }) }
+    catch (error) {
+      if (error instanceof ErrorDatosMensajeCorruptos) throw error
+      if (error instanceof MongoServerError && error.code === 11000) throw new ErrorRequestMensajeDuplicado("El mensaje de la solicitud ya existe.")
+      throw new ErrorPersistenciaMensaje("No se pudo persistir el mensaje.", { cause: error })
+    }
   }
   async obtenerPorId(projectId: string, id: string): Promise<MensajeProyecto | null> {
     try { const documento = await this.mensajes.findOne({ _id: id, projectId }); return documento ? aDominio(documento) : null }
     catch (error) { if (error instanceof ErrorDatosMensajeCorruptos) throw error; throw new ErrorPersistenciaMensaje("No se pudo consultar el mensaje.", { cause: error }) }
+  }
+  async obtenerPorRequestId(projectId: string, requestId: string, tipoRemitente: "human" | "ai"): Promise<MensajeProyecto | null> {
+    try {
+      const documento = await this.mensajes.findOne({ projectId, requestId, tipoRemitente })
+      return documento ? aDominio(documento) : null
+    } catch (error) {
+      if (error instanceof ErrorDatosMensajeCorruptos) throw error
+      throw new ErrorPersistenciaMensaje("No se pudo consultar la solicitud conversacional.", { cause: error })
+    }
   }
   async listarPorProyecto(consulta: ConsultaMensajes): Promise<PaginaMensajes> {
     try {

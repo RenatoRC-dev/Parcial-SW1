@@ -11,12 +11,16 @@ import { ProtegerAccesoProyecto } from "../acceso/ProtegerAccesoProyecto.js"
 import { RepositorioParticipantesMongo } from "./RepositorioParticipantesMongo.js"
 import { RepositorioProyectosMongo } from "./RepositorioProyectosMongo.js"
 import { adjuntarRelayColaboracion } from "../../colaboracion/casos_uso/cu03_colaborar_modelo/ServidorRelayColaboracion.js"
+import { ServidorCanalAplicacionProyecto } from "../../colaboracion/casos_uso/cu03_colaborar_modelo/ServidorCanalAplicacionProyecto.js"
+import { RepositorioEventosMongo } from "../../trazabilidad/infraestructura/RepositorioEventosMongo.js"
+import { RepositorioMensajesMongo } from "../../mensajeria_colaborativa/infraestructura/RepositorioMensajesMongo.js"
+import { ProveedorAsistenteContextualDeterministaE2E } from "../../asistencia_contextual/pruebas/ProveedorAsistenteContextualDeterministaE2E.js"
 
 const uri = process.env.MONGODB_TEST_URI?.trim()
 const describeIntegracion = uri ? describe : describe.skip
 
-describeIntegracion("continuidad CU11 tras nueva composición backend", () => {
-  it("recupera modelo, revisión y credencial desde Mongo tras cerrar la primera conexión", async () => {
+describeIntegracion("continuidad CU11/CU12 tras nueva composición backend", () => {
+  it("recupera modelo, conversación, credencial y canal de aplicación tras reiniciar", async () => {
     const nombreBase = `nexocase_continuidad_${randomUUID().replaceAll("-", "")}`
     const pepper = "pepper-continuidad-f4-d"
     let proyectoId = ""
@@ -36,7 +40,8 @@ describeIntegracion("continuidad CU11 tras nueva composición backend", () => {
         proyectos: new RepositorioProyectosMongo(base),
         participantes: new RepositorioParticipantesMongo(base),
         protector: new ProtegerAccesoProyecto(pepper),
-      } })
+        eventos: new RepositorioEventosMongo(base), mensajes: new RepositorioMensajesMongo(base),
+      }, proveedorAsistenteContextual: new ProveedorAsistenteContextualDeterministaE2E() })
       const creado = await request(aplicacion).post("/api/proyectos")
         .send({ nombre: "Continuidad", nombreParticipante: "Renato" }).expect(201)
       proyectoId = creado.body.proyecto.id
@@ -45,6 +50,9 @@ describeIntegracion("continuidad CU11 tras nueva composición backend", () => {
         .set("Authorization", `Bearer ${credencial}`)
         .send({ modelo: modeloGuardado, revisionBase: 0 }).expect(200)
       expect(guardado.body.revisionModelo).toBe(1)
+      await request(aplicacion).post(`/api/proyectos/${proyectoId}/asistente-colaborativo/preguntar`)
+        .set("Authorization", `Bearer ${credencial}`)
+        .send({ requestId: randomUUID(), contenido: "Analiza el proyecto después del guardado" }).expect(200)
     } finally {
       await clientePrimero.close()
     }
@@ -57,20 +65,26 @@ describeIntegracion("continuidad CU11 tras nueva composición backend", () => {
         proyectos: new RepositorioProyectosMongo(base),
         participantes: new RepositorioParticipantesMongo(base),
         protector: new ProtegerAccesoProyecto(pepper),
+        eventos: new RepositorioEventosMongo(base), mensajes: new RepositorioMensajesMongo(base),
       }
-      const aplicacionReiniciada = crearAplicacionGeneracionBackend({ accesoProyectos: dependenciasAcceso })
+      const aplicacionReiniciada = crearAplicacionGeneracionBackend({ accesoProyectos: dependenciasAcceso, proveedorAsistenteContextual: new ProveedorAsistenteContextualDeterministaE2E() })
       const recuperado = await request(aplicacionReiniciada).get(`/api/proyectos/${proyectoId}`)
         .set("Authorization", `Bearer ${credencial}`).expect(200)
       expect(recuperado.body.modelo).toEqual(modeloGuardado)
       expect(recuperado.body.revisionModelo).toBe(1)
+      const conversacion = await request(aplicacionReiniciada).get(`/api/proyectos/${proyectoId}/mensajes`)
+        .set("Authorization", `Bearer ${credencial}`).expect(200)
+      expect(conversacion.body.items).toHaveLength(2)
 
       const servidorReiniciado = createServer()
       const relay = adjuntarRelayColaboracion(servidorReiniciado, dependenciasAcceso)
+      const canalAplicacion = new ServidorCanalAplicacionProyecto(dependenciasAcceso)
+      canalAplicacion.adjuntar(servidorReiniciado)
       servidorReiniciado.listen(0, "127.0.0.1")
       await once(servidorReiniciado, "listening")
       const direccion = servidorReiniciado.address()
       if (!direccion || typeof direccion === "string") throw new Error("Puerto de integración no disponible")
-      const socket = new WebSocket(`ws://127.0.0.1:${direccion.port}/api/colaboracion`)
+      const socket = new WebSocket(`ws://127.0.0.1:${direccion.port}/api/colaboracion-aplicacion`)
       try {
         await once(socket, "open")
         const mensaje = once(socket, "message")
@@ -82,6 +96,7 @@ describeIntegracion("continuidad CU11 tras nueva composición backend", () => {
         })
       } finally {
         socket.terminate()
+        await canalAplicacion.cerrar()
         await relay.cerrar()
         await new Promise<void>((resolver) => servidorReiniciado.close(() => resolver()))
       }
