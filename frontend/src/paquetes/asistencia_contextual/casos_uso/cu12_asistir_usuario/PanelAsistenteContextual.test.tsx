@@ -73,11 +73,11 @@ describe("PanelAsistenteContextual colaborativo", () => {
     expect(consultar.mock.calls[0][4]).toBe(contexto)
   })
 
-  it("mantiene separadas la orientación y la modificación por Asistente IA", async () => {
+  it("explica que las solicitudes claras se derivan al flujo controlado CU04", async () => {
     const deps = dependencias()
     render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} {...deps} />)
     await screen.findByText("Todavía no hay mensajes compartidos.")
-    expect(screen.getByText(/Las modificaciones del modelo se aplican mediante Asistente IA/)).toBeInTheDocument()
+    expect(screen.getByText(/NexoCASE lo aplica de forma controlada mediante CU04/)).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Asistente colaborativo" })).toBeInTheDocument()
   })
 

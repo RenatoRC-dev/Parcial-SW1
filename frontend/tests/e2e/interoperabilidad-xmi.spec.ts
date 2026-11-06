@@ -57,6 +57,12 @@ test("importa XMI al editor y exporta modelo.xmi", async ({ page, request }) => 
   await expect(page.getByTestId("resumen-canonico")).toContainText("2")
   await expect(page.getByText("Cliente", { exact: true }).first()).toBeVisible()
   await expect(page.getByText("Pedido", { exact: true }).first()).toBeVisible()
+  await expect.poll(() => page.evaluate(async () => {
+    const reciente = JSON.parse(localStorage.getItem("nexocase.proyectosRecientes.v1")!).proyectos[0]
+    const respuesta = await fetch(`/api/proyectos/${reciente.projectId}/actividad`, { headers: { Authorization: `Bearer ${reciente.credential}` } })
+    const pagina = await respuesta.json()
+    return pagina.items.some((evento: { tipo: string; mecanismo: string }) => evento.tipo === "XMI_IMPORTED" && evento.mecanismo === "xmi")
+  })).toBe(true)
 
   await cerrarHerramienta(page)
   await page.locator(".react-flow__node").filter({ hasText: "Cliente" }).click()

@@ -29,6 +29,7 @@ describe("PanelColaboracion con acceso autorizado", () => {
     expect(conectar).toHaveBeenCalledWith(expect.objectContaining({ projectId: "proyecto-1", credential: credencial }))
     expect(document.body.textContent).not.toContain(credencial)
     expect(document.body.textContent).not.toContain("Diseñador")
+    expect(document.body.textContent).not.toContain("proyecto-1")
 
     const opciones = conectar.mock.calls[0]![0]
     act(() => opciones.alCambiarParticipantes([

@@ -25,7 +25,7 @@ export const CONTEXTO_PRODUCTO_SW1: ContextoProductoSW1 = {
   responsabilidadesIa: {
     iaModelado: "CU04 interpreta instrucciones UML incrementales sobre el modelo canónico actual y aplica automáticamente los cambios claros y válidos; no usa confirmación.",
     desdeImagen: "CU05 analiza una imagen y produce un candidato; el modelo canónico solo cambia cuando el usuario elige Agregar al diagrama.",
-    asistenteContextual: "CU12 es el Asistente colaborativo compartido: enseña, explica, revisa y recomienda usando identidad, modelo, validación, conversación y actividad reales; nunca modifica el UML. Las modificaciones se aplican mediante Asistente IA.",
+    asistenteContextual: "CU12 es el Asistente colaborativo compartido: enseña, explica, revisa y recomienda usando identidad, modelo, validación, conversación y actividad reales. Si una persona solicita un cambio claro, la orquestación lo deriva de forma controlada a CU04, que es el único ejecutor UML.",
   },
   capacidades: {
     proyectos: { disponible: true, crear: true, abrir: true, guardarExplicitamente: true, acceso: "Crear proyecto, Unirse con código, Proyectos recientes y Guardar en la barra superior", unionPorCodigo: true, recientesPorDispositivo: true },

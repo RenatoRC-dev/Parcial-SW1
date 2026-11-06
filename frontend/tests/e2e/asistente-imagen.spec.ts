@@ -38,6 +38,12 @@ test("CU05 confirma y aplica el candidato en Apollon", async ({ page }) => {
   await expect(page.locator(".react-flow__node").filter({ hasText: "Factura" })).toContainText("total")
   await expect(page.getByTestId("resumen-canonico")).toContainText("Clases2")
   await expect(page.getByTestId("resumen-canonico")).toContainText("Relaciones1")
+  await expect.poll(() => page.evaluate(async () => {
+    const reciente = JSON.parse(localStorage.getItem("nexocase.proyectosRecientes.v1")!).proyectos[0]
+    const respuesta = await fetch(`/api/proyectos/${reciente.projectId}/actividad`, { headers: { Authorization: `Bearer ${reciente.credential}` } })
+    const pagina = await respuesta.json()
+    return pagina.items.filter((evento: { mecanismo: string }) => evento.mecanismo === "image_cu05").length
+  })).toBe(3)
 })
 
 test("CU05 solo propaga el modelo confirmado al colaborador", async ({ browser }) => {

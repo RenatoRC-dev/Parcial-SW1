@@ -50,6 +50,16 @@ describe("ciclo seguro de proyecto", () => {
     expect(listarProyectosRecientes()).toHaveLength(1)
   })
 
+  it("permite enviar el formulario de creación con teclado", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementationOnce(() => respuesta(accesoCreado, 201))
+    render(<App />)
+    fireEvent.click(screen.getByRole("button", { name: "Crear proyecto" }))
+    fireEvent.change(screen.getByLabelText("Nombre del proyecto"), { target: { value: "Ventas" } })
+    fireEvent.change(screen.getByLabelText("Tu nombre o apodo"), { target: { value: "Renato" } })
+    fireEvent.submit(screen.getByLabelText("Nombre del proyecto").closest("form")!)
+    expect(await screen.findByText("NX-2345-6789-ABCD")).toBeVisible()
+  })
+
   it("abre reciente con Bearer, guarda revisionBase y actualiza la revisión", async () => {
     registrarReciente()
     const fetch = vi.spyOn(globalThis, "fetch")
@@ -75,6 +85,21 @@ describe("ciclo seguro de proyecto", () => {
     fireEvent.click(screen.getByRole("button", { name: "Modificar" }))
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3))
+  })
+
+  it("muestra Guardando mientras el guardado explícito está pendiente", async () => {
+    registrarReciente()
+    let completar!: (valor: Response) => void
+    vi.spyOn(globalThis, "fetch")
+      .mockImplementationOnce(() => respuesta(proyecto))
+      .mockImplementationOnce(() => new Promise((resolve) => { completar = resolve }))
+    render(<App />)
+    fireEvent.click(await screen.findByRole("button", { name: "Abrir" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Modificar" }))
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }))
+    expect(screen.getByTestId("estado-guardado")).toHaveTextContent("Guardando")
+    completar(new Response(JSON.stringify({ ...proyecto, revisionModelo: 1 }), { status: 200, headers: { "Content-Type": "application/json" } }))
+    expect(await screen.findByText("Proyecto guardado correctamente.")).toBeVisible()
   })
 
   it("invalida localmente un acceso 401 y conserva la entrada ante 503", async () => {

@@ -1378,7 +1378,12 @@ button:disabled {
   line-height: 1.5;
 }
 
+.contextual-conversation article,
+.candidate-preview,
+.project-access-code { overflow-wrap: anywhere; }
 .contextual-answer { white-space: pre-line; }
+.assistant-action-status { color: var(--accent); font-size: 0.8rem; font-weight: 700; }
+.collaboration-empty { color: var(--text-secondary); font-size: 0.78rem; }
 
 .contextual-degraded {
   margin: 0.5rem 0;

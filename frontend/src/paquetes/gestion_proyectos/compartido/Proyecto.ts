@@ -43,3 +43,9 @@ export interface ActividadModeladoManual {
   detalle?: { campo?: string; elementoPadreId?: string }
 }
 
+export interface ActividadIntegracion {
+  mecanismo: "image_cu05" | "xmi"
+  tipo: "UML_ELEMENT_CREATED" | "XMI_IMPORTED"
+  elemento: ActividadModeladoManual["elemento"] | null
+}
+

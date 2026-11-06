@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { abrirProyecto, crearProyecto, guardarModeloProyecto, registrarActividadModelado, unirseProyecto } from "./clienteProyectos"
+import { abrirProyecto, crearProyecto, guardarModeloProyecto, registrarActividadIntegracion, registrarActividadModelado, unirseProyecto } from "./clienteProyectos"
 
 const respuesta = (cuerpo: unknown) => Promise.resolve(new Response(JSON.stringify(cuerpo), { status: 200, headers: { "Content-Type": "application/json" } }))
 
@@ -39,6 +39,17 @@ describe("cliente HTTP de proyectos autorizados", () => {
     expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toEqual({
       clientChangeId: "11111111-1111-4111-8111-111111111111",
       tipo: "UML_ELEMENT_CREATED", elemento: { id: "venta", tipo: "class", nombreSnapshot: "Venta" },
+    })
+  })
+  it("reporta integraciones CU05/XMI por la ruta protegida", async () => {
+    const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(() => respuesta({}))
+    await registrarActividadIntegracion("proyecto-1", "credencial-opaca", "22222222-2222-4222-8222-222222222222", {
+      mecanismo: "xmi", tipo: "XMI_IMPORTED", elemento: null,
+    })
+    expect(String(fetch.mock.calls[0]?.[0])).toContain("/api/proyectos/proyecto-1/actividad/integracion")
+    expect(new Headers(fetch.mock.calls[0]?.[1]?.headers).get("Authorization")).toBe("Bearer credencial-opaca")
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toEqual({
+      clientChangeId: "22222222-2222-4222-8222-222222222222", mecanismo: "xmi", tipo: "XMI_IMPORTED", elemento: null,
     })
   })
 })

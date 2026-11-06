@@ -9,7 +9,7 @@ describe("ContextoProductoSW1", () => {
     expect(CONTEXTO_PRODUCTO_SW1.responsabilidadesIa.iaModelado).toContain("aplica automáticamente")
     expect(CONTEXTO_PRODUCTO_SW1.capacidades.iaModelado.requiereConfirmacion).toBe(false)
     expect(CONTEXTO_PRODUCTO_SW1.capacidades.imagenUml.requiereConfirmacion).toBe(true)
-    expect(CONTEXTO_PRODUCTO_SW1.responsabilidadesIa.asistenteContextual).toContain("nunca modifica")
+    expect(CONTEXTO_PRODUCTO_SW1.responsabilidadesIa.asistenteContextual).toContain("único ejecutor UML")
     expect(CONTEXTO_PRODUCTO_SW1.capacidades.xmi.archivoExportado).toBe("modelo.xmi")
   })
 

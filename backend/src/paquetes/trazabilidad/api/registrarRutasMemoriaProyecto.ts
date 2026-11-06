@@ -58,6 +58,19 @@ export function registrarRutasMemoriaProyecto(aplicacion: express.Express, depen
     } catch (error) { responder(error, respuesta) }
   })
 
+  aplicacion.post("/api/proyectos/:id/actividad/integracion", requerir, async (solicitud, respuesta) => {
+    const id = Array.isArray(solicitud.params.id) ? "" : solicitud.params.id
+    if (!PATRON_UUID.test(id)) { respuesta.status(400).json({ error: "Proyecto invalido.", codigo: "SOLICITUD_INVALIDA" }); return }
+    try {
+      const body = solicitud.body ?? {}
+      const evento = await actividad.registrarIntegracion((solicitud as SolicitudConAccesoProyecto).accesoProyecto, {
+        clientChangeId: body.clientChangeId, mecanismo: body.mecanismo, tipo: body.tipo,
+        elemento: body.elemento ? { id: body.elemento.id, tipo: body.elemento.tipo, nombreSnapshot: body.elemento.nombreSnapshot } : null,
+      })
+      respuesta.status(201).json(evento)
+    } catch (error) { responder(error, respuesta) }
+  })
+
   aplicacion.get("/api/proyectos/:id/actividad", requerir, async (solicitud, respuesta) => {
     try {
       const tipo = textoConsulta(solicitud.query.tipo) as TipoEventoProyecto | undefined

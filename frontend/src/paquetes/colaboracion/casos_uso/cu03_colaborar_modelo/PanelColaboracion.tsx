@@ -35,10 +35,10 @@ export function PanelColaboracion({ editor, acceso, habilitada }: {
 
   return <aside className="collaboration-panel" data-testid="panel-colaboracion">
     <h2>{t("colaboracion.titulo")}</h2>
-    <p>{t("colaboracion.proyecto")}: <code>{acceso.projectId}</code></p>
     <p role="status">{t("colaboracion.estado")}: <strong>{t(`colaboracion.${estado}`)}</strong></p>
     <p data-testid="cantidad-participantes">{t("colaboracion.participantes")}: {participantes.length}</p>
     {participantes.length > 0 ? <ul aria-label={t("colaboracion.lista")}>{participantes.map((participante) => <li key={participante.id}><span className="participant-color" style={{ backgroundColor: participante.color }} />{participante.name}{participante.isLocal ? ` (${t("colaboracion.tu")})` : ""}</li>)}</ul> : null}
+    {participantes.length === 0 ? <p className="collaboration-empty">{t("colaboracion.sinParticipantes")}</p> : null}
     {error ? <p className="collaboration-error" role="alert">{error}</p> : null}
     <p className="collaboration-note">{t("colaboracion.nota")}</p>
   </aside>

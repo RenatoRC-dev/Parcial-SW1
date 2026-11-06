@@ -1,5 +1,5 @@
 import type { ModeloUMLCanonico } from "../../../nucleo/modelo_uml/ModeloUMLCanonico"
-import type { ActividadModeladoManual, Proyecto, RespuestaCrearProyecto, RespuestaUnirseProyecto, ResumenProyecto } from "./Proyecto"
+import type { ActividadIntegracion, ActividadModeladoManual, Proyecto, RespuestaCrearProyecto, RespuestaUnirseProyecto, ResumenProyecto } from "./Proyecto"
 import { construirUrlBackend } from "../../../configuracion/BackendRemoto"
 
 interface ErrorBackend { error?: string; codigo?: string }
@@ -58,5 +58,11 @@ export const guardarModeloProyecto = async (
 export const registrarActividadModelado = async (
   id: string, credencial: string, clientChangeId: string, actividad: ActividadModeladoManual,
 ) => leer<unknown>(await fetch(construirUrlBackend(`/api/proyectos/${id}/actividad/modelado`), {
+  method: "POST", headers: encabezados(credencial), body: JSON.stringify({ clientChangeId, ...actividad }),
+}))
+
+export const registrarActividadIntegracion = async (
+  id: string, credencial: string, clientChangeId: string, actividad: ActividadIntegracion,
+) => leer<unknown>(await fetch(construirUrlBackend(`/api/proyectos/${id}/actividad/integracion`), {
   method: "POST", headers: encabezados(credencial), body: JSON.stringify({ clientChangeId, ...actividad }),
 }))

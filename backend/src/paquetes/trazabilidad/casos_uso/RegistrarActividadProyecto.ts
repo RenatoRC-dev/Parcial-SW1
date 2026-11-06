@@ -16,6 +16,13 @@ export interface SolicitudActividadManual {
   detalle?: Record<string, unknown>
 }
 
+export interface SolicitudActividadIntegracion {
+  clientChangeId: string
+  mecanismo: "image_cu05" | "xmi"
+  tipo: "UML_ELEMENT_CREATED" | "XMI_IMPORTED"
+  elemento: ReferenciaElementoEvento | null
+}
+
 export interface CambioAplicadoIA {
   commandIndex: number
   tipo: "UML_ELEMENT_CREATED" | "UML_ELEMENT_UPDATED" | "UML_ELEMENT_DELETED"
@@ -75,6 +82,31 @@ export class RegistrarActividadProyecto {
     revision: number
   }): Promise<EventoProyecto> {
     return this.eventos.crear(this.construir({ ...entrada, mecanismo: "system", elemento: null, detalle: {}, clientChangeId: null }))
+  }
+
+  async registrarIntegracion(contexto: ContextoAccesoProyecto, solicitud: SolicitudActividadIntegracion): Promise<EventoProyecto> {
+    const esImagenValida = solicitud.mecanismo === "image_cu05" && solicitud.tipo === "UML_ELEMENT_CREATED" && solicitud.elemento !== null
+    const esXmiValido = solicitud.mecanismo === "xmi" && solicitud.tipo === "XMI_IMPORTED" && solicitud.elemento === null
+    if (!esUuid(solicitud.clientChangeId) || (!esImagenValida && !esXmiValido)) {
+      throw new ErrorActividadInvalida("La actividad de integracion no tiene un contrato valido.")
+    }
+    const existente = await this.eventos.obtenerPorClientChangeId(contexto.projectId, solicitud.clientChangeId)
+    if (existente) return existente
+    const proyecto = await this.proyectos.obtenerPorId(contexto.projectId)
+    if (!proyecto) throw new ErrorProyectoNoEncontrado("Proyecto no encontrado.")
+    const evento = this.construir({
+      contexto, tipo: solicitud.tipo, mecanismo: solicitud.mecanismo,
+      elemento: solicitud.elemento ? validarElemento(solicitud.elemento) : null,
+      detalle: {}, revision: proyecto.revisionModelo, clientChangeId: solicitud.clientChangeId,
+    })
+    try { return await this.eventos.crear(evento) }
+    catch (error) {
+      if (error instanceof ErrorClientChangeIdDuplicado) {
+        const repetido = await this.eventos.obtenerPorClientChangeId(contexto.projectId, solicitud.clientChangeId)
+        if (repetido) return repetido
+      }
+      throw error
+    }
   }
 
   async registrarIA(contexto: ContextoAccesoProyecto, actionId: string, sourceMessageId: string | null, cambios: CambioAplicadoIA[]): Promise<EventoProyecto[]> {

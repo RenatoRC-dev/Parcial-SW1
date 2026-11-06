@@ -107,23 +107,23 @@ export function PanelProyectos({ alAcceder }: {
         <button type="button" onClick={() => iniciar("unirse")}>{t("proyectos.unirse")}</button>
       </section> : null}
 
-      {vista === "crear" ? <section className="project-create" aria-labelledby="titulo-crear-proyecto">
+      {vista === "crear" ? <form className="project-create" aria-labelledby="titulo-crear-proyecto" onSubmit={(evento) => { evento.preventDefault(); if (!ocupado && nombreProyecto.trim() && nombreParticipante.trim()) void crear() }}>
         <div><h2 id="titulo-crear-proyecto">{t("proyectos.crear")}</h2><p>{t("proyectos.crearDescripcion")}</p></div>
         <div className="project-create-controls">
           <label>{t("proyectos.nombre")}<input aria-label={t("proyectos.nombre")} value={nombreProyecto} maxLength={80} onChange={(e) => establecerNombreProyecto(e.target.value)} /></label>
           <label>{t("proyectos.nombreParticipante")}<input aria-label={t("proyectos.nombreParticipante")} value={nombreParticipante} maxLength={60} onChange={(e) => establecerNombreParticipante(e.target.value)} /></label>
-          <div className="project-form-actions"><button type="button" className="secondary-action" onClick={() => iniciar("inicio")}>{t("proyectos.cancelar")}</button><button type="button" disabled={ocupado || !nombreProyecto.trim() || !nombreParticipante.trim()} onClick={crear}>{ocupado ? t("proyectos.creando") : t("proyectos.crear")}</button></div>
+          <div className="project-form-actions"><button type="button" className="secondary-action" onClick={() => iniciar("inicio")}>{t("proyectos.cancelar")}</button><button type="submit" disabled={ocupado || !nombreProyecto.trim() || !nombreParticipante.trim()}>{ocupado ? t("proyectos.creando") : t("proyectos.crear")}</button></div>
         </div>
-      </section> : null}
+      </form> : null}
 
-      {vista === "unirse" ? <section className="project-create" aria-labelledby="titulo-unirse-proyecto">
+      {vista === "unirse" ? <form className="project-create" aria-labelledby="titulo-unirse-proyecto" onSubmit={(evento) => { evento.preventDefault(); if (!ocupado && codigo.trim() && nombreParticipante.trim()) void unirse() }}>
         <div><h2 id="titulo-unirse-proyecto">{t("proyectos.unirse")}</h2><p>{t("proyectos.unirseDescripcion")}</p></div>
         <div className="project-create-controls">
           <label>{t("proyectos.codigo")}<input aria-label={t("proyectos.codigo")} value={codigo} autoComplete="off" onChange={(e) => establecerCodigo(e.target.value)} /></label>
           <label>{t("proyectos.nombreParticipante")}<input aria-label={t("proyectos.nombreParticipante")} value={nombreParticipante} maxLength={60} onChange={(e) => establecerNombreParticipante(e.target.value)} /></label>
-          <div className="project-form-actions"><button type="button" className="secondary-action" onClick={() => iniciar("inicio")}>{t("proyectos.cancelar")}</button><button type="button" disabled={ocupado || !codigo.trim() || !nombreParticipante.trim()} onClick={unirse}>{ocupado ? t("proyectos.uniendo") : t("proyectos.entrar")}</button></div>
+          <div className="project-form-actions"><button type="button" className="secondary-action" onClick={() => iniciar("inicio")}>{t("proyectos.cancelar")}</button><button type="submit" disabled={ocupado || !codigo.trim() || !nombreParticipante.trim()}>{ocupado ? t("proyectos.uniendo") : t("proyectos.entrar")}</button></div>
         </div>
-      </section> : null}
+      </form> : null}
 
       {vista === "codigo" && creadoPendiente ? <section className="project-created" aria-labelledby="titulo-proyecto-creado">
         <p className="eyebrow">{t("proyectos.creado")}</p><h2 id="titulo-proyecto-creado">{t("proyectos.compartirCodigo")}</h2>

@@ -33,6 +33,7 @@ export function PanelAsistenteContextual({ projectId, credential, contexto, mode
   const [cursorAnterior, establecerCursorAnterior] = useState<string | null>(null)
   const [error, establecerError] = useState<string | null>(null)
   const [consultando, establecerConsultando] = useState(false)
+  const [estadoAccion, establecerEstadoAccion] = useState<"interpretando" | "aplicando" | "listo" | null>(null)
   const [cargando, establecerCargando] = useState(true)
   const solicitudPendiente = useRef<{ contenido: string; requestId: string } | null>(null)
   const estadoModelo = useRef({ modelo, revision: revisionEditor })
@@ -78,11 +79,12 @@ export function PanelAsistenteContextual({ projectId, credential, contexto, mode
     const pendiente = solicitudPendiente.current
     const requestId = pendiente?.contenido === limpia ? pendiente.requestId : crypto.randomUUID()
     solicitudPendiente.current = { contenido: limpia, requestId }
-    establecerConsultando(true); establecerError(null)
+    establecerConsultando(true); establecerError(null); establecerEstadoAccion("interpretando")
     try {
       const resultado = await consultar(projectId, credential, requestId, limpia, contexto, estadoModelo.current.modelo, estadoModelo.current.revision)
       establecerMensajes((actuales) => combinarMensajes(actuales, [resultado.mensajeHumano, ...resultadoMensajes(resultado)]))
       if (resultado.kind === "action") {
+        establecerEstadoAccion("aplicando")
         const cambiosPrevios = accionesAplicadas.current.get(resultado.actionId)
         const ejecucion = cambiosPrevios
           ? { resultado: "aplicado" as const, mensaje: "El cambio ya fue aplicado localmente.", cambios: cambiosPrevios }
@@ -90,11 +92,13 @@ export function PanelAsistenteContextual({ projectId, credential, contexto, mode
         if (!cambiosPrevios && ejecucion.resultado === "aplicado") accionesAplicadas.current.set(resultado.actionId, ejecucion.cambios)
         const cierre = await completarCambioIA(projectId, credential, resultado.actionId, ejecucion.resultado === "aplicado" ? "applied" : "failed", ejecucion.cambios, ejecucion.mensaje)
         if (cierre.mensajeIA) establecerMensajes((actuales) => combinarMensajes(actuales, [cierre.mensajeIA as MensajeColaborativo]))
-        if (ejecucion.resultado !== "aplicado") establecerError(ejecucion.mensaje)
-      }
+        if (ejecucion.resultado !== "aplicado") { establecerError(ejecucion.mensaje); establecerEstadoAccion(null) }
+        else establecerEstadoAccion("listo")
+      } else establecerEstadoAccion(null)
       solicitudPendiente.current = null
       establecerPregunta("")
     } catch (fallo) {
+      establecerEstadoAccion(null)
       establecerError(fallo instanceof ErrorConsultaContextual || fallo instanceof Error ? fallo.message : t("contextual.errorInterno"))
     } finally { establecerConsultando(false) }
   }
@@ -110,6 +114,7 @@ export function PanelAsistenteContextual({ projectId, credential, contexto, mode
       {!cargando && mensajes.length === 0 ? <p>{t("contextual.sinMensajes")}</p> : null}
       {error ? <p role="alert">{error}</p> : null}
     </div>
+    {estadoAccion ? <p className="assistant-action-status" role="status">{t(`ia.${estadoAccion}`)}</p> : null}
     <label htmlFor="pregunta-contextual">{t("contextual.pregunta")}</label>
     <input id="pregunta-contextual" value={pregunta} placeholder={t("contextual.placeholder")} onChange={(evento) => establecerPregunta(evento.target.value)} onKeyDown={(evento) => { if (evento.key === "Enter" && !evento.shiftKey) void preguntar() }} />
     <button type="button" disabled={consultando || !pregunta.trim()} onClick={() => void preguntar()}>{consultando ? t("contextual.consultando") : t("contextual.preguntar")}</button>

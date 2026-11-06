@@ -71,6 +71,25 @@ describe("memoria durable de proyecto F4-F", () => {
     expect((await eventos.listarPorProyecto({ projectId: creado.body.proyecto.id, limite: 100 })).items.filter((e) => e.clientChangeId)).toHaveLength(2)
   })
 
+  it("registra trazabilidad semántica de CU05 y XMI sin aceptar combinaciones arbitrarias", async () => {
+    const creado = await crear("Ventas", "Renato")
+    const ruta = `/api/proyectos/${creado.body.proyecto.id}/actividad/integracion`
+    const imagen = await request(aplicacion).post(ruta).set(bearer(creado.body.credencial)).send({
+      clientChangeId: "44444444-4444-4444-8444-444444444441", mecanismo: "image_cu05", tipo: "UML_ELEMENT_CREATED",
+      elemento: { id: "factura", tipo: "class", nombreSnapshot: "Factura" },
+    }).expect(201)
+    expect(imagen.body).toMatchObject({ mecanismo: "image_cu05", tipo: "UML_ELEMENT_CREATED", solicitadoPorParticipantId: creado.body.participante.id })
+
+    const xmi = await request(aplicacion).post(ruta).set(bearer(creado.body.credencial)).send({
+      clientChangeId: "44444444-4444-4444-8444-444444444442", mecanismo: "xmi", tipo: "XMI_IMPORTED", elemento: null,
+    }).expect(201)
+    expect(xmi.body).toMatchObject({ mecanismo: "xmi", tipo: "XMI_IMPORTED", elemento: null })
+    await request(aplicacion).post(ruta).set(bearer(creado.body.credencial)).send({
+      clientChangeId: "44444444-4444-4444-8444-444444444443", mecanismo: "xmi", tipo: "UML_ELEMENT_CREATED",
+      elemento: { id: "falsa", tipo: "class", nombreSnapshot: "Falsa" },
+    }).expect(400)
+  })
+
   it("aísla proyectos, soporta filtros y paginación acotada", async () => {
     const a = await crear("A", "Renato")
     const b = await crear("B", "Ana")

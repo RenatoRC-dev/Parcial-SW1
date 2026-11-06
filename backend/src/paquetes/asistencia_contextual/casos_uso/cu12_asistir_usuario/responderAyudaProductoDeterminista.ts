@@ -64,7 +64,7 @@ export function responderAyudaProductoDeterminista(solicitud: SolicitudAsistente
 
   if (/(asistente contextual|asistente colaborativo|contextual assistant|collaborative assistant|que puedes hacer|what can you do)/.test(pregunta)) {
     return crearRespuesta(ingles
-      ? "The Contextual assistant teaches how to use NexoCASE and explains objective facts from the current UML, selection, validation and generation status. It is advisory: it never changes or saves the model, imports or exports XMI, or generates the backend by itself."
+      ? "The Collaborative assistant teaches NexoCASE, reviews the current UML and shares the conversation. It does not execute changes by itself; a clear human request is routed to CU04, the only UML executor. It never saves, imports or exports XMI, or generates the backend by itself."
       : CONTEXTO_PRODUCTO_SW1.responsabilidadesIa.asistenteContextual)
   }
 

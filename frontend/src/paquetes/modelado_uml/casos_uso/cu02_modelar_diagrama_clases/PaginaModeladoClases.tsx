@@ -21,7 +21,7 @@ import { InspectorPropiedadesUML } from "./componentes/InspectorPropiedadesUML"
 import { construirContextoAsistente } from "../../../asistencia_contextual/casos_uso/cu12_asistir_usuario/ContextoAsistente"
 import { PanelAsistenteContextual } from "../../../asistencia_contextual/casos_uso/cu12_asistir_usuario/PanelAsistenteContextual"
 import type { AccesoProyectoActivo, ActividadModeladoManual } from "../../../gestion_proyectos/compartido/Proyecto"
-import { registrarActividadModelado } from "../../../gestion_proyectos/compartido/clienteProyectos"
+import { registrarActividadIntegracion, registrarActividadModelado } from "../../../gestion_proyectos/compartido/clienteProyectos"
 
 type HerramientaModelado = "ia" | "imagen" | "validacion" | "xmi" | "generacion"
 
@@ -70,6 +70,25 @@ export function PaginaModeladoClases({ proyectoId, proyectoNombre, accesoColabor
   const registrarActividadLocal = useCallback((actividad: ActividadModeladoManual) => {
     const clientChangeId = crypto.randomUUID()
     void registrarActividadModelado(proyectoId, accesoColaboracion.credential, clientChangeId, actividad).catch(() => undefined)
+  }, [accesoColaboracion.credential, proyectoId])
+  const registrarAplicacionImagen = useCallback((anterior: ModeloUMLCanonico, aplicado: ModeloUMLCanonico) => {
+    const clasesAnteriores = new Set(anterior.clases.map((clase) => clase.id))
+    const relacionesAnteriores = new Set(anterior.relaciones.map((relacion) => relacion.id))
+    const nombresClases = new Map(aplicado.clases.map((clase) => [clase.id, clase.nombre]))
+    const elementos = [
+      ...aplicado.clases.filter((clase) => !clasesAnteriores.has(clase.id)).map((clase) => ({ id: clase.id, tipo: "class" as const, nombreSnapshot: clase.nombre })),
+      ...aplicado.relaciones.filter((relacion) => !relacionesAnteriores.has(relacion.id)).map((relacion) => ({ id: relacion.id, tipo: "relationship" as const, nombreSnapshot: (relacion.nombre?.trim() || `${nombresClases.get(relacion.claseOrigenId) ?? relacion.claseOrigenId} - ${nombresClases.get(relacion.claseDestinoId) ?? relacion.claseDestinoId}`).slice(0, 120) })),
+    ]
+    for (const elemento of elementos) {
+      void registrarActividadIntegracion(proyectoId, accesoColaboracion.credential, crypto.randomUUID(), {
+        mecanismo: "image_cu05", tipo: "UML_ELEMENT_CREATED", elemento,
+      }).catch(() => undefined)
+    }
+  }, [accesoColaboracion.credential, proyectoId])
+  const registrarImportacionXmi = useCallback(() => {
+    void registrarActividadIntegracion(proyectoId, accesoColaboracion.credential, crypto.randomUUID(), {
+      mecanismo: "xmi", tipo: "XMI_IMPORTED", elemento: null,
+    }).catch(() => undefined)
   }, [accesoColaboracion.credential, proyectoId])
 
   const resultadoCanonico = useMemo(
@@ -164,13 +183,13 @@ export function PaginaModeladoClases({ proyectoId, proyectoNombre, accesoColabor
                 {contextoAsistente && resultadoCanonico ? <PanelAsistenteContextual projectId={proyectoId} credential={accesoColaboracion.credential} contexto={contextoAsistente} modelo={resultadoCanonico.modelo} revisionEditor={revisionModelo} alAplicarModelo={(modeloCanonico) => establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico))} /> : null}
               </div>
               <div hidden={herramientaActiva !== "imagen"}>
-                {resultadoCanonico ? <PanelModeladoDesdeImagen modelo={resultadoCanonico.modelo} alAplicarModelo={(modeloCanonico) => establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico))} alCambiarEstadoCandidato={establecerCandidatoImagenPendiente} /> : null}
+                {resultadoCanonico ? <PanelModeladoDesdeImagen modelo={resultadoCanonico.modelo} alAplicarModelo={(modeloCanonico) => { establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico)); registrarAplicacionImagen(resultadoCanonico.modelo, modeloCanonico) }} alCambiarEstadoCandidato={establecerCandidatoImagenPendiente} /> : null}
               </div>
               <div hidden={herramientaActiva !== "validacion"}>
                 {resultadoValidacion ? <PanelResumenValidacion resultado={resultadoValidacion} /> : null}
               </div>
               <div hidden={herramientaActiva !== "xmi"}>
-                {resultadoCanonico ? <PanelInteroperabilidadXmi modelo={resultadoCanonico.modelo} alImportar={(modeloCanonico) => establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico))} /> : null}
+                {resultadoCanonico ? <PanelInteroperabilidadXmi modelo={resultadoCanonico.modelo} alImportar={(modeloCanonico) => { establecerModeloImportado(convertirDesdeModeloCanonico(modeloCanonico)); registrarImportacionXmi() }} /> : null}
               </div>
               <div hidden={herramientaActiva !== "generacion"}>
                 {resultadoCanonico && resultadoValidacion && aptitudGeneracion ? <PanelGeneracionSpring modelo={resultadoCanonico.modelo} validacion={resultadoValidacion} aptitud={aptitudGeneracion} /> : null}

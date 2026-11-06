@@ -3,7 +3,7 @@ import type { ProveedorAsistenteContextual } from "../compartido/ProveedorAsiste
 
 export class ProveedorAsistenteContextualDeterministaE2E implements ProveedorAsistenteContextual {
   async responder(solicitud: SolicitudAsistenteContextual): Promise<RespuestaAsistenteContextual> {
-    const nombre = solicitud.contexto.participanteActual?.nombreVisible ?? "Diseñador"
+    const nombre = solicitud.contexto.participanteActual?.nombreVisible ?? "Participante"
     const foco = solicitud.contexto.elementoSeleccionado
     const pregunta = solicitud.pregunta.toLocaleLowerCase()
     let respuesta: string
