@@ -1381,7 +1381,12 @@ button:disabled {
 .contextual-conversation article,
 .candidate-preview,
 .project-access-code { overflow-wrap: anywhere; }
-.contextual-answer { white-space: pre-line; }
+.contextual-conversation article { padding: 0.65rem; margin: 0.5rem 0; border: 1px solid var(--border); border-radius: 7px; }
+.contextual-answer { background: color-mix(in srgb, var(--accent) 7%, var(--bg-surface)); }
+.contextual-message-body { white-space: pre-wrap; margin-top: 0.35rem; line-height: 1.6; }
+.contextual-message-body p { margin: 0 0 0.65rem; }
+.contextual-message-body ul, .contextual-message-body ol { white-space: normal; padding-left: 1.4rem; margin: 0.4rem 0; }
+.contextual-message-body li + li { margin-top: 0.2rem; }
 .assistant-action-status { color: var(--accent); font-size: 0.8rem; font-weight: 700; }
 .collaboration-empty { color: var(--text-secondary); font-size: 0.78rem; }
 

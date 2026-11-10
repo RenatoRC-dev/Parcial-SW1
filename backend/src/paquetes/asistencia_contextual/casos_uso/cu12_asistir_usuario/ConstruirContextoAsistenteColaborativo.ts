@@ -29,14 +29,14 @@ function resumirModelo(modelo: ModeloUMLCanonicoIntercambio): ContextoAsistente[
   return { id: modelo.id, nombre: modelo.nombre, version: modelo.version, clases, relaciones, truncado: clases.length < modelo.clases.length || relaciones.length < modelo.relaciones.length }
 }
 
-function evaluarDurable(modelo: ModeloUMLCanonicoIntercambio): Pick<VistaActualColaborativa, "estadoUml" | "generacion"> {
+function evaluarModelo(modelo: ModeloUMLCanonicoIntercambio): Pick<VistaActualColaborativa, "estadoUml" | "generacion"> {
   const incompletos = modelo.clases.flatMap((clase) => clase.atributos.filter((atributo) => !atributo.tipo?.trim()).map((atributo) => `${clase.nombre}.${atributo.nombre} no tiene tipo.`)).slice(0, 8)
   let generacion: VistaActualColaborativa["generacion"]
   try {
     prepararProyectoSpring(modelo)
     generacion = { estado: "apto", bloqueos: [], advertencias: [] }
   } catch (error) {
-    generacion = { estado: "no_apto", bloqueos: error instanceof ErrorModeloNoGenerable ? error.errores.slice(0, 8) : ["El snapshot durable no es apto para generación."], advertencias: [] }
+    generacion = { estado: "no_apto", bloqueos: error instanceof ErrorModeloNoGenerable ? error.errores.slice(0, 8) : ["El modelo actual no es apto para generación."], advertencias: [] }
   }
   return {
     estadoUml: { estado: incompletos.length ? "incompleto" : "valido", problemas: incompletos, errores: [], advertencias: incompletos },
@@ -67,9 +67,9 @@ export class ConstruirContextoAsistenteColaborativo {
       this.eventos.listarPorProyecto({ projectId: acceso.projectId, limite: MAX_EVENTOS }),
     ])
     const durable = resumirModelo(proyecto.modelo)
-    const evaluacionDurable = evaluarDurable(proyecto.modelo)
     const vista = pregunta.vistaActual
-    const modeloActual = vista?.modeloActual ?? durable
+    const evaluacion = pregunta.modeloEjecucion ? evaluarModelo(pregunta.modeloEjecucion) : vista ?? evaluarModelo(proyecto.modelo)
+    const modeloActual = pregunta.modeloEjecucion ? resumirModelo(pregunta.modeloEjecucion) : vista?.modeloActual ?? durable
     const seleccion = resolverSeleccion(modeloActual, pregunta.foco?.elementoId)
     const elementosRelevantes = [
       ...(seleccion ? [{ id: seleccion.id, tipo: seleccion.tipo, nombre: seleccion.tipo === "clase" ? seleccion.nombre : seleccion.nombre ?? `${seleccion.origen.nombre} — ${seleccion.destino.nombre}` }] : []),
@@ -84,14 +84,14 @@ export class ConstruirContextoAsistenteColaborativo {
       proyecto: { id: proyecto.id, nombre: proyecto.nombre }, area: "modelado_uml", idioma: vista?.idioma ?? "es",
       revisionModelo: proyecto.revisionModelo, modeloActual, elementoSeleccionado: seleccion, elementosRelevantes,
       resumenModelo: { clases: modeloActual.clases.length, relaciones: modeloActual.relaciones.length },
-      estadoUml: vista?.estadoUml ?? evaluacionDurable.estadoUml,
-      generacion: vista?.generacion ?? evaluacionDurable.generacion,
+      estadoUml: evaluacion.estadoUml,
+      generacion: evaluacion.generacion,
       cambiosSinGuardar: vista?.cambiosSinGuardar ?? false,
       candidatoImagenPendiente: vista?.candidatoImagenPendiente ?? false,
       accionesDisponibles: ["NINGUNA", ...(seleccion ? ["ENFOCAR_ELEMENTO" as const] : []), "IR_A_VALIDACION", "IR_A_GENERACION", "IR_A_XMI"],
       participanteActual: { id: acceso.participantId, nombreVisible: acceso.displayName },
       modeloDurable: { revision: proyecto.revisionModelo, actualizadoEn: proyecto.actualizadoEn, resumen: durable },
-      fuenteModeloActual: vista ? "vista_actual_validada" : "snapshot_durable",
+      fuenteModeloActual: vista || pregunta.modeloEjecucion ? "vista_actual_validada" : "snapshot_durable",
       conversacionCompartida: mensajesCronologicos.map((mensaje) => ({
         id: mensaje.id, tipoRemitente: mensaje.tipoRemitente, participantId: mensaje.participantId,
         nombreVisibleSnapshot: mensaje.nombreVisibleSnapshot, contenido: mensaje.contenido, requestId: mensaje.requestId,
@@ -103,6 +103,6 @@ export class ConstruirContextoAsistenteColaborativo {
         elemento: evento.elemento, revisionModeloObservada: evento.revisionModeloObservada, creadoEn: evento.creadoEn,
       })),
     }
-    return { pregunta: pregunta.contenido.trim(), contexto, conversacion }
+    return { requestId: pregunta.requestId, pregunta: pregunta.contenido.trim(), contexto, conversacion }
   }
 }

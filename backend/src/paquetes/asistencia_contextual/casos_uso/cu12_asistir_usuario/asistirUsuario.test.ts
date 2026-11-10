@@ -30,6 +30,93 @@ const solicitud: SolicitudAsistenteContextual = {
 }
 
 describe("CU12 asistir usuario", () => {
+  const clasesPrestamo = [...Array.from({ length: 8 }, (_, indice) => ({ id: `c-${indice}`, nombre: `Clase${indice}`, tipoClase: "normal" as const, abstracta: false, atributos: [], operaciones: [] })),
+    { id: "prestamo-canonico", nombre: "Prestamo", tipoClase: "normal" as const, abstracta: false, atributos: [], operaciones: [] }]
+  const consultaPrestamo: SolicitudAsistenteContextual = { ...solicitud, requestId: "11111111-1111-4111-8111-111111111111",
+    pregunta: "Recomiéndame exactamente un atributo adicional para Prestamo que registre su estado. No modifiques el diagrama.",
+    contexto: { ...solicitud.contexto, modeloActual: { ...solicitud.contexto.modeloActual, clases: clasesPrestamo, relaciones: [] },
+      elementosRelevantes: clasesPrestamo.slice(0, 8).map((clase) => ({ id: clase.id, nombre: clase.nombre, tipo: "clase" })) } }
+  const consejoPrestamo = { respuesta: "OPCIONAL: estado: String permite registrar el estado de Prestamo; define los valores según tus reglas de negocio.",
+    accionSugerida: "NINGUNA" as const, elementoRelacionadoId: "prestamo-canonico", nivel: "sugerencia" as const, categoriaRecomendacion: "OPCIONAL" as const,
+    recomendacion: { resumen: "Añadir estado", targetElementIds: ["prestamo-canonico"], normalizedInstruction: "Agrega estado String a Prestamo." } }
+
+  it("acepta un atributo opcional para una clase real fuera de los ocho elementos relevantes", async () => {
+    const responder = vi.fn(async () => consejoPrestamo)
+    const respuesta = await asistirUsuario(consultaPrestamo, { responder })
+    expect(respuesta).toMatchObject(consejoPrestamo)
+    expect(responder).toHaveBeenCalledTimes(1)
+    expect(consultaPrestamo.contexto.modeloActual.clases[8].atributos).toEqual([])
+  })
+
+  it.each([
+    { resumen: "Añadir estado", targetElementIds: ["tmp_estado"], normalizedInstruction: "Agrega estado String a Prestamo." },
+    { resumen: "Añadir estado", targetElementIds: [123], normalizedInstruction: "Agrega estado String a Prestamo." },
+    { resumen: "Añadir estado", targetElementIds: ["prestamo-canonico"], normalizedInstruction: " " },
+  ])("descarta recomendación opcional inválida sin inventar IDs ni repetir IA: %j", async (recomendacion) => {
+    const avisos = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const responder = vi.fn(async () => ({ ...consejoPrestamo, recomendacion })) as unknown as ProveedorAsistenteContextual["responder"]
+    const respuesta = await asistirUsuario(consultaPrestamo, { responder })
+    expect(respuesta.respuesta).toBe(consejoPrestamo.respuesta)
+    expect(respuesta.recomendacion).toBeNull()
+    expect(respuesta.elementoRelacionadoId).toBe("prestamo-canonico")
+    expect(responder).toHaveBeenCalledTimes(1)
+    expect(avisos).toHaveBeenCalledWith("[CU12] response_validation", expect.objectContaining({ outcome: "metadata_discarded", requestId: consultaPrestamo.requestId }))
+    expect(JSON.stringify(avisos.mock.calls)).not.toMatch(/Prestamo|estado: String|tmp_estado|prestamo-canonico/)
+    avisos.mockRestore()
+  })
+
+  it("limpia un ID opcional inválido de una respuesta sin acción sin modificar el original", async () => {
+    const candidata = { ...consejoPrestamo, elementoRelacionadoId: "id-otro-proyecto" }
+    const respuesta = await asistirUsuario(consultaPrestamo, { responder: async () => candidata })
+    expect(respuesta.elementoRelacionadoId).toBeNull()
+    expect(candidata.elementoRelacionadoId).toBe("id-otro-proyecto")
+    expect(respuesta.recomendacion).toEqual(consejoPrestamo.recomendacion)
+  })
+
+  it.each([
+    { accionSugerida: "ELIMINAR_CLASE" },
+    { accionSugerida: "ENFOCAR_ELEMENTO", elementoRelacionadoId: "tmp_estado" },
+    { accionSugerida: "ENFOCAR_ELEMENTO", elementoRelacionadoId: null },
+    { accionSugerida: "IR_A_XMI", elementoRelacionadoId: "id-inexistente" },
+    { categoriaRecomendacion: "INVALIDA" },
+    { respuesta: "Pulsa IR_A_GENERACION." },
+  ])("rechaza acción o campos esenciales inválidos sin degradarlos silenciosamente: %j", async (cambio) => {
+    const responder = vi.fn(async () => ({ ...consejoPrestamo, ...cambio, recomendacion: { targetElementIds: ["tmp_estado"] } })) as unknown as ProveedorAsistenteContextual["responder"]
+    await expect(asistirUsuario(consultaPrestamo, { responder })).rejects.toMatchObject({ tipo: "respuesta_invalida" })
+    expect(responder).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(["IR_A_VALIDACION", "IR_A_GENERACION", "IR_A_XMI", "MOSTRAR_IMAGEN_CANDIDATA", "ENFOCAR_ELEMENTO"] as const)("degrada navegación opcional no disponible %s conservando consejo e IDs válidos", async (accionSugerida) => {
+    const avisos = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const candidata = { ...consejoPrestamo, accionSugerida }
+    const responder = vi.fn(async () => candidata)
+    const respuesta = await asistirUsuario({ ...consultaPrestamo, contexto: { ...consultaPrestamo.contexto, accionesDisponibles: ["NINGUNA"] } }, { responder })
+    expect(respuesta).toMatchObject({ ...consejoPrestamo, accionSugerida: "NINGUNA" })
+    expect(candidata.accionSugerida).toBe(accionSugerida)
+    expect(responder).toHaveBeenCalledTimes(1)
+    expect(avisos).toHaveBeenCalledWith("[CU12] response_validation", expect.objectContaining({ stage: "semantic", reason: "OPTIONAL_UI_ACTION_UNAVAILABLE", outcome: "metadata_discarded" }))
+    avisos.mockRestore()
+  })
+
+  it("conserva la navegación disponible y no la degrada por defecto", async () => {
+    const respuesta = await asistirUsuario(consultaPrestamo, { responder: async () => ({ ...consejoPrestamo, accionSugerida: "IR_A_GENERACION" }) })
+    expect(respuesta.accionSugerida).toBe("IR_A_GENERACION")
+    expect(respuesta.recomendacion).toEqual(consejoPrestamo.recomendacion)
+  })
+  it("no confunde pedir una propuesta completa con evaluar completitud del negocio", async () => {
+    const responder = vi.fn(async () => ({ respuesta: "Propuesta según tus reglas.", accionSugerida: "NINGUNA" as const, elementoRelacionadoId: null, nivel: "sugerencia" as const, categoriaRecomendacion: "RECOMENDADO" as const,
+      recomendacion: { resumen: "Modelo acotado", targetElementIds: [], normalizedInstruction: "Crea Compra con id Long." } }))
+    const respuesta = await asistirUsuario({ ...solicitud, pregunta: "Recomienda un modelo completo con la clase Compra y atributo id Long; no necesito otras clases ni relaciones." }, { responder })
+    expect(responder).toHaveBeenCalledTimes(1)
+    expect(respuesta.recomendacion?.normalizedInstruction).toBe("Crea Compra con id Long.")
+  })
+  it("explica conceptos UML sin proveedor ni reglas de negocio inventadas", async () => {
+    const responder = vi.fn()
+    const respuesta = await asistirUsuario({ ...solicitud, pregunta: "¿Qué significa multiplicidad?" }, { responder })
+    expect(respuesta.respuesta).toContain("reglas del negocio")
+    expect(respuesta.origen).toBe("determinista")
+    expect(responder).not.toHaveBeenCalled()
+  })
   async function consultarAyudaDeterminista(pregunta: string, idioma: "es" | "en" = "es") {
     const responder = vi.fn(async () => { throw new Error("Groq no debe invocarse para ayuda determinista") })
     const respuesta = await asistirUsuario({ ...solicitud, pregunta, contexto: { ...solicitud.contexto, idioma } }, { responder })
@@ -104,13 +191,10 @@ describe("CU12 asistir usuario", () => {
   it("incluye el producto verificado junto al modelo actual sin enviar internals", () => {
     const contenido = JSON.parse(construirContenidoPreguntaContextual(solicitud))
     expect(contenido.contextoAplicacion.modeloActual.nombre).toBe("Accesos")
-    expect(contenido.contextoProducto).toEqual(CONTEXTO_PRODUCTO_SW1)
-    expect(contenido.contextoProducto.capacidades.iaModelado).toEqual(expect.objectContaining({ requiereConfirmacion: false, aplicaCambiosValidosAutomaticamente: true }))
-    expect(contenido.contextoProducto.capacidades.imagenUml).toEqual(expect.objectContaining({ produceCandidato: true, requiereConfirmacion: true }))
-    expect(contenido.contextoProducto.capacidades.iaModelado.voz).toContain("envía automáticamente")
-    expect(contenido.contextoProducto.capacidades.xmi.produceCandidato).toBe(false)
-    expect(contenido.contextoProducto.capacidades.xmi.exportar).toContain("no es un requisito ni el flujo de generación Spring")
-    const serializado = JSON.stringify(contenido.contextoProducto)
+    expect(contenido.contextoProducto).toBeUndefined() // Producto constante en el prefijo de sistema.
+    expect(contenido.contextoAplicacion.modeloDurable).toBeUndefined()
+    expect(contenido.contextoAplicacion.conversacionCompartida).toBeUndefined()
+    const serializado = JSON.stringify(CONTEXTO_PRODUCTO_SW1)
     expect(serializado).not.toMatch(/Yjs|Apollon|GROQ_API_KEY|IR_A_/i)
   })
 

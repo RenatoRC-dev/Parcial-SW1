@@ -33,12 +33,18 @@ export function PanelAsistenteContextual({ projectId, credential, contexto, mode
   const [cursorAnterior, establecerCursorAnterior] = useState<string | null>(null)
   const [error, establecerError] = useState<string | null>(null)
   const [consultando, establecerConsultando] = useState(false)
-  const [estadoAccion, establecerEstadoAccion] = useState<"interpretando" | "aplicando" | "listo" | null>(null)
+  const [espera, establecerEspera] = useState(0)
+  const [estadoAccion, establecerEstadoAccion] = useState<"interpretando" | "aplicando" | "listo" | "aclaracion" | null>(null)
   const [cargando, establecerCargando] = useState(true)
   const solicitudPendiente = useRef<{ contenido: string; requestId: string } | null>(null)
   const estadoModelo = useRef({ modelo, revision: revisionEditor })
   const accionesAplicadas = useRef(new Map<string, CambioAplicadoIA[]>())
   estadoModelo.current = { modelo, revision: revisionEditor }
+  useEffect(() => {
+    if (!espera) return
+    const temporizador = setTimeout(() => establecerEspera((actual) => Math.max(0, actual - 1)), 1000)
+    return () => clearTimeout(temporizador)
+  }, [espera])
   const orientacion = obtenerOrientacionDeterminista(contexto)
   const claveOrientacion: Record<typeof orientacion, ClaveTexto> = {
     SIN_CLASES: "contextual.hintSinClases", UML_INVALIDO: "contextual.hintInvalido", IMAGEN_PENDIENTE: "contextual.hintImagen",
@@ -75,7 +81,7 @@ export function PanelAsistenteContextual({ projectId, credential, contexto, mode
 
   const preguntar = async (texto = pregunta) => {
     const limpia = texto.trim()
-    if (!limpia || consultando) return
+    if (!limpia || consultando || espera) return
     const pendiente = solicitudPendiente.current
     const requestId = pendiente?.contenido === limpia ? pendiente.requestId : crypto.randomUUID()
     solicitudPendiente.current = { contenido: limpia, requestId }
@@ -94,11 +100,12 @@ export function PanelAsistenteContextual({ projectId, credential, contexto, mode
         if (cierre.mensajeIA) establecerMensajes((actuales) => combinarMensajes(actuales, [cierre.mensajeIA as MensajeColaborativo]))
         if (ejecucion.resultado !== "aplicado") { establecerError(ejecucion.mensaje); establecerEstadoAccion(null) }
         else establecerEstadoAccion("listo")
-      } else establecerEstadoAccion(null)
+      } else establecerEstadoAccion(resultado.kind === "clarification" ? "aclaracion" : resultado.kind === "action_already_applied" ? "listo" : null)
       solicitudPendiente.current = null
       establecerPregunta("")
     } catch (fallo) {
       establecerEstadoAccion(null)
+      if (fallo instanceof ErrorConsultaContextual && fallo.tipo === "limite") establecerEspera(fallo.retryAfterSeconds ?? 30)
       establecerError(fallo instanceof ErrorConsultaContextual || fallo instanceof Error ? fallo.message : t("contextual.errorInterno"))
     } finally { establecerConsultando(false) }
   }
@@ -109,20 +116,47 @@ export function PanelAsistenteContextual({ projectId, credential, contexto, mode
     <div className="contextual-conversation" aria-live="polite" aria-busy={cargando}>
       {cursorAnterior ? <button type="button" disabled={cargando} onClick={() => { establecerCargando(true); void cargarHistoria(cursorAnterior) }}>{t("contextual.cargarAnteriores")}</button> : null}
       {mensajes.map((mensaje) => <article className={mensaje.tipoRemitente === "ai" ? "contextual-answer" : "contextual-message"} key={mensaje.id} data-message-id={mensaje.id}>
-        <strong>{mensaje.tipoRemitente === "ai" ? t("contextual.ia") : mensaje.nombreVisibleSnapshot ?? t("contextual.sistema")}:</strong> {mensaje.contenido}
+        <strong>{mensaje.tipoRemitente === "ai" ? t("contextual.ia") : mensaje.nombreVisibleSnapshot ?? t("contextual.sistema")}:</strong>
+        <div className="contextual-message-body">{mensaje.tipoRemitente === "ai" ? formatearMensaje(mensaje.contenido) : mensaje.contenido}</div>
       </article>)}
       {!cargando && mensajes.length === 0 ? <p>{t("contextual.sinMensajes")}</p> : null}
       {error ? <p role="alert">{error}</p> : null}
     </div>
-    {estadoAccion ? <p className="assistant-action-status" role="status">{t(`ia.${estadoAccion}`)}</p> : null}
+    {estadoAccion ? <p className="assistant-action-status" role="status">{t(estadoAccion === "aclaracion" ? "contextual.aclaracion" : `ia.${estadoAccion}`)}</p> : null}
+    {espera ? <p role="status">{espera}s</p> : null}
+    {error && solicitudPendiente.current ? <button type="button" disabled={consultando || espera > 0} onClick={() => void preguntar(solicitudPendiente.current?.contenido)}>↻ {t("contextual.preguntar")}</button> : null}
     <label htmlFor="pregunta-contextual">{t("contextual.pregunta")}</label>
     <input id="pregunta-contextual" value={pregunta} placeholder={t("contextual.placeholder")} onChange={(evento) => establecerPregunta(evento.target.value)} onKeyDown={(evento) => { if (evento.key === "Enter" && !evento.shiftKey) void preguntar() }} />
-    <button type="button" disabled={consultando || !pregunta.trim()} onClick={() => void preguntar()}>{consultando ? t("contextual.consultando") : t("contextual.preguntar")}</button>
+    <button type="button" disabled={consultando || espera > 0 || !pregunta.trim()} onClick={() => void preguntar()}>{consultando ? t("contextual.consultando") : t("contextual.preguntar")}</button>
     <div className="contextual-quick-prompts">
-      {preguntasPorEstado[obtenerGrupoPreguntasRapidas(contexto)].map((clave) => <button type="button" disabled={consultando} key={clave} onClick={() => void preguntar(t(clave))}>{t(clave)}</button>)}
+      {preguntasPorEstado[obtenerGrupoPreguntasRapidas(contexto)].map((clave) => <button type="button" disabled={consultando || espera > 0} key={clave} onClick={() => void preguntar(t(clave))}>{t(clave)}</button>)}
     </div>
     <p className="ai-note">{t("contextual.noMuta")}</p>
   </aside>
+}
+
+// Solo párrafos, listas y énfasis; React escapa todo el texto, incluido HTML generado.
+function formatearMensaje(contenido: string) {
+  return contenido.split(/\n\s*\n/).flatMap((bloque, bloqueIndice) => {
+    const grupos: Array<{ tipo: "p" | "ul" | "ol"; lineas: string[] }> = []
+    for (const linea of bloque.split("\n")) {
+      const item = /^\s*(-|\*|\d+[.)])\s+(.+)$/.exec(linea)
+      const tipo = item ? /^\d/.test(item[1]) ? "ol" : "ul" : "p"
+      if (grupos.at(-1)?.tipo !== tipo) grupos.push({ tipo, lineas: [] })
+      grupos.at(-1)!.lineas.push(item ? item[2] : linea)
+    }
+    return grupos.map(({ tipo, lineas }, indice) => {
+      const clave = `${bloqueIndice}-${indice}`
+      if (tipo === "p") return <p key={clave}>{formatearEnfasis(lineas.join("\n"))}</p>
+      const Lista = tipo
+      return <Lista key={clave}>{lineas.map((linea, item) => <li key={item}>{formatearEnfasis(linea)}</li>)}</Lista>
+    })
+  })
+}
+
+function formatearEnfasis(contenido: string) {
+  return contenido.split(/(\*\*[^*]+\*\*)/g).map((parte, indice) => parte.startsWith("**") && parte.endsWith("**")
+    ? <strong key={indice}>{parte.slice(2, -2)}</strong> : parte)
 }
 
 function resultadoMensajes(resultado: Awaited<ReturnType<typeof consultarAsistenteContextual>>): MensajeColaborativo[] {

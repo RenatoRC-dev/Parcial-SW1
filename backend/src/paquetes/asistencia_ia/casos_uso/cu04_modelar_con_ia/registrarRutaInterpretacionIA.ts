@@ -39,7 +39,7 @@ export function registrarRutaInterpretacionIA(aplicacion: Express, dependencias:
       if (humano.creado) dependencias.publicador.publicar(humano.mensaje)
       const existente = await dependencias.mensajes.obtenerAccionIAPorMensaje(acceso.projectId, humano.mensaje.id)
       if (existente) { respuesta.status(200).json(await salidaExistente(existente, humano.mensaje, mensajes)); return }
-      const plan = await interpretarInstruccionModelado(entrada, dependencias.proveedor)
+      const plan = await interpretarInstruccionModelado(entrada, dependencias.proveedor, requestId)
       if (plan.resultado !== "aplicar") {
         const ia = await mensajes.registrarMensajeIAIdempotente(acceso.projectId, plan.mensaje, requestId, humano.mensaje.id)
         if (ia.creado) dependencias.publicador.publicar(ia.mensaje)
@@ -145,6 +145,7 @@ function validarCambios(accion: AccionIAModeladoPersistida, valor: unknown): Cam
 
 function responderErrorIA(error: unknown, respuesta: Response): void {
   if (error instanceof ErrorProveedorIA) {
+    if (error.retryAfterSeconds) respuesta.setHeader("Retry-After", error.retryAfterSeconds)
     const estado = error.tipo === "limite" ? 429 : error.tipo === "timeout" ? 504 : error.tipo === "respuesta_invalida" ? 502 : 503
     const mensajes = {
       limite: "El servicio de IA está temporalmente limitado. Espera unos segundos e intenta nuevamente. El modelo no fue modificado.",
@@ -154,8 +155,8 @@ function responderErrorIA(error: unknown, respuesta: Response): void {
       autenticacion: "No se pudo acceder al servicio de IA por un problema de configuración. El modelo no fue modificado.",
       no_disponible: "El servicio de IA no está disponible en este momento. Intenta nuevamente. El modelo no fue modificado.",
     }
-    respuesta.status(estado).json({ error: mensajes[error.tipo], tipo: error.tipo }); return
+    respuesta.status(estado).json({ error: mensajes[error.tipo], tipo: error.tipo, ...(error.retryAfterSeconds ? { retryAfterSeconds: error.retryAfterSeconds } : {}) }); return
   }
-  console.error("[CU04][AI] internal_error", error)
+  console.error("[CU04][AI] internal_error", { category: "unexpected_exception" })
   respuesta.status(500).json({ error: "No se pudo completar la operacion. El modelo no fue modificado.", tipo: "interno" })
 }

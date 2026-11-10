@@ -3,13 +3,15 @@ import type { SolicitudInterpretacionUML, RespuestaInterpretacionUMLHttp } from 
 import { construirContextoModelo } from "./construirContextoModelo.js"
 import { ErrorPlanCambiosUML } from "./EjecutorComandosUML.js"
 import { validarPlanCambiosUML } from "./validarPlanCambiosUML.js"
-import { normalizarComandosAsistidos } from "./normalizarSemanticaAsistida.js"
+import { normalizarComandosAsistidos, normalizarReferenciasTemporales } from "./normalizarSemanticaAsistida.js"
 
 export async function interpretarInstruccionModelado(
   solicitud: SolicitudInterpretacionUML,
   proveedor: ProveedorModeloLenguaje,
+  requestId?: string,
 ): Promise<RespuestaInterpretacionUMLHttp> {
   const interpretacion = await proveedor.interpretarCambiosUML({
+    ...(requestId ? { requestId } : {}),
     instruccion: solicitud.instruccion,
     modelo: solicitud.modelo,
     contexto: construirContextoModelo(solicitud.modelo),
@@ -19,7 +21,7 @@ export async function interpretarInstruccionModelado(
     return { ...interpretacion, comandos: [], revision: solicitud.revision }
   }
   try {
-    const comandos = normalizarComandosAsistidos(solicitud.modelo, interpretacion.comandos)
+    const comandos = normalizarComandosAsistidos(solicitud.modelo, normalizarReferenciasTemporales(solicitud.modelo, interpretacion.comandos))
     const destructivo = comandos.some((comando) => comando.tipo.startsWith("eliminar_"))
     if (destructivo && !/\b(elimina|eliminar|borra|borrar|quita|quitar)\b/i.test(solicitud.instruccion)) {
       return {

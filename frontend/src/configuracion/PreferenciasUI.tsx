@@ -6,6 +6,7 @@ export type Tema = "sistema" | "claro" | "oscuro"
 
 const textos = {
   es: {
+    "contextual.aclaracion": "Necesito una aclaración para continuar.",
     "propiedades.protegida": "Protegida (#)", "propiedades.paquete": "Paquete (~)",
     "preferencias.idioma": "Idioma", "preferencias.tema": "Tema", "preferencias.es": "Español", "preferencias.en": "English", "preferencias.sistema": "Sistema", "preferencias.claro": "Claro", "preferencias.oscuro": "Oscuro",
     "proyectos.titulo": "Proyectos de modelado", "proyectos.descripcion": "Crea un proyecto o recupera uno guardado para comenzar a modelar.", "proyectos.crear": "Crear proyecto", "proyectos.nombre": "Nombre del proyecto", "proyectos.mios": "Proyectos recientes", "proyectos.vacio": "No hay proyectos recientes en este dispositivo.", "proyectos.abrir": "Abrir", "proyectos.actualizado": "Actualizado", "proyectos.guardado": "Guardado", "proyectos.sucio": "Cambios sin guardar", "proyectos.guardando": "Guardando…", "proyectos.guardar": "Guardar", "proyectos.confirmarSalida": "Hay cambios sin guardar. ¿Deseas volver a Proyectos recientes?",
@@ -34,6 +35,7 @@ const textos = {
     "proyectos.conflictoEtiqueta": "Conflicto de guardado", "proyectos.conflictoTitulo": "El proyecto fue actualizado por otro participante", "proyectos.conflictoDetalle": "Tu modelo local permanece intacto y continúa con cambios sin guardar. Puedes revisarlo o cargar explícitamente la última versión durable.", "proyectos.seguirRevisando": "Seguir revisando mis cambios", "proyectos.cargarVersion": "Cargar versión guardada", "proyectos.cargandoVersion": "Cargando…", "proyectos.revisarConflicto": "Revisar conflicto", "proyectos.conflictoConfirmarCarga": "Tus cambios locales no guardados serán reemplazados por la última versión guardada del proyecto. ¿Deseas continuar?", "proyectos.versionGuardadaCargada": "Se cargó la última versión guardada del proyecto.",
   },
   en: {
+    "contextual.aclaracion": "I need clarification to continue.",
     "propiedades.protegida": "Protected (#)", "propiedades.paquete": "Package (~)",
     "preferencias.idioma": "Language", "preferencias.tema": "Theme", "preferencias.es": "Español", "preferencias.en": "English", "preferencias.sistema": "System", "preferencias.claro": "Light", "preferencias.oscuro": "Dark",
     "proyectos.titulo": "Modeling projects", "proyectos.descripcion": "Create a project or recover saved work to start modeling.", "proyectos.crear": "Create project", "proyectos.nombre": "Project name", "proyectos.mios": "Recent projects", "proyectos.vacio": "No recent projects on this device.", "proyectos.abrir": "Open", "proyectos.actualizado": "Updated", "proyectos.guardado": "Saved", "proyectos.sucio": "Unsaved changes", "proyectos.guardando": "Saving…", "proyectos.guardar": "Save", "proyectos.confirmarSalida": "There are unsaved changes. Return to Recent projects?",

@@ -36,6 +36,7 @@ describe("CU12 colaborativo autenticado", () => {
     }))
     publicar = vi.fn()
     aplicacion = crearAplicacionGeneracionBackend({
+      proveedorIA: { interpretarCambiosUML: async () => { throw new Error("CU12 consultivo no debe invocar CU04.") } },
       accesoProyectos: { proyectos, participantes, protector, mensajes, eventos },
       proveedorAsistenteContextual: { responder } as ProveedorAsistenteContextual,
       publicadorMensajes: { publicar },
@@ -47,6 +48,49 @@ describe("CU12 colaborativo autenticado", () => {
   const preguntar = (proyectoId: string, credencial: string, contenido: string, id = requestId) => request(aplicacion)
     .post(`/api/proyectos/${proyectoId}/asistente-colaborativo/interactuar`).set(bearer(credencial))
     .send({ requestId: id, contenido })
+
+  it.each([false, true])("guarda consejo opcional para Prestamo una vez sin modificar UML (metadatos inválidos=%s)", async (invalida) => {
+    const creado = await crear("Biblioteca")
+    const modeloVivo = { id: "m", nombre: "Biblioteca", version: "1", relaciones: [], clases: Array.from({ length: 9 }, (_, indice) => ({
+      id: `clase-${indice}`, nombre: indice === 8 ? "Prestamo" : `Clase${indice}`, abstracta: false, posicion: { x: indice * 10, y: 0 }, atributos: [],
+    })) }
+    responder.mockResolvedValue({ respuesta: "OPCIONAL: estado: String registra el estado; define sus valores según tus reglas de negocio.", accionSugerida: "NINGUNA", elementoRelacionadoId: invalida ? "tmp_estado" : "clase-8", nivel: "sugerencia", categoriaRecomendacion: "OPCIONAL",
+      recomendacion: { resumen: "Estado de Prestamo", targetElementIds: [invalida ? "tmp_estado" : "clase-8"], normalizedInstruction: "Agrega estado String a Prestamo." } })
+    const enviar = () => request(aplicacion).post(`/api/proyectos/${creado.body.proyecto.id}/asistente-colaborativo/interactuar`).set(bearer(creado.body.credencial))
+      .send({ requestId, contenido: "Recomiéndame exactamente un atributo adicional para Prestamo que registre su estado. No modifiques el diagrama.", modeloEjecucion: modeloVivo, revisionEditor: 1 })
+    const [primera, concurrente] = await Promise.all([enviar().expect(200), enviar().expect(200)])
+    const repetida = await enviar().expect(200)
+    expect(primera.body.kind).toBe("advisory")
+    expect(concurrente.body.mensajeIA.id).toBe(primera.body.mensajeIA.id)
+    expect(repetida.body.mensajeIA.id).toBe(primera.body.mensajeIA.id)
+    expect(primera.body.mensajeIA.recomendacion).toEqual(invalida ? null : expect.objectContaining({ targetElementIds: ["clase-8"] }))
+    expect(primera.body.mensajeHumano.participantId).toBe(creado.body.participante.id)
+    expect(responder).toHaveBeenCalledTimes(1)
+    expect((await mensajes.listarPorProyecto({ projectId: creado.body.proyecto.id, limite: 20 })).items).toHaveLength(2)
+    expect((await eventos.listarPorProyecto({ projectId: creado.body.proyecto.id, limite: 20 })).items.filter((evento) => evento.tipo.startsWith("UML_") || evento.mecanismo === "ai_cu04")).toHaveLength(0)
+    expect((await proyectos.obtenerPorId(creado.body.proyecto.id))?.modelo.clases).toHaveLength(0)
+    expect(modeloVivo.clases[8].atributos).toHaveLength(0)
+  })
+
+  it("reproduce dos llamadas solo al reenviar un request fallido; no reintenta a ciegas ni duplica mensajes", async () => {
+    const creado = await crear()
+    const logs = vi.spyOn(console, "info").mockImplementation(() => {})
+    responder.mockResolvedValue({ respuesta: "Consejo opcional.", accionSugerida: "CREAR_ATRIBUTO", elementoRelacionadoId: null, nivel: "sugerencia", categoriaRecomendacion: "OPCIONAL", recomendacion: null })
+    const texto = "Recomiéndame exactamente un atributo adicional para Prestamo que registre su estado. No modifiques el diagrama."
+    await preguntar(creado.body.proyecto.id, creado.body.credencial, texto).expect(502)
+    expect(responder).toHaveBeenCalledTimes(1)
+    await preguntar(creado.body.proyecto.id, creado.body.credencial, texto).expect(502)
+    expect(responder).toHaveBeenCalledTimes(2)
+    expect((await mensajes.listarPorProyecto({ projectId: creado.body.proyecto.id, limite: 20 })).items).toHaveLength(1)
+    expect(logs).toHaveBeenCalledWith("[CU12] request_lifecycle", { requestId, phase: "first_request" })
+    expect(logs).toHaveBeenCalledWith("[CU12] request_lifecycle", { requestId, phase: "existing_request" })
+    responder.mockResolvedValue({ respuesta: "Consejo opcional.", accionSugerida: "NINGUNA", elementoRelacionadoId: null, nivel: "sugerencia", categoriaRecomendacion: "OPCIONAL", recomendacion: null })
+    await preguntar(creado.body.proyecto.id, creado.body.credencial, texto).expect(200)
+    await preguntar(creado.body.proyecto.id, creado.body.credencial, texto).expect(200)
+    expect(responder).toHaveBeenCalledTimes(3)
+    expect((await mensajes.listarPorProyecto({ projectId: creado.body.proyecto.id, limite: 20 })).items).toHaveLength(2)
+    logs.mockRestore()
+  })
 
   it("exige acceso, aísla proyectos y atribuye el mensaje a la identidad autenticada", async () => {
     const a = await crear("A", "Carlos")
@@ -73,7 +117,7 @@ describe("CU12 colaborativo autenticado", () => {
     await preguntar(creado.body.proyecto.id, creado.body.credencial, "Otra pregunta").expect(409)
   })
 
-  it("persiste la pregunta si Groq falla y completa el mismo hilo al reintentar", async () => {
+  it("mantiene un fallo inesperado como interno y conserva el hilo al reintentar", async () => {
     const creado = await crear()
     responder.mockRejectedValueOnce(new Error("proveedor caído"))
     await preguntar(creado.body.proyecto.id, creado.body.credencial, "Analiza el modelo").expect(500)

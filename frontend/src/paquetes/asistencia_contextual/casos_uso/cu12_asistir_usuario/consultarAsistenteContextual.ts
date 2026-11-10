@@ -26,16 +26,17 @@ export type RespuestaInteraccionColaborativa =
 export type TipoErrorConsultaContextual = "no_disponible" | "limite" | "respuesta_invalida" | "solicitud_invalida" | "conflicto" | "interno"
 
 export class ErrorConsultaContextual extends Error {
-  constructor(readonly tipo: TipoErrorConsultaContextual, mensaje: string) { super(mensaje) }
+  constructor(readonly tipo: TipoErrorConsultaContextual, mensaje: string, readonly retryAfterSeconds?: number) { super(mensaje) }
 }
 
 async function leer<T>(respuesta: Response): Promise<T> {
   const cuerpo = await respuesta.json().catch(() => null) as Record<string, unknown> | null
   if (!respuesta.ok) {
     const tipo: TipoErrorConsultaContextual = respuesta.status === 409 ? "conflicto" : respuesta.status === 429 ? "limite"
-      : respuesta.status === 502 ? "respuesta_invalida" : respuesta.status === 503 ? "no_disponible"
+      : respuesta.status === 502 ? "respuesta_invalida" : respuesta.status === 503 || respuesta.status === 504 ? "no_disponible"
         : respuesta.status === 400 ? "solicitud_invalida" : "interno"
-    throw new ErrorConsultaContextual(tipo, typeof cuerpo?.error === "string" ? cuerpo.error : "No se pudo completar la consulta colaborativa.")
+    const espera = Number(respuesta.headers.get("Retry-After") ?? cuerpo?.retryAfterSeconds ?? 30)
+    throw new ErrorConsultaContextual(tipo, typeof cuerpo?.error === "string" ? cuerpo.error : "No se pudo completar la consulta colaborativa.", tipo === "limite" ? Math.min(300, Math.max(1, Number.isFinite(espera) ? espera : 30)) : undefined)
   }
   return cuerpo as T
 }

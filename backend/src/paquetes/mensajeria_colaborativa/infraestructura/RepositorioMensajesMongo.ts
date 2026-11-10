@@ -38,6 +38,19 @@ function aDocumento(mensaje: MensajeProyecto): DocumentoMensaje {
 export class RepositorioMensajesMongo implements RepositorioMensajes {
   private readonly mensajes: Collection<DocumentoMensaje>
   constructor(baseDatos: Db) { this.mensajes = baseDatos.collection<DocumentoMensaje>(COLECCION_MENSAJES) }
+  async buscarRecomendaciones(projectId: string, participantId: string, limite: number): Promise<Array<{ mensaje: MensajeProyecto; solicitud: MensajeProyecto }>> {
+    try {
+      const documentos = await this.mensajes.aggregate<DocumentoMensaje & { solicitud: DocumentoMensaje[] }>([
+        { $match: { projectId, tipoRemitente: "ai", recomendacion: { $ne: null }, "recomendacion.normalizedInstruction": { $type: "string" } } },
+        { $sort: { creadoEn: -1, _id: -1 } },
+        { $lookup: { from: COLECCION_MENSAJES, localField: "replyToMessageId", foreignField: "_id", as: "solicitud",
+          pipeline: [{ $match: { projectId, participantId, tipoRemitente: "human" } }] } },
+        { $match: { "solicitud.0": { $exists: true } } },
+        { $limit: Math.min(32, Math.max(1, limite)) },
+      ]).toArray()
+      return documentos.map(({ solicitud, ...mensaje }) => ({ mensaje: aDominio(mensaje), solicitud: aDominio(solicitud[0]) }))
+    } catch (error) { if (error instanceof ErrorDatosMensajeCorruptos) throw error; throw new ErrorPersistenciaMensaje("No se pudieron consultar las recomendaciones.", { cause: error }) }
+  }
   async crear(mensaje: MensajeProyecto): Promise<MensajeProyecto> {
     try { const documento = aDocumento(mensaje); await this.mensajes.insertOne(documento); return aDominio(documento) }
     catch (error) {

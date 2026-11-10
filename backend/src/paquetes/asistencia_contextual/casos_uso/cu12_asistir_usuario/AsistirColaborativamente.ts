@@ -44,16 +44,6 @@ function responderActividad(solicitud: SolicitudAsistenteContextual): RespuestaA
   return null
 }
 
-function responderAccionNoEjecutable(solicitud: SolicitudAsistenteContextual): RespuestaAsistenteContextual | null {
-  const pregunta = normalizar(solicitud.pregunta).trim()
-  if (!/^(crea|agrega|anade|añade|elimina|borra|corrige|modifica|cambia|hazlo|aplicalo|aplícalo)\b/.test(pregunta)) return null
-  return {
-    respuesta: "Puedo revisar y proponer ese cambio, pero este asistente no modifica el UML. Para aplicarlo utiliza Asistente IA, el modelado asistido de NexoCASE.",
-    accionSugerida: "NINGUNA", elementoRelacionadoId: solicitud.contexto.elementoSeleccionado?.id ?? null,
-    nivel: "sugerencia", categoriaRecomendacion: "RECOMENDADO", origen: "determinista",
-  }
-}
-
 export class AsistirColaborativamente {
   private readonly solicitudesEnCurso = new Map<string, Promise<{ mensajeHumano: MensajeProyecto; mensajeIA: MensajeProyecto }>>()
 
@@ -77,12 +67,14 @@ export class AsistirColaborativamente {
     const existenteIA = await this.mensajes.obtenerPorRequestId(acceso.projectId, pregunta.requestId, "ai")
     const humano = await this.mensajes.registrarMensajeHumanoIdempotente(acceso, pregunta.contenido, pregunta.requestId, pregunta.foco ? [pregunta.foco.elementoId] : [])
     if (humano.creado) this.publicador.publicar(humano.mensaje)
-    if (existenteIA) return { mensajeHumano: humano.mensaje, mensajeIA: existenteIA }
+    if (existenteIA) {
+      console.info("[CU12] request_lifecycle", { requestId: pregunta.requestId, phase: "durable_response_reused" })
+      return { mensajeHumano: humano.mensaje, mensajeIA: existenteIA }
+    }
 
     const solicitud = await this.construirContexto.construir(acceso, pregunta)
     const respuesta = responderAyudaProductoDeterminista(solicitud)
       ?? responderActividad(solicitud)
-      ?? responderAccionNoEjecutable(solicitud)
       ?? await asistirUsuario(solicitud, this.proveedor)
     const ids = respuesta.elementoRelacionadoId ? [respuesta.elementoRelacionadoId] : []
     const ia = await this.mensajes.registrarMensajeIAIdempotente(acceso.projectId, respuesta.respuesta, pregunta.requestId, humano.mensaje.id, ids, respuesta.recomendacion ?? null)

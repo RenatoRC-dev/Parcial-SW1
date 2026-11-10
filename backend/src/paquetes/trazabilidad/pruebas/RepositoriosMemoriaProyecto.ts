@@ -36,6 +36,14 @@ export class RepositorioEventosMemoria implements RepositorioEventos {
 export class RepositorioMensajesMemoria implements RepositorioMensajes {
   private readonly datos: MensajeProyecto[] = []
   private readonly acciones = new Map<string, AccionIAModeladoPersistida>()
+  async buscarRecomendaciones(projectId: string, participantId: string, limite: number): Promise<Array<{ mensaje: MensajeProyecto; solicitud: MensajeProyecto }>> {
+    return structuredClone(this.datos.filter((mensaje) => mensaje.projectId === projectId && mensaje.tipoRemitente === "ai" && mensaje.recomendacion)
+      .sort((a, b) => b.creadoEn.localeCompare(a.creadoEn) || b.id.localeCompare(a.id))
+      .flatMap((mensaje) => {
+        const solicitud = this.datos.find((item) => item.id === mensaje.replyToMessageId && item.projectId === projectId && item.tipoRemitente === "human" && item.participantId === participantId)
+        return solicitud ? [{ mensaje, solicitud }] : []
+      }).slice(0, Math.min(32, Math.max(1, limite))))
+  }
   async crear(mensaje: MensajeProyecto): Promise<MensajeProyecto> {
     if (mensaje.requestId && this.datos.some((item) => item.projectId === mensaje.projectId && item.requestId === mensaje.requestId && item.tipoRemitente === mensaje.tipoRemitente)) {
       throw new ErrorRequestMensajeDuplicado("El mensaje de la solicitud ya existe.")

@@ -12,6 +12,7 @@ describe("diagnóstico de errores Groq CU04", () => {
     [{ status: 408 }, "timeout"],
     [Object.assign(new Error("Request timed out."), { name: "APIConnectionTimeoutError" }), "timeout"],
     [{ status: 400, error: { code: "json_validate_failed", message: "JSON inválido" } }, "respuesta_invalida"],
+    [{ status: 400, error: { error: { code: "json_validate_failed", message: "JSON inválido" } } }, "respuesta_invalida"],
     [{ status: 400, error: { code: "invalid_request_error", message: "Esquema inválido" } }, "configuracion"],
     [{ status: 503 }, "no_disponible"],
   ] as const)("clasifica %j como %s", (error, esperado) => {

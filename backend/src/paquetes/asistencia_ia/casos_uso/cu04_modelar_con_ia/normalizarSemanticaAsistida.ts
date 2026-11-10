@@ -93,3 +93,31 @@ export function normalizarComandosAsistidos(
     }
   })
 }
+
+/** Adapta solo alias temporales declarados; nunca transforma IDs canónicos ni texto del usuario. */
+export function normalizarReferenciasTemporales(modelo: ModeloUMLCanonicoIA, comandos: ComandoModeloUML[]): ComandoModeloUML[] {
+  const estables = new Set([
+    modelo.id, ...modelo.relaciones.map((relacion) => relacion.id),
+    ...modelo.clases.flatMap((clase) => [clase.id, ...clase.atributos.map((atributo) => atributo.id),
+      ...(clase.metodos ?? []).flatMap((metodo) => [metodo.id, ...metodo.parametros.map((parametro) => parametro.id)])]),
+  ])
+  const declaraciones = comandos.flatMap((comando) => [
+    ...("refTemporal" in comando ? [comando.refTemporal] : []),
+    ...(comando.tipo === "crear_metodo" ? comando.parametros.map((parametro) => parametro.refTemporal) : []),
+  ])
+  const referencias = new Map<string, string>()
+  const destinos = new Set<string>()
+  for (const referencia of declaraciones) {
+    const destino = /^tmp[-_][A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$/.test(referencia) ? referencia.replace(/-/g, "_") : referencia
+    if (!/^tmp_[A-Za-z0-9_]+$/.test(destino)) throw new ErrorPlanCambiosUML("Referencia temporal con formato no soportado.")
+    if (referencias.has(referencia) || destinos.has(destino) || estables.has(referencia) || estables.has(destino)) {
+      throw new ErrorPlanCambiosUML("Las referencias temporales son duplicadas o colisionan con IDs existentes.")
+    }
+    referencias.set(referencia, destino); destinos.add(destino)
+  }
+  const camposReferencia = new Set(["refTemporal", "claseRef", "claseARef", "claseBRef", "claseOrigenRef", "claseDestinoRef", "parteRef", "todoRef", "subclaseRef", "superclaseRef"])
+  const adaptar = <T extends object>(valor: T): T => Object.fromEntries(Object.entries(valor).map(([campo, dato]) =>
+    [campo, camposReferencia.has(campo) && typeof dato === "string" ? referencias.get(dato) ?? dato : dato])) as T
+  return comandos.map((comando) => comando.tipo === "crear_metodo"
+    ? { ...adaptar(comando), parametros: comando.parametros.map(adaptar) } : adaptar(comando))
+}

@@ -23,6 +23,7 @@ export interface AccionIAModeladoPersistida {
 }
 
 export interface RepositorioMensajes {
+  buscarRecomendaciones(projectId: string, participantId: string, limite: number): Promise<Array<{ mensaje: MensajeProyecto; solicitud: MensajeProyecto }>>
   crear(mensaje: MensajeProyecto): Promise<MensajeProyecto>
   listarPorProyecto(consulta: ConsultaMensajes): Promise<PaginaMensajes>
   obtenerPorId(projectId: string, id: string): Promise<MensajeProyecto | null>

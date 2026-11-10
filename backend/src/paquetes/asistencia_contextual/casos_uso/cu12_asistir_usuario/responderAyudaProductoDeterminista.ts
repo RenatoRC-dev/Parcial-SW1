@@ -24,6 +24,18 @@ function resumenEstado(solicitud: SolicitudAsistenteContextual): string {
 export function responderAyudaProductoDeterminista(solicitud: SolicitudAsistenteContextual): RespuestaAsistenteContextual | null {
   const pregunta = normalizar(solicitud.pregunta)
   const ingles = solicitud.contexto.idioma === "en"
+  // Pedir una propuesta completa no equivale a preguntar si el negocio está completo.
+  if (/^(propon|recomienda|sugiere|dame una propuesta)\b/.test(pregunta) && /\b(modelo|diagrama|clases|relaciones|atributos)\b/.test(pregunta)) return null
+
+  if (!ingles && /^(que (es|significa)|define|explica(me)?|cual es la diferencia)\b/.test(pregunta)) {
+    const conceptos = [
+      ["composicion", "Composición: relación todo-parte con pertenencia exclusiva de la parte y ciclo de vida ligado al todo."],
+      ["agregacion", "Agregación: relación todo-parte compartida; la parte puede existir independientemente del todo."],
+      ["multiplicidad", "Multiplicidad: cantidad de instancias permitidas en un extremo de una relación UML. Sus valores dependen de las reglas del negocio, no se deducen del nombre de las clases."],
+      ["generalizacion", "Generalización: una subclase especializa a una superclase y hereda sus características."],
+    ].filter(([termino]) => pregunta.includes(termino)).map(([, definicion]) => definicion)
+    if (conceptos.length) return crearRespuesta(conceptos.join("\n\n"))
+  }
 
   if (/(voz|hablar|dictar|audio|voice|speak|dictate)/.test(pregunta)) {
     return crearRespuesta(ingles

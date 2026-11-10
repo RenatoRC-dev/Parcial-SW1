@@ -1,4 +1,6 @@
 import Groq from "groq-sdk"
+import { randomUUID } from "node:crypto"
+import { registrarLimiteGroq, registrarUsoGroq, segundosEsperaGroq } from "./ControlLimiteGroq.js"
 import type { RespuestaInterpretacionUML } from "../../contrato/PlanCambiosUML.js"
 import { ErrorProveedorIA, type ProveedorModeloLenguaje, type SolicitudProveedorUML } from "../ProveedorModeloLenguaje.js"
 import { esRespuestaInterpretacionUML } from "../../../casos_uso/cu04_modelar_con_ia/validarPlanCambiosUML.js"
@@ -14,9 +16,17 @@ function objeto(valor: unknown): valor is Record<string, unknown> {
   return typeof valor === "object" && valor !== null && !Array.isArray(valor)
 }
 
+export function esErrorOperativoGroq(error: unknown): boolean {
+  if (!objeto(error)) return false
+  return (typeof error.status === "number" && error.status >= 400 && error.status <= 599)
+    || ["ETIMEDOUT", "ABORT_ERR", "ECONNRESET", "ECONNREFUSED"].includes(String(error.code))
+    || (error instanceof Error && /^(APIConnectionError|APIConnectionTimeoutError|APIUserAbortError|AbortError|TimeoutError)$/.test(error.name))
+}
+
 export function clasificarErrorProveedorGroq(error: unknown): { estado: number; codigo: string; tipo: TipoErrorProveedor; motivo: string } {
   const exterior = objeto(error) ? error : {}
-  const interior = objeto(exterior.error) ? exterior.error : {}
+  const cuerpo = objeto(exterior.error) ? exterior.error : {}
+  const interior = objeto(cuerpo.error) ? cuerpo.error : cuerpo
   const estado = Number(exterior.status) || 0
   const codigo = String(interior.code ?? exterior.code ?? "unknown")
   const motivo = String(interior.message ?? (error instanceof Error ? error.message : "unknown")).replace(/\s+/g, " ").slice(0, 500)
@@ -32,7 +42,8 @@ export function clasificarErrorProveedorGroq(error: unknown): { estado: number; 
 }
 
 const INSTRUCCIONES = `Eres un intérprete de UNA instrucción incremental de modelado UML contra el modelo actual.
-No generes un modelo completo. Devuelve exclusivamente el objeto del esquema.
+Puede incluir un modelo completo si la instrucción lo solicita: crea todas las clases, atributos y relaciones concretamente especificados, en orden de dependencias, usando tmp_* para enlazar los nuevos elementos. Tablas significa clases UML, nunca DDL. Devuelve exclusivamente el objeto del esquema.
+Si faltan especificaciones esenciales para ese modelo, pregunta con resultado=aclarar y comandos=[]. No entregues un plan parcial como si estuviera completo ni inventes reglas de negocio para rellenar lo solicitado.
 Usa literalmente los nombres de comando del esquema; nunca inventes alias como crear_atributo. Para crear una clase usa crear_clase con refTemporal, nombre y abstracta. Para añadir un atributo usa agregar_atributo con claseRef, refTemporal, nombre, tipoDato y visibilidad. Incluye todos los campos requeridos por el esquema aunque su valor sea null.
 Usa solo ids incluidos en el contexto para elementos existentes; nunca inventes esos ids.
 Para elementos nuevos usa referencias temporales tmp_* únicas dentro de esta respuesta.
@@ -58,18 +69,22 @@ export class ProveedorGroq implements ProveedorModeloLenguaje {
   readonly modelo: string
   private readonly cliente: Groq | null
 
-  constructor(apiKey = process.env.GROQ_API_KEY, modelo = process.env.GROQ_MODEL ?? MODELO_PREDETERMINADO) {
+  constructor(apiKey = process.env.GROQ_API_KEY, modelo = process.env.GROQ_CU04_MODEL?.trim() || process.env.GROQ_MODEL?.trim() || MODELO_PREDETERMINADO) {
     this.modelo = modelo
     this.cliente = apiKey ? new Groq({ apiKey, timeout: CU04_AI_TIMEOUT_MS, maxRetries: 0 }) : null
   }
 
   async interpretarCambiosUML(solicitud: SolicitudProveedorUML): Promise<RespuestaInterpretacionUML> {
     if (!this.cliente) throw new ErrorProveedorIA("configuracion", "GROQ_API_KEY no está configurada en el backend.")
+    const espera = segundosEsperaGroq(this.modelo)
+    if (espera) throw new ErrorProveedorIA("limite", "Espera antes de reintentar la misma solicitud.", espera)
+    const requestId = solicitud.requestId ?? randomUUID()
     console.info(`[CU04][AI] request_started provider_model=${this.modelo}`)
     try {
       const respuesta = await this.cliente.chat.completions.create({
         model: this.modelo,
         temperature: 0,
+        max_completion_tokens: 6000,
         messages: [
           { role: "system", content: INSTRUCCIONES },
           { role: "user", content: JSON.stringify({ instruccion: solicitud.instruccion, modeloActual: solicitud.contexto }) },
@@ -83,7 +98,7 @@ export class ProveedorGroq implements ProveedorModeloLenguaje {
           },
         },
       })
-      console.info("[CU04][AI] provider_success")
+      registrarUsoGroq("CU04", this.modelo, requestId, respuesta.usage)
       const contenido = respuesta.choices[0]?.message?.content
       if (!contenido) throw new ErrorProveedorIA("respuesta_invalida", "Groq no devolvió una respuesta estructurada.")
       let candidata: unknown
@@ -98,6 +113,7 @@ export class ProveedorGroq implements ProveedorModeloLenguaje {
       return candidata
     } catch (error) {
       if (error instanceof ErrorProveedorIA) throw error
+      if (!esErrorOperativoGroq(error)) throw error
       const { estado, codigo, tipo } = clasificarErrorProveedorGroq(error)
       const eventos: Record<TipoErrorProveedor, string> = {
         timeout: `provider_timeout timeout_ms=${CU04_AI_TIMEOUT_MS}`,
@@ -107,7 +123,8 @@ export class ProveedorGroq implements ProveedorModeloLenguaje {
         respuesta_invalida: "parse_error",
         no_disponible: "provider_unavailable",
       }
-      console.error(`[CU04][AI] ${eventos[tipo]} status=${estado || "unknown"} code=${codigo}`)
+      const categoria = /^[a-z_]{1,50}$/.test(codigo) ? codigo : "unknown"
+      console.error(`[CU04][AI] ${eventos[tipo]} status=${estado || "unknown"} code=${categoria}`, { model: this.modelo, requestId })
       const mensajes: Record<TipoErrorProveedor, string> = {
         limite: "El servicio de IA alcanzó temporalmente su límite de uso.",
         autenticacion: "La autenticación del proveedor de IA falló.",
@@ -116,7 +133,7 @@ export class ProveedorGroq implements ProveedorModeloLenguaje {
         respuesta_invalida: "El proveedor devolvió una respuesta que no cumple el esquema CU04.",
         no_disponible: "El servicio de IA no está disponible temporalmente.",
       }
-      throw new ErrorProveedorIA(tipo, mensajes[tipo])
+      throw new ErrorProveedorIA(tipo, mensajes[tipo], tipo === "limite" ? registrarLimiteGroq(this.modelo, error) : undefined)
     }
   }
 }

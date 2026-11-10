@@ -1,11 +1,14 @@
 import Groq from "groq-sdk"
+import { randomUUID } from "node:crypto"
+import { clasificarErrorProveedorGroq, esErrorOperativoGroq } from "../../../../asistencia_ia/compartido/proveedores/groq/ProveedorGroq.js"
+import { registrarLimiteGroq, registrarUsoGroq, segundosEsperaGroq } from "../../../../asistencia_ia/compartido/proveedores/groq/ControlLimiteGroq.js"
 import {
   ACCIONES_ASISTENTE_CONTEXTUAL,
-  esRespuestaAsistenteContextual,
   type SolicitudAsistenteContextual,
   type RespuestaAsistenteContextual,
 } from "../../ContratoAsistenteContextual.js"
-import { ErrorAsistenteContextual, type ProveedorAsistenteContextual } from "../../ProveedorAsistenteContextual.js"
+import { diagnosticarRespuestaCU12, ErrorAsistenteContextual, type ProveedorAsistenteContextual } from "../../ProveedorAsistenteContextual.js"
+import { validarRespuestaContextual } from "../../../casos_uso/cu12_asistir_usuario/asistirUsuario.js"
 import { CONTEXTO_PRODUCTO_SW1 } from "../../ContextoProductoSW1.js"
 
 const MODELO_PREDETERMINADO = "openai/gpt-oss-20b"
@@ -25,13 +28,15 @@ Al analizar el modelo revisa primero si cada clase o atributo ya existe. No sugi
 
 Clasifica cada respuesta: OBLIGATORIO solo ante un problema concreto; RECOMENDADO para una mejora sustentada; OPCIONAL si depende de requisitos ausentes; INFORMATIVO para explicaciones. Explica las multiplicidades como reglas de negocio y ofrece alternativas cuando falte evidencia.
 
-Si una pregunta parece una orden de cambio, puedes analizarla o proponerla, pero indica que se aplica mediante Asistente IA; no produzcas comandos ejecutables. Distingue UML válido, aptitud Spring y completitud de negocio: esta última no puede afirmarse sin requisitos o casos de uso. Responde en contextoAplicacion.idioma, de forma breve, en texto plano y con encabezados cortos como Resultado:, Cómo hacerlo:, Nota: o Condición de negocio:. No uses Markdown. Si la pregunta está fuera de NexoCASE/UML, redirige al producto.
+Las órdenes humanas claras del chat se derivan por el orquestador a CU04. Tu respuesta es consultiva: no produzcas comandos ejecutables ni indiques que el chat no puede tramitar cambios. Distingue UML válido, aptitud Spring y completitud de negocio: esta última no puede afirmarse sin requisitos o casos de uso. Responde en contextoAplicacion.idioma, de forma breve, en texto plano y con párrafos y listas. No uses Markdown. Si la pregunta está fuera de NexoCASE/UML, redirige al producto.
 
 Cuando recomiendes un cambio UML concreto y sustentado, incluye recomendacion con resumen, IDs estables existentes y una instruccion autocontenida para CU04. Esa recomendacion es solo evidencia contextual: nunca autoriza ni ejecuta. Si no existe un cambio concreto, usa null.
+Para sugerir un atributo nuevo, referencia la clase existente en elementoRelacionadoId y targetElementIds; nunca asignes un ID al atributo propuesto. Si solo aconsejas, accionSugerida=NINGUNA. Una petición de no modificar el diagrama se respeta aunque incluyas una propuesta opcional.
+Una recomendación debe expresar una única propuesta acotada, no alternativas ni operaciones pendientes de aclaración. Puede contener todas las clases, atributos y relaciones de un modelo solicitado; targetElementIds contiene solo los elementos existentes afectados y puede ser []. No inventes IDs para elementos nuevos. Si faltan reglas de negocio necesarias, pregunta y usa recomendacion=null. Para compras y devoluciones, DetalleCompra puede ser una clase asociativa opcional; nunca afirmes multiplicidades sin requisitos que las sustenten.
 
 Devuelve exclusivamente el JSON solicitado y usa solo acciones permitidas.`
 
-const ESQUEMA = {
+export const ESQUEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
@@ -55,45 +60,84 @@ const ESQUEMA = {
 } as const
 
 export function construirContenidoPreguntaContextual(solicitud: SolicitudAsistenteContextual): string {
+  const { conversacionCompartida, modeloDurable, actividadReciente, ...actual } = solicitud.contexto
+  const pregunta = solicitud.pregunta.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+  const actividad = /\b(quien|historial|actividad|hizo|creo|modifico)\b/.test(pregunta)
+  const nombres = actual.modeloActual.clases.filter((clase) => pregunta.includes(clase.nombre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()))
+  if (!/\b(modelo|diagrama|todo|todas|completo)\b/.test(pregunta) && (nombres.length || actual.elementoSeleccionado)) {
+    const ids = new Set([...nombres.map((clase) => clase.id), ...(actual.elementoSeleccionado ? [actual.elementoSeleccionado.id] : [])])
+    const relaciones = actual.modeloActual.relaciones.filter((relacion) => ids.has(relacion.id) || ids.has(relacion.origen.id) || ids.has(relacion.destino.id))
+    for (const relacion of relaciones) { ids.add(relacion.origen.id); ids.add(relacion.destino.id) }
+    const clases = actual.modeloActual.clases.filter((clase) => ids.has(clase.id))
+    actual.modeloActual = { ...actual.modeloActual, clases, relaciones, truncado: actual.modeloActual.truncado || clases.length < actual.modeloActual.clases.length || relaciones.length < actual.modeloActual.relaciones.length }
+    actual.elementosRelevantes = actual.elementosRelevantes.filter((elemento) => ids.has(elemento.id))
+  }
   return JSON.stringify({
     pregunta: solicitud.pregunta,
-    contextoAplicacion: solicitud.contexto,
-    contextoProducto: CONTEXTO_PRODUCTO_SW1,
+    contextoAplicacion: { ...actual, ...(actividad ? { actividadReciente: actividadReciente?.slice(0, 10) } : {}) },
   })
+}
+
+function conversacionDelParticipante(solicitud: SolicitudAsistenteContextual) {
+  const compartida = solicitud.contexto.conversacionCompartida
+  if (!compartida) return solicitud.conversacion.slice(-6)
+  const propios = new Set(compartida.filter((mensaje) => mensaje.tipoRemitente === "human" && mensaje.participantId === solicitud.contexto.participanteActual?.id).map((mensaje) => mensaje.id))
+  return compartida.filter((mensaje) => mensaje.tipoRemitente === "human" ? propios.has(mensaje.id) && mensaje.requestId !== solicitud.requestId
+    : mensaje.tipoRemitente === "ai" && mensaje.replyToMessageId && propios.has(mensaje.replyToMessageId))
+    .slice(-6).map((mensaje) => ({ rol: mensaje.tipoRemitente === "human" ? "usuario" as const : "asistente" as const, contenido: mensaje.contenido }))
 }
 
 export class ProveedorAsistenteContextualGroq implements ProveedorAsistenteContextual {
   readonly modelo: string
   private readonly cliente: Groq | null
 
-  constructor(apiKey = process.env.GROQ_API_KEY, modelo = process.env.GROQ_MODEL?.trim() || MODELO_PREDETERMINADO) {
+  constructor(apiKey = process.env.GROQ_API_KEY, modelo = process.env.GROQ_CU12_MODEL?.trim() || process.env.GROQ_MODEL?.trim() || MODELO_PREDETERMINADO) {
     this.modelo = modelo
     this.cliente = apiKey ? new Groq({ apiKey, timeout: TIMEOUT_MS, maxRetries: 0 }) : null
   }
 
   async responder(solicitud: SolicitudAsistenteContextual): Promise<RespuestaAsistenteContextual> {
     if (!this.cliente) throw new ErrorAsistenteContextual("no_disponible", "GROQ_API_KEY no está configurada en el backend.")
+    const espera = segundosEsperaGroq(this.modelo)
+    if (espera) throw new ErrorAsistenteContextual("limite", "Espera antes de reintentar la misma solicitud.", espera)
+    const requestId = solicitud.requestId ?? randomUUID()
+    console.info("[CU12] provider_request", { requestId, model: this.modelo })
     try {
       const respuesta = await this.cliente.chat.completions.create({
         model: this.modelo,
         temperature: 0,
-        max_tokens: 700,
+        max_completion_tokens: 3000,
         messages: [
           { role: "system", content: INSTRUCCIONES },
-          ...solicitud.conversacion.map((mensaje) => ({ role: mensaje.rol === "usuario" ? "user" as const : "assistant" as const, content: mensaje.contenido })),
+          ...(/\b(nexocase|bot[oó]n|panel|como uso)\b/i.test(solicitud.pregunta) ? [{ role: "system" as const, content: "contextoProducto=" + JSON.stringify(CONTEXTO_PRODUCTO_SW1) }] : []),
+          ...conversacionDelParticipante(solicitud).map((mensaje) => ({ role: mensaje.rol === "usuario" ? "user" as const : "assistant" as const, content: mensaje.contenido.slice(0, 2400) })),
           { role: "user", content: construirContenidoPreguntaContextual(solicitud) },
         ],
         response_format: { type: "json_schema", json_schema: { name: "respuesta_asistente_contextual", strict: true, schema: ESQUEMA } },
       })
+      registrarUsoGroq("CU12", this.modelo, requestId, respuesta.usage)
       const contenido = respuesta.choices[0]?.message?.content
-      if (!contenido) throw new ErrorAsistenteContextual("respuesta_invalida", "Groq no devolvió una respuesta estructurada para CU12.")
-      const candidata: unknown = JSON.parse(contenido)
-      if (!esRespuestaAsistenteContextual(candidata)) throw new ErrorAsistenteContextual("respuesta_invalida", "La respuesta de CU12 contiene una acción o estructura no permitida.")
-      return candidata
+      if (!contenido) {
+        diagnosticarRespuestaCU12(requestId, "json", "PROVIDER_CONTENT_EMPTY")
+        throw new ErrorAsistenteContextual("respuesta_invalida", "Groq no devolvió una respuesta estructurada para CU12.")
+      }
+      let candidata: unknown
+      try { candidata = JSON.parse(contenido) }
+      catch {
+        diagnosticarRespuestaCU12(requestId, "json", "PROVIDER_JSON_PARSE_FAILED")
+        throw new ErrorAsistenteContextual("respuesta_invalida", "La respuesta de CU12 no contiene JSON válido.")
+      }
+      return validarRespuestaContextual(candidata, { ...solicitud, requestId })
     } catch (error) {
       if (error instanceof ErrorAsistenteContextual) throw error
-      const estado = typeof error === "object" && error !== null && "status" in error ? Number(error.status) : 0
-      if (estado === 429) throw new ErrorAsistenteContextual("limite", "El asistente alcanzó temporalmente su límite de uso.")
+      if (!esErrorOperativoGroq(error)) throw error
+      const { estado, codigo, tipo } = clasificarErrorProveedorGroq(error)
+      console.warn("[Groq] provider_error", { flow: "CU12", model: this.modelo, requestId, status: estado, category: tipo })
+      if (tipo === "limite") throw new ErrorAsistenteContextual("limite", "El asistente alcanzó temporalmente su límite de uso.", registrarLimiteGroq(this.modelo, error))
+      if (tipo === "respuesta_invalida" || tipo === "configuracion") {
+        diagnosticarRespuestaCU12(requestId, "provider", codigo === "json_validate_failed" ? "UPSTREAM_JSON_SCHEMA_REJECTED" : "UPSTREAM_REQUEST_REJECTED")
+        throw new ErrorAsistenteContextual("respuesta_invalida", "El proveedor rechazó el esquema o la respuesta JSON de CU12.")
+      }
       throw new ErrorAsistenteContextual("no_disponible", "El asistente IA no está disponible temporalmente.")
     }
   }

@@ -174,9 +174,21 @@ test("P6-02 accion contextual resuelve la recomendacion del mismo participante",
 test("P6-03 accion contextual ambigua aclara y no modifica", async ({ page }) => {
   await crearProyectoE2E(page, "P6-03", "Renato")
   await crearClaseNombradaE2E(page, "Venta")
+  const elementos = page.locator(".react-flow__node, .react-flow__edge")
+  const umlAntes = await elementos.allTextContents()
+  const peticionesCU04: string[] = []
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().includes("/modelado-ia/")) peticionesCU04.push(request.url())
+  })
+  const respuestaPendiente = page.waitForResponse((response) =>
+    response.request().method() === "POST" && response.url().endsWith("/asistente-colaborativo/interactuar"))
   const panel = await preguntar(page, "Corrígelo.")
-  await expect(panel).toContainText("No encuentro una recomendacion previa inequivoca")
-  await expect(page.locator(".react-flow__node").filter({ hasText: "Venta" })).not.toContainText("total")
+  const respuesta = await respuestaPendiente
+  expect(respuesta.ok()).toBeTruthy()
+  expect(await respuesta.json()).toMatchObject({ kind: "clarification" })
+  await expect(panel.locator(".assistant-action-status[role='status']")).toBeVisible()
+  await expect(elementos).toHaveText(umlAntes)
+  expect(peticionesCU04).toEqual([])
 })
 
 test("P6-04 borrado contextual ambiguo no elimina", async ({ page }) => {

@@ -30,6 +30,44 @@ function dependencias(items: MensajeColaborativo[] = []) {
 }
 
 describe("PanelAsistenteContextual colaborativo", () => {
+  it("presenta énfasis y párrafos como texto seguro sin consultar IA", async () => {
+    const deps = dependencias([mensaje("1", "ai", "**Propuesta**\n\n- Cliente\n- Producto\n<img src=x onerror=alert(1)>")])
+    const consultar = vi.fn()
+    const { container } = render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} {...deps} consultar={consultar} />)
+    expect(await screen.findByText("Propuesta")).toHaveProperty("tagName", "STRONG")
+    expect(container.textContent).not.toContain("**")
+    expect(container.querySelector("img")).toBeNull()
+    expect(screen.getAllByRole("listitem")).toHaveLength(2)
+    expect(container.textContent).toContain("<img src=x onerror=alert(1)>")
+    expect(consultar).not.toHaveBeenCalled()
+  })
+
+  it("distingue aclaración de ejecución aplicada", async () => {
+    const deps = dependencias()
+    const consultar = vi.fn(async () => ({ kind: "clarification" as const, mensajeHumano: mensaje("1", "human", "Hazlo tú"), mensajeIA: mensaje("2", "ai", "¿Qué propuesta deseas aplicar?") }))
+    render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} {...deps} consultar={consultar} />)
+    await screen.findByText("Todavía no hay mensajes compartidos.")
+    fireEvent.change(screen.getByLabelText("Pregunta al asistente colaborativo"), { target: { value: "Hazlo tú" } })
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
+    expect(await screen.findByRole("status")).toHaveTextContent("Necesito una aclaración para continuar.")
+    expect(screen.queryByText("Aplicado")).not.toBeInTheDocument()
+  })
+
+  it("bloquea reenvíos por botón y Enter durante retry-after sin perder la solicitud", async () => {
+    const deps = dependencias()
+    const consultar = vi.fn(async () => { throw new ErrorConsultaContextual("limite", "Espera antes de reintentar.", 12) })
+    render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} {...deps} consultar={consultar} />)
+    await screen.findByText("Todavía no hay mensajes compartidos.")
+    const entrada = screen.getByLabelText("Pregunta al asistente colaborativo")
+    fireEvent.change(entrada, { target: { value: "Hazlo tú" } }); fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
+    await screen.findByRole("alert")
+    expect(screen.getByRole("button", { name: "Enviar" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "↻ Enviar" })).toBeDisabled()
+    fireEvent.keyDown(entrada, { key: "Enter" })
+    expect(consultar).toHaveBeenCalledTimes(1)
+    expect(entrada).toHaveValue("Hazlo tú")
+  })
+
   it("carga la conversación durable y muestra autores reales", async () => {
     const deps = dependencias([mensaje("1", "human", "Hola", "Renato"), mensaje("2", "ai", "Te escucho")])
     render(<PanelAsistenteContextual projectId="p" credential="credencial-secreta" contexto={contexto} {...ejecucion} {...deps} />)
@@ -39,12 +77,12 @@ describe("PanelAsistenteContextual colaborativo", () => {
     expect(deps.cargar).toHaveBeenCalledWith("p", "credencial-secreta", undefined)
   })
 
-  it("conserva historial e input si el proveedor falla y reutiliza requestId al reintentar", async () => {
+  it.each(["no_disponible", "respuesta_invalida"] as const)("conserva input y requestId tras %s; solo reintenta al pulsar Enviar", async (tipo) => {
     const deps = dependencias([mensaje("1", "human", "Anterior")])
     let intento = 0
     const consultar = vi.fn(async (_projectId: string, _credential: string, _requestId: string, _pregunta: string, _contexto: ContextoAsistente) => {
       intento += 1
-      if (intento === 1) throw new ErrorConsultaContextual("no_disponible", "Groq no disponible")
+      if (intento === 1) throw new ErrorConsultaContextual(tipo, "Groq no disponible")
       return { kind: "advisory" as const, mensajeHumano: mensaje("2", "human", "Nueva"), mensajeIA: mensaje("3", "ai", "Respuesta") }
     })
     render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} consultar={consultar} {...deps} />)
@@ -54,6 +92,7 @@ describe("PanelAsistenteContextual colaborativo", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Groq no disponible")
     expect(entrada).toHaveValue("Nueva")
     const requestId = consultar.mock.calls[0][2]
+    expect(consultar).toHaveBeenCalledTimes(1)
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
     await screen.findByText(/Respuesta/)
     expect(consultar.mock.calls[1][2]).toBe(requestId)

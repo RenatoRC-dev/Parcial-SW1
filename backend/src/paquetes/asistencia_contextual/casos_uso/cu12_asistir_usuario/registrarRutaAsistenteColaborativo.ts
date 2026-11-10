@@ -14,7 +14,7 @@ import { ErrorDatosEventoCorruptos, ErrorPersistenciaEvento } from "../../../tra
 import { leerPreguntaAsistenteColaborativo } from "../../compartido/ContratoPreguntaColaborativa.js"
 import { ErrorAsistenteContextual, type ProveedorAsistenteContextual } from "../../compartido/ProveedorAsistenteContextual.js"
 import { ConstruirContextoAsistenteColaborativo } from "./ConstruirContextoAsistenteColaborativo.js"
-import type { ProveedorModeloLenguaje } from "../../../asistencia_ia/compartido/proveedores/ProveedorModeloLenguaje.js"
+import { ErrorProveedorIA, type ProveedorModeloLenguaje } from "../../../asistencia_ia/compartido/proveedores/ProveedorModeloLenguaje.js"
 import { OrquestarInteraccionIA } from "./OrquestarInteraccionIA.js"
 
 export function registrarRutaAsistenteColaborativo(aplicacion: Express, dependencias: {
@@ -42,13 +42,15 @@ export function registrarRutaAsistenteColaborativo(aplicacion: Express, dependen
     } catch (error) {
       if (error instanceof ErrorConflictoRequestMensaje) { respuesta.status(409).json({ error: error.message, codigo: "REQUEST_ID_CONFLICTIVO" }); return }
       if (error instanceof ErrorMensajeInvalido) { respuesta.status(400).json({ error: error.message, codigo: "SOLICITUD_INVALIDA" }); return }
-      if (error instanceof ErrorAsistenteContextual) {
-        const estado = error.tipo === "limite" ? 429 : error.tipo === "respuesta_invalida" ? 502 : 503
+      if (error instanceof ErrorAsistenteContextual || error instanceof ErrorProveedorIA) {
+        const estado = error.tipo === "limite" ? 429 : error.tipo === "timeout" ? 504 : error.tipo === "respuesta_invalida" ? 502 : 503
+        if (error.retryAfterSeconds) respuesta.setHeader("Retry-After", error.retryAfterSeconds)
         respuesta.status(estado).json({
-          error: error.tipo === "limite" ? "El asistente alcanzó temporalmente su límite de uso."
+          error: error.tipo === "limite" ? `El asistente alcanzó temporalmente su límite de uso. Espera ${error.retryAfterSeconds ?? 30} segundos y reenvía la misma solicitud.`
             : error.tipo === "respuesta_invalida" ? "La respuesta del asistente no cumplió el contrato esperado."
               : "El asistente colaborativo no está disponible temporalmente. La pregunta permanece guardada y puede reintentarse.",
           codigo: error.tipo === "limite" ? "LIMITE_IA" : error.tipo === "respuesta_invalida" ? "RESPUESTA_IA_INVALIDA" : "IA_NO_DISPONIBLE",
+          ...(error.retryAfterSeconds ? { retryAfterSeconds: error.retryAfterSeconds } : {}),
         }); return
       }
       if (error instanceof ErrorPersistenciaMensaje || error instanceof ErrorDatosMensajeCorruptos
@@ -57,7 +59,8 @@ export function registrarRutaAsistenteColaborativo(aplicacion: Express, dependen
         respuesta.status(503).json({ error: "La memoria colaborativa no está disponible.", codigo: "PERSISTENCIA_NO_DISPONIBLE" }); return
       }
       if (error instanceof ErrorProyectoNoEncontrado) { respuesta.status(404).json({ error: error.message, codigo: "PROYECTO_NO_ENCONTRADO" }); return }
-      respuesta.status(500).json({ error: "No se pudo completar la consulta colaborativa.", codigo: "ERROR_INTERNO" })
+      console.error("[IA][collaborative] internal_error", { requestId: pregunta.requestId, category: "unexpected_exception" })
+      respuesta.status(500).json({ error: "No se pudo completar la consulta colaborativa por un error interno.", codigo: "ERROR_INTERNO" })
     }
   })
 }

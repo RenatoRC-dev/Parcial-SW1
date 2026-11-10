@@ -68,6 +68,7 @@ export interface MensajeConversacionContextual {
 }
 
 export interface SolicitudAsistenteContextual {
+  requestId?: string
   pregunta: string
   contexto: ContextoAsistente
   conversacion: MensajeConversacionContextual[]
@@ -146,4 +147,18 @@ export function esRespuestaAsistenteContextual(valor: unknown): valor is Respues
       && typeof valor.recomendacion.normalizedInstruction === "string" && valor.recomendacion.normalizedInstruction.length <= 2000
       && Array.isArray(valor.recomendacion.targetElementIds) && valor.recomendacion.targetElementIds.length <= 8
       && valor.recomendacion.targetElementIds.every((id) => typeof id === "string" && id.length <= 160)))
+}
+
+/** Códigos constantes: nunca incluyen texto, IDs del modelo ni valores rechazados. */
+export function motivoRespuestaContextualInvalida(valor: unknown): string | null {
+  if (!esObjeto(valor)) return "LOCAL_SCHEMA_OBJECT"
+  if (typeof valor.respuesta !== "string" || !valor.respuesta.trim() || valor.respuesta.length > 2400) return "LOCAL_SCHEMA_TEXT"
+  if (contieneIdAccionInterna(valor.respuesta)) return "LOCAL_TEXT_INTERNAL_ACTION"
+  if (typeof valor.accionSugerida !== "string" || !acciones.has(valor.accionSugerida)) return "LOCAL_SCHEMA_ACTION"
+  if (valor.elementoRelacionadoId !== null && typeof valor.elementoRelacionadoId !== "string") return "LOCAL_SCHEMA_ELEMENT_REFERENCE"
+  if (typeof valor.nivel !== "string" || !niveles.has(valor.nivel)) return "LOCAL_SCHEMA_LEVEL"
+  if (typeof valor.categoriaRecomendacion !== "string" || !categorias.has(valor.categoriaRecomendacion)) return "LOCAL_SCHEMA_CATEGORY"
+  if (valor.origen !== undefined && valor.origen !== "determinista" && valor.origen !== "groq") return "LOCAL_SCHEMA_ORIGIN"
+  if (!esRespuestaAsistenteContextual(valor)) return "LOCAL_SCHEMA_RECOMMENDATION"
+  return null
 }

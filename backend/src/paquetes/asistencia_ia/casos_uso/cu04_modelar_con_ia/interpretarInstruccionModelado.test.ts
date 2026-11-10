@@ -4,6 +4,8 @@ import { crearAplicacionGeneracionBackend } from "../../../generacion_backend/ap
 import type { ProveedorModeloLenguaje } from "../../compartido/proveedores/ProveedorModeloLenguaje.js"
 import { ErrorProveedorIA } from "../../compartido/proveedores/ProveedorModeloLenguaje.js"
 import type { ModeloUMLCanonicoIA } from "../../compartido/contrato/ComandoModeloUML.js"
+import type { ComandoModeloUML } from "../../compartido/contrato/ComandoModeloUML.js"
+import { ejecutarComandosUML } from "./EjecutorComandosUML.js"
 import { interpretarInstruccionModelado } from "./interpretarInstruccionModelado.js"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -33,6 +35,57 @@ async function prepararApi(proveedor: ProveedorModeloLenguaje) {
 }
 
 describe("interpretarInstruccionModelado", () => {
+  const prestamo: ModeloUMLCanonicoIA = { ...modelo, clases: [{ ...modelo.clases[0], id: "tmp-prestamo-real", nombre: "Prestamo" }] }
+  const estado: ComandoModeloUML = { tipo: "agregar_atributo", claseRef: "tmp-prestamo-real", refTemporal: "tmp-attr-1", nombre: "estado", tipoDato: "String", visibilidad: "privada" }
+  const preparar = (comandos: ComandoModeloUML[], actual = prestamo, instruccion = "Agrega estado String a Prestamo.") => interpretarInstruccionModelado({ instruccion, modelo: actual, revision: 7 },
+    { interpretarCambiosUML: async () => ({ resultado: "aplicar", mensaje: "Plan de estado.", comandos }) })
+
+  it("normaliza tmp-attr-1 al agregar estado a Prestamo conservando el ID estable y la atomicidad", async () => {
+    const original = structuredClone(prestamo)
+    const comandoOriginal = structuredClone(estado)
+    const plan = await preparar([estado])
+    expect(plan).toMatchObject({ resultado: "aplicar", comandos: [{ claseRef: "tmp-prestamo-real", refTemporal: "tmp_attr_1" }] })
+    const aplicado = ejecutarComandosUML(prestamo, plan.comandos, () => "atributo-estado")
+    expect(aplicado.clases[0]).toMatchObject({ id: "tmp-prestamo-real", atributos: [{ nombre: "estado", tipo: "String" }] })
+    expect(prestamo).toEqual(original); expect(estado).toEqual(comandoOriginal)
+  })
+
+  it("mantiene referencias entre clases, atributos, métodos, parámetros y relaciones del mismo plan", async () => {
+    const comandos: ComandoModeloUML[] = [
+      { tipo: "crear_clase", refTemporal: "tmp-clase-1", nombre: "Devolucion", abstracta: false },
+      { tipo: "agregar_atributo", claseRef: "tmp-clase-1", refTemporal: "tmp-attr-1", nombre: "estado", tipoDato: "String", visibilidad: "privada" },
+      { tipo: "crear_metodo", claseRef: "tmp-clase-1", refTemporal: "tmp-metodo-1", nombre: "registrar", tipoRetorno: "void", visibilidad: "publica", parametros: [{ refTemporal: "tmp-param-1", nombre: "estado", tipo: "String" }] },
+      { tipo: "crear_relacion", refTemporal: "tmp-rel-1", tipoRelacion: "asociacion", claseOrigenRef: "tmp-prestamo-real", claseDestinoRef: "tmp-clase-1", cantidadDestinoPorOrigen: "0..1", cantidadOrigenPorDestino: "1", rolOrigen: null, rolDestino: null },
+    ]
+    const plan = await preparar(comandos, prestamo, "Crea Devolucion con estado String y firma registrar(estado String): void. Cada Prestamo tiene cero o una Devolucion; cada Devolucion pertenece a un Prestamo.")
+    expect(plan.resultado).toBe("aplicar")
+    expect(plan.comandos[1]).toMatchObject({ claseRef: "tmp_clase_1", refTemporal: "tmp_attr_1" })
+    expect(plan.comandos[2]).toMatchObject({ claseRef: "tmp_clase_1", refTemporal: "tmp_metodo_1", parametros: [{ refTemporal: "tmp_param_1" }] })
+    expect(plan.comandos[3]).toMatchObject({ claseOrigenRef: "tmp-prestamo-real", claseDestinoRef: "tmp_clase_1" })
+    let id = 0
+    const aplicado = ejecutarComandosUML(prestamo, plan.comandos, () => `nuevo-${++id}`)
+    expect(aplicado.relaciones[0].claseDestinoId).toBe(aplicado.clases[1].id)
+    expect(aplicado.clases[1].metodos?.[0].parametros[0].nombre).toBe("estado")
+    expect(comandos[0]).toMatchObject({ refTemporal: "tmp-clase-1" })
+  })
+
+  it.each(["attr-1", "tmp.attr.1", "tmp attr 1", "tmp-", "tmp-attr--1"])("rechaza un temporal no normalizable %s sin cambios parciales", async (refTemporal) => {
+    const original = structuredClone(prestamo)
+    const plan = await preparar([{ ...estado, refTemporal }])
+    expect(plan).toMatchObject({ resultado: "rechazar", comandos: [] })
+    expect(prestamo).toEqual(original)
+  })
+
+  it.each(["tmp-attr-1", "tmp_attr_1"])("rechaza duplicados y colisiones de normalización con %s", async (refTemporal) => {
+    expect(await preparar([estado, { ...estado, refTemporal, nombre: "observacion" }])).toMatchObject({ resultado: "rechazar", comandos: [] })
+  })
+
+  it.each(["tmp-attr-1", "tmp_attr_1"])("no oculta un ID estable al normalizar contra %s", async (id) => {
+    const actual = { ...prestamo, clases: [{ ...prestamo.clases[0], id }] }
+    const plan = await preparar([{ ...estado, claseRef: id }], actual)
+    expect(plan).toMatchObject({ resultado: "rechazar", comandos: [] })
+    expect(actual.clases[0].atributos).toEqual([])
+  })
   it("devuelve un plan aplicable validado", async () => {
     const proveedor: ProveedorModeloLenguaje = { interpretarCambiosUML: vi.fn(async () => ({ resultado: "aplicar", mensaje: "Correo agregado.", comandos: [{ tipo: "agregar_atributo", claseRef: "cliente", refTemporal: "tmp_correo", nombre: "correo", tipoDato: "String", visibilidad: "privada" }] })) }
     const resultado = await interpretarInstruccionModelado({ instruccion: "Agrega correo", modelo, revision: 4 }, proveedor)

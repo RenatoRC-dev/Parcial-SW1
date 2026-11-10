@@ -2,6 +2,7 @@ import type { ModeloUMLCanonicoIA } from "../contrato/ComandoModeloUML.js"
 import type { RespuestaInterpretacionUML } from "../contrato/PlanCambiosUML.js"
 
 export interface SolicitudProveedorUML {
+  requestId?: string
   instruccion: string
   modelo: ModeloUMLCanonicoIA
   contexto: unknown
@@ -12,7 +13,7 @@ export interface ProveedorModeloLenguaje {
 }
 
 export class ErrorProveedorIA extends Error {
-  constructor(public readonly tipo: "limite" | "no_disponible" | "respuesta_invalida" | "configuracion" | "autenticacion" | "timeout", mensaje: string) {
+  constructor(public readonly tipo: "limite" | "no_disponible" | "respuesta_invalida" | "configuracion" | "autenticacion" | "timeout", mensaje: string, public readonly retryAfterSeconds?: number) {
     super(mensaje)
   }
 }
