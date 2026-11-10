@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import type { ContextoAsistente } from "./ContextoAsistente"
 import { PanelAsistenteContextual } from "./PanelAsistenteContextual"
 import { consultarAsistenteContextual, ErrorConsultaContextual, type MensajeColaborativo } from "./consultarAsistenteContextual"
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
+import { ProveedorPreferenciasUI } from "../../../../configuracion/PreferenciasUI"
 
 const contexto: ContextoAsistente = {
   proyecto: { id: "p", nombre: "Modelo" }, area: "modelado_uml", idioma: "es", revisionModelo: 1,
@@ -13,7 +14,7 @@ const contexto: ContextoAsistente = {
   accionesDisponibles: ["NINGUNA"],
 }
 const modelo: ModeloUMLCanonico = { id: "m", nombre: "Modelo", version: "1", clases: [], relaciones: [] }
-const ejecucion = { modelo, revisionEditor: 0, alAplicarModelo: vi.fn() }
+const ejecucion = { participantId: "u", modelo, revisionEditor: 0, alAplicarModelo: vi.fn() }
 afterEach(() => vi.unstubAllGlobals())
 
 const mensaje = (id: string, tipoRemitente: "human" | "ai", contenido: string, nombre = "Carlos"): MensajeColaborativo => ({
@@ -30,6 +31,92 @@ function dependencias(items: MensajeColaborativo[] = []) {
 }
 
 describe("PanelAsistenteContextual colaborativo", () => {
+  it.each(["Crea una clase Prestamo", "¿Qué es una asociación?", "Recomienda un atributo", "Ejecuta"])("usa el único compositor y el orquestador para: %s", async (texto) => {
+    const deps = dependencias()
+    const consultar = vi.fn(async (..._args: Parameters<typeof consultarAsistenteContextual>) => ({ kind: "advisory" as const, mensajeHumano: mensaje("1", "human", texto), mensajeIA: mensaje("2", "ai", "Respuesta compartida") }))
+    render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} {...deps} consultar={consultar} />)
+    await waitFor(() => expect(deps.cargar).toHaveBeenCalled())
+    expect(screen.getAllByRole("textbox")).toHaveLength(1)
+    const entrada = screen.getByRole("textbox")
+    fireEvent.change(entrada, { target: { value: texto } })
+    fireEvent.keyDown(entrada, { key: "Enter" })
+    expect(await screen.findByText("Respuesta compartida")).toBeVisible()
+    expect(consultar.mock.calls[0].slice(0, 2)).toEqual(["p", "cred"])
+    expect(consultar.mock.calls[0][3]).toBe(texto)
+    expect(consultar.mock.calls[0][5]).toBe(modelo)
+    expect(screen.queryByRole("button", { name: "Aplicar cambio" })).not.toBeInTheDocument()
+  })
+
+  const propuesta = (): MensajeColaborativo => ({ ...mensaje("2", "ai", "Recomiendo crear Prestamo"), replyToMessageId: "1",
+    recomendacion: { resumen: "Crear Prestamo", targetElementIds: [], normalizedInstruction: "Crea la clase Prestamo" } })
+
+  it("ofrece aplicar solo la propuesta propia y espera confirmación sin mutar de forma optimista", async () => {
+    const deps = dependencias([mensaje("1", "human", "Recomienda una clase"), propuesta()])
+    const consultar = vi.fn(async (..._args: Parameters<typeof consultarAsistenteContextual>) => ({ kind: "clarification" as const, mensajeHumano: mensaje("3", "human", "Aplica"), mensajeIA: mensaje("4", "ai", "Aclara la regla") }))
+    const aplicar = vi.fn()
+    render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} alAplicarModelo={aplicar} {...deps} consultar={consultar} />)
+    fireEvent.click(await screen.findByRole("button", { name: "Aplicar cambio" }))
+    expect(aplicar).not.toHaveBeenCalled()
+    expect(await screen.findByRole("status")).toHaveTextContent("aclaración")
+    expect(consultar.mock.calls[0][3]).toBe("Aplica la propuesta: Crea la clase Prestamo")
+    expect(screen.queryByRole("button", { name: "Aplicar cambio" })).not.toBeInTheDocument()
+    expect(screen.queryByText("Aplicado")).not.toBeInTheDocument()
+  })
+
+  it.each(["otro participante", "target inexistente", "destructiva", "sin correlación", "turno superado"])("no ofrece aplicar una propuesta: %s", async (caso) => {
+    const humano = mensaje("1", "human", "Recomienda")
+    const sugerencia = propuesta()
+    if (caso === "otro participante") humano.participantId = "otra-persona"
+    if (caso === "target inexistente") sugerencia.recomendacion!.targetElementIds = ["inexistente"]
+    if (caso === "destructiva") sugerencia.recomendacion!.normalizedInstruction = "Elimina todas las clases"
+    if (caso === "sin correlación") sugerencia.replyToMessageId = "otro-turno"
+    const deps = dependencias([humano, sugerencia, ...(caso === "turno superado" ? [mensaje("3", "human", "Ejecuta")] : [])])
+    render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} {...deps} />)
+    expect(await screen.findByText("Recomiendo crear Prestamo")).toBeVisible()
+    expect(screen.queryByRole("button", { name: "Aplicar cambio" })).not.toBeInTheDocument()
+  })
+
+  it("oculta la propuesta cuando su target deja de existir en el modelo vivo", async () => {
+    const sugerencia = propuesta()
+    sugerencia.recomendacion = { resumen: "Agregar estado", targetElementIds: ["prestamo"], normalizedInstruction: "Agrega estado String a Prestamo" }
+    const deps = dependencias([mensaje("1", "human", "Recomienda"), sugerencia])
+    const props = { projectId: "p", credential: "cred", contexto, ...ejecucion, ...deps }
+    const vivo: ModeloUMLCanonico = { ...modelo, clases: [{ id: "prestamo", nombre: "Prestamo", abstracta: false, posicion: { x: 0, y: 0 }, atributos: [] }] }
+    const { rerender } = render(<PanelAsistenteContextual {...props} modelo={vivo} />)
+    expect(await screen.findByRole("button", { name: "Aplicar cambio" })).toBeVisible()
+    rerender(<PanelAsistenteContextual {...props} modelo={modelo} revisionEditor={1} />)
+    expect(screen.queryByRole("button", { name: "Aplicar cambio" })).not.toBeInTheDocument()
+  })
+
+  it("traduce el chat, la propuesta y los controles multimedia al inglés", async () => {
+    localStorage.setItem("sw1.idioma", "en")
+    try {
+      render(<ProveedorPreferenciasUI><PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} {...dependencias([mensaje("1", "human", "Recommend"), propuesta()])} /></ProveedorPreferenciasUI>)
+      expect(await screen.findByRole("button", { name: "Apply change" })).toBeVisible()
+      expect(screen.getByRole("heading", { name: "Modeling assistant" })).toBeVisible()
+      expect(screen.getByLabelText("Message to the modeling assistant")).toBeVisible()
+      expect(screen.getByLabelText("Attach image")).toBeVisible()
+      expect(screen.getByRole("button", { name: /Speak/ })).toBeInTheDocument()
+    } finally { localStorage.clear() }
+  })
+
+  it("muestra mensajes de colaboradores por tiempo real sin ejecutar sus planes", async () => {
+    const deps = dependencias()
+    let recibir: (mensaje: MensajeColaborativo) => void = () => {}
+    const conectar = vi.fn((opciones: Parameters<NonNullable<Parameters<typeof PanelAsistenteContextual>[0]["conectar"]>>[0]) => {
+      recibir = opciones.alMensaje; opciones.alAutenticar(); return { desconectar: vi.fn() }
+    })
+    const aplicar = vi.fn(); const consultar = vi.fn()
+    render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} alAplicarModelo={aplicar} {...deps} conectar={conectar} consultar={consultar} />)
+    await waitFor(() => expect(deps.cargar).toHaveBeenCalled())
+    const ajeno = { ...mensaje("1", "human", "Recomienda", "Ana"), participantId: "ana" }
+    act(() => { recibir(ajeno); recibir(propuesta()) })
+    expect(screen.getByText("Ana:")).toBeVisible()
+    expect(screen.getByText("Recomiendo crear Prestamo")).toBeVisible()
+    expect(screen.queryByRole("button", { name: "Aplicar cambio" })).not.toBeInTheDocument()
+    expect(aplicar).not.toHaveBeenCalled(); expect(consultar).not.toHaveBeenCalled()
+  })
+
   it("presenta énfasis y párrafos como texto seguro sin consultar IA", async () => {
     const deps = dependencias([mensaje("1", "ai", "**Propuesta**\n\n- Cliente\n- Producto\n<img src=x onerror=alert(1)>")])
     const consultar = vi.fn()
@@ -47,7 +134,7 @@ describe("PanelAsistenteContextual colaborativo", () => {
     const consultar = vi.fn(async () => ({ kind: "clarification" as const, mensajeHumano: mensaje("1", "human", "Hazlo tú"), mensajeIA: mensaje("2", "ai", "¿Qué propuesta deseas aplicar?") }))
     render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} {...deps} consultar={consultar} />)
     await screen.findByText("Todavía no hay mensajes compartidos.")
-    fireEvent.change(screen.getByLabelText("Pregunta al asistente colaborativo"), { target: { value: "Hazlo tú" } })
+    fireEvent.change(screen.getByLabelText("Mensaje al asistente de modelado"), { target: { value: "Hazlo tú" } })
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
     expect(await screen.findByRole("status")).toHaveTextContent("Necesito una aclaración para continuar.")
     expect(screen.queryByText("Aplicado")).not.toBeInTheDocument()
@@ -58,7 +145,7 @@ describe("PanelAsistenteContextual colaborativo", () => {
     const consultar = vi.fn(async () => { throw new ErrorConsultaContextual("limite", "Espera antes de reintentar.", 12) })
     render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} {...deps} consultar={consultar} />)
     await screen.findByText("Todavía no hay mensajes compartidos.")
-    const entrada = screen.getByLabelText("Pregunta al asistente colaborativo")
+    const entrada = screen.getByLabelText("Mensaje al asistente de modelado")
     fireEvent.change(entrada, { target: { value: "Hazlo tú" } }); fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
     await screen.findByRole("alert")
     expect(screen.getByRole("button", { name: "Enviar" })).toBeDisabled()
@@ -87,7 +174,7 @@ describe("PanelAsistenteContextual colaborativo", () => {
     })
     render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} consultar={consultar} {...deps} />)
     await screen.findByText(/Anterior/)
-    const entrada = screen.getByLabelText("Pregunta al asistente colaborativo")
+    const entrada = screen.getByLabelText("Mensaje al asistente de modelado")
     fireEvent.change(entrada, { target: { value: "Nueva" } }); fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("Groq no disponible")
     expect(entrada).toHaveValue("Nueva")
@@ -104,7 +191,7 @@ describe("PanelAsistenteContextual colaborativo", () => {
     const consultar = vi.fn(async (..._args: Parameters<typeof consultarAsistenteContextual>) => ({ kind: "advisory" as const, mensajeHumano: mensaje("1", "human", "Revisa"), mensajeIA: mensaje("2", "ai", "Listo") }))
     render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} consultar={consultar} {...deps} />)
     await waitFor(() => expect(deps.cargar).toHaveBeenCalled())
-    fireEvent.change(screen.getByLabelText("Pregunta al asistente colaborativo"), { target: { value: "Revisa" } })
+    fireEvent.change(screen.getByLabelText("Mensaje al asistente de modelado"), { target: { value: "Revisa" } })
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
     await waitFor(() => expect(consultar).toHaveBeenCalledOnce())
     expect(consultar.mock.calls[0][0]).toBe("p")
@@ -117,7 +204,7 @@ describe("PanelAsistenteContextual colaborativo", () => {
     render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} {...deps} />)
     await screen.findByText("Todavía no hay mensajes compartidos.")
     expect(screen.getByText(/NexoCASE lo aplica de forma controlada mediante CU04/)).toBeInTheDocument()
-    expect(screen.getByRole("heading", { name: "Asistente colaborativo" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "Asistente de modelado" })).toBeInTheDocument()
   })
 
   it("aplica el plan solo desde la respuesta HTTP del solicitante y confirma el resultado", async () => {
@@ -134,9 +221,9 @@ describe("PanelAsistenteContextual colaborativo", () => {
     const fetch = vi.fn(async (_input: RequestInfo | URL) => new Response(JSON.stringify({ kind: "action_applied", mensajeIA: resultadoIA }), { status: 200, headers: { "Content-Type": "application/json" } }))
     vi.stubGlobal("fetch", fetch)
     const aplicar = vi.fn()
-    render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} modelo={modeloVenta} revisionEditor={4} alAplicarModelo={aplicar} consultar={consultar} {...deps} />)
+    render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} participantId="u" modelo={modeloVenta} revisionEditor={4} alAplicarModelo={aplicar} consultar={consultar} {...deps} />)
     await waitFor(() => expect(deps.cargar).toHaveBeenCalled())
-    fireEvent.change(screen.getByLabelText("Pregunta al asistente colaborativo"), { target: { value: "Agrega total" } })
+    fireEvent.change(screen.getByLabelText("Mensaje al asistente de modelado"), { target: { value: "Agrega total" } })
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
     await waitFor(() => expect(aplicar).toHaveBeenCalledOnce())
     expect(aplicar.mock.calls[0][0].clases[0].atributos).toEqual([expect.objectContaining({ nombre: "total", tipo: "Double" })])
@@ -149,10 +236,46 @@ describe("PanelAsistenteContextual colaborativo", () => {
     const consultar = vi.fn(async () => ({ kind: "action" as const, mensajeHumano: mensaje("1", "human", "Hazlo"), actionId: "22222222-2222-4222-8222-222222222222",
       sourceMessageId: "1", normalizedInstruction: "Crea Venta", baseEditorRevision: 0,
       plan: { resultado: "aplicar" as const, mensaje: "Venta creada", revision: 0, comandos: [{ tipo: "crear_clase" as const, refTemporal: "tmp_venta", nombre: "Venta", abstracta: false }] } }))
-    render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} modelo={modelo} revisionEditor={1} alAplicarModelo={aplicar} consultar={consultar} {...deps} />)
+    render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} participantId="u" modelo={modelo} revisionEditor={1} alAplicarModelo={aplicar} consultar={consultar} {...deps} />)
     await waitFor(() => expect(deps.cargar).toHaveBeenCalled())
-    fireEvent.change(screen.getByLabelText("Pregunta al asistente colaborativo"), { target: { value: "Hazlo" } }); fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
+    fireEvent.change(screen.getByLabelText("Mensaje al asistente de modelado"), { target: { value: "Hazlo" } }); fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("modelo cambio")
     expect(aplicar).not.toHaveBeenCalled()
+  })
+
+  it.each(["participante", "proyecto", "correlación"])("rechaza un plan HTTP ajeno por %s", async (caso) => {
+    const humano = mensaje("1", "human", "Crea Venta")
+    if (caso === "participante") humano.participantId = "otra-persona"
+    if (caso === "proyecto") humano.projectId = "otro-proyecto"
+    const consultar = vi.fn(async () => ({ kind: "action" as const, mensajeHumano: humano, actionId: "accion",
+      sourceMessageId: caso === "correlación" ? "otra-solicitud" : "1", normalizedInstruction: "Crea Venta", baseEditorRevision: 0,
+      plan: { resultado: "aplicar" as const, mensaje: "Venta creada", revision: 0, comandos: [{ tipo: "crear_clase" as const, refTemporal: "tmp_venta", nombre: "Venta", abstracta: false }] } }))
+    const aplicar = vi.fn(); const fetch = vi.fn(); vi.stubGlobal("fetch", fetch)
+    render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} alAplicarModelo={aplicar} consultar={consultar} {...dependencias()} />)
+    await screen.findByText("Todavía no hay mensajes compartidos.")
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Crea Venta" } })
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("no corresponde a tu solicitud")
+    expect(aplicar).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it("reintenta confirmar una acción sin duplicarla tras fallo de confirmación", async () => {
+    const deps = dependencias(); const aplicar = vi.fn()
+    const consultar = vi.fn(async () => ({ kind: "action" as const, mensajeHumano: mensaje("1", "human", "Crea Venta"), actionId: "accion",
+      sourceMessageId: "1", normalizedInstruction: "Crea Venta", baseEditorRevision: 0,
+      plan: { resultado: "aplicar" as const, mensaje: "Venta creada", revision: 0, comandos: [{ tipo: "crear_clase" as const, refTemporal: "tmp_venta", nombre: "Venta", abstracta: false }] } }))
+    const fetch = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ error: "Confirmación pendiente" }), { status: 500 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ kind: "action_applied", mensajeIA: mensaje("2", "ai", "Venta creada") }), { status: 200 }))
+    vi.stubGlobal("fetch", fetch)
+    render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} alAplicarModelo={aplicar} consultar={consultar} {...deps} />)
+    await screen.findByText("Todavía no hay mensajes compartidos.")
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Crea Venta" } })
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
+    await screen.findByText("Confirmación pendiente")
+    expect(screen.queryByText("Aplicado")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
+    expect(await screen.findByText("Venta creada")).toBeVisible()
+    expect(aplicar).toHaveBeenCalledOnce()
+    expect(fetch).toHaveBeenCalledTimes(2)
   })
 })

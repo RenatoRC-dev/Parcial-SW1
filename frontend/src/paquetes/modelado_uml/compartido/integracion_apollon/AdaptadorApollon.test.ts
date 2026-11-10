@@ -409,16 +409,59 @@ describe("AdaptadorApollon", () => {
     }
 
     const apollon = convertirDesdeModeloCanonico(modelo)
-    expect(apollon.nodes[0].data.methods).toEqual([
+    expect(apollon.nodes[0].data.methods).toMatchObject([
       { id: "calcular", name: "+ calcularTotal(): Double" },
       { id: "cambiar", name: "+ cambiarNombre(nombre: String): void" },
       { id: "validar", name: "- validarStock(productoId: Long): Boolean" },
     ])
     const vuelta = convertirAModeloCanonico(apollon)
-    expect(vuelta.clases[0].metodos).toEqual([
-      expect.objectContaining({ id: "calcular", nombre: "calcularTotal", visibilidad: "publica", tipoRetorno: "Double", parametros: [] }),
-      expect.objectContaining({ id: "cambiar", nombre: "cambiarNombre", visibilidad: "publica", tipoRetorno: "void", parametros: [expect.objectContaining({ nombre: "nombre", tipo: "String" })] }),
-      expect.objectContaining({ id: "validar", nombre: "validarStock", visibilidad: "privada", tipoRetorno: "Boolean", parametros: [expect.objectContaining({ nombre: "productoId", tipo: "Long" })] }),
-    ])
+    expect(vuelta.clases[0].metodos).toEqual(modelo.clases[0].metodos)
+  })
+
+  describe("F8-S3 identidad de parámetros", () => {
+    function conParametros(metadata?: unknown) {
+      const nodo = crearClase("persona", "Persona")
+      nodo.data.methods = [{
+        id: "editar", name: "+ editar(nuevo: String, segundo: Long, primero: Boolean): void",
+        ...(metadata === undefined ? {} : { sw1Parametros: metadata }),
+      }]
+      return crearModelo([nodo])
+    }
+
+    it("mantiene identidades tras serializar, reordenar y cambiar un tipo; un parámetro nuevo no roba un ID reservado", () => {
+      const metadata = [
+        { id: "editar:parametro:0", nombre: "primero", tipo: "String" },
+        { id: "parametro-estable", nombre: "segundo", tipo: "Long" },
+      ]
+      const entrada = conParametros(metadata)
+      const vuelta = convertirAModeloCanonico(JSON.parse(JSON.stringify(entrada)))
+      expect(vuelta.clases[0].metodos?.[0].parametros).toEqual([
+        { id: "editar:parametro:0:nuevo:1", nombre: "nuevo", tipo: "String" },
+        { id: "parametro-estable", nombre: "segundo", tipo: "Long" },
+        { id: "editar:parametro:0", nombre: "primero", tipo: "Boolean" },
+      ])
+      expect(convertirAModeloCanonico(convertirDesdeModeloCanonico(vuelta))).toEqual(vuelta)
+      expect(entrada.nodes[0].data.methods).toEqual([expect.objectContaining({ sw1Parametros: metadata })])
+    })
+
+    it("conserva compatibilidad con firmas antiguas sin metadatos", () => {
+      const resultado = convertirAModeloCanonicoConAdvertencias(conParametros())
+      expect(resultado.advertencias).toEqual([])
+      expect(resultado.modelo.clases[0].metodos?.[0].parametros.map((parametro) => parametro.id)).toEqual([
+        "editar:parametro:0", "editar:parametro:1", "editar:parametro:2",
+      ])
+    })
+
+    it.each([
+      [{ id: "", nombre: "primero", tipo: "String" }],
+      [{ id: "duplicado", nombre: "primero", tipo: "String" }, { id: "duplicado", nombre: "segundo", tipo: "Long" }],
+      [{ id: "a", nombre: "primero", tipo: "String" }, { id: "b", nombre: "primero", tipo: "Long" }],
+    ])("no adopta identidades vacías o ambiguas y avisa (%j)", (...metadata) => {
+      const resultado = convertirAModeloCanonicoConAdvertencias(conParametros(metadata))
+      expect(resultado.advertencias).toEqual([expect.stringContaining("identidades de parámetros")])
+      const parametros = resultado.modelo.clases[0].metodos?.[0].parametros ?? []
+      expect(new Set(parametros.map((parametro) => parametro.id)).size).toBe(3)
+      expect(parametros.every((parametro) => parametro.id.startsWith("editar:parametro:"))).toBe(true)
+    })
   })
 })

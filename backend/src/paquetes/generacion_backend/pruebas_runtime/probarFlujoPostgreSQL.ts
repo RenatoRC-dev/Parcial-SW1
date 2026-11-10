@@ -1,10 +1,12 @@
 import { spawn, type ChildProcess } from "node:child_process"
-import { mkdir, rm, writeFile } from "node:fs/promises"
+import { randomUUID } from "node:crypto"
+import { mkdir, writeFile } from "node:fs/promises"
 import { createServer } from "node:net"
 import { dirname, join, resolve } from "node:path"
 import JSZip from "jszip"
 import { fixtureUsuarioRol } from "../casos_uso/cu09_generar_backend_spring_boot/fixtureClaseAsociativa.js"
 import { crearAplicacionGeneracionBackend } from "../api/ServidorGeneracionBackend.js"
+import { nombreUsuarioActualizado, sqlCrearBasePrueba, verificarActualizacionUsuario } from "./contratoRuntimePostgreSQL.js"
 
 interface EvidenciaRuntime {
   database: string
@@ -20,6 +22,8 @@ interface EvidenciaRuntime {
   rolForeignKeyVerified: boolean
   noSurrogateIdVerified: boolean
   usuarioCreated: boolean
+  usuarioUpdatedAndRead: boolean
+  usuarioDeleted: boolean
   rolCreated: boolean
   usuarioRolCreated: boolean
   usuarioRolReadByCompositeId: boolean
@@ -33,9 +37,10 @@ const port = process.env.SW1_PG_PORT ?? "5432"
 const user = process.env.SW1_PG_USER ?? "postgres"
 const password = process.env.SW1_PG_PASSWORD
 const adminDatabase = process.env.SW1_PG_ADMIN_DB ?? "postgres"
-const testDatabase = process.env.SW1_PG_TEST_DB ?? "sw1_asociativa_patch_b"
+const runId = randomUUID().replaceAll("-", "")
+const testDatabase = process.env.SW1_PG_TEST_DB ?? `sw1_runtime_${runId}`
 const applicationPort = 18080
-const outputDirectory = resolve("generated-test-output", "postgres-proof")
+const outputDirectory = resolve("generated-test-output", `postgres-proof-${runId}`)
 const evidencePath = join(outputDirectory, "runtime-evidence.json")
 const zipPath = join(outputDirectory, "backend-generado.zip")
 const extractionDirectory = join(outputDirectory, "extraido")
@@ -54,6 +59,8 @@ const evidence: EvidenciaRuntime = {
   rolForeignKeyVerified: false,
   noSurrogateIdVerified: false,
   usuarioCreated: false,
+  usuarioUpdatedAndRead: false,
+  usuarioDeleted: false,
   rolCreated: false,
   usuarioRolCreated: false,
   usuarioRolReadByCompositeId: false,
@@ -109,7 +116,6 @@ async function verifyPortAvailable(): Promise<void> {
 }
 
 async function generateThroughRealHttp(): Promise<void> {
-  await rm(outputDirectory, { recursive: true, force: true })
   await mkdir(extractionDirectory, { recursive: true })
   const server = crearAplicacionGeneracionBackend().listen(0, "127.0.0.1")
   try {
@@ -191,7 +197,6 @@ async function deleteRequest(path: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  await rm(outputDirectory, { recursive: true, force: true })
   await mkdir(outputDirectory, { recursive: true })
 
   await execute("psql", ["--version"])
@@ -204,17 +209,10 @@ async function main(): Promise<void> {
     await persistEvidence()
     throw new Error("POSTGRESQL RUNTIME PROOF BLOCKED: configure SW1_PG_PASSWORD.")
   }
-  if (!/^sw1_[a-z0-9_]+$/.test(testDatabase)) {
-    throw new Error("SW1_PG_TEST_DB debe comenzar con sw1_ y contener solo minúsculas, números o guion bajo.")
-  }
-  if (["postgres", "backend_generado"].includes(testDatabase)) {
-    throw new Error("El nombre de base de prueba está reservado y no puede eliminarse.")
-  }
+  const createDatabaseSql = sqlCrearBasePrueba(testDatabase)
 
   evidence.postgresVersion = await psql(adminDatabase, "select version();")
-  await psql(adminDatabase, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${testDatabase}' AND pid <> pg_backend_pid();`)
-  await psql(adminDatabase, `DROP DATABASE IF EXISTS "${testDatabase}" WITH (FORCE);`)
-  await psql(adminDatabase, `CREATE DATABASE "${testDatabase}";`)
+  await psql(adminDatabase, createDatabaseSql)
   await generateThroughRealHttp()
   await runMaven(["clean", "test"])
   evidence.mavenBuildSuccess = true
@@ -226,6 +224,7 @@ async function main(): Promise<void> {
     DB_USERNAME: user,
     DB_PASSWORD: password,
     SERVER_PORT: String(applicationPort),
+    SERVER_ADDRESS: "127.0.0.1",
   }
   const spring = process.platform === "win32"
     ? spawn("cmd.exe", ["/d", "/s", "/c", "mvnw.cmd", "spring-boot:run"], { cwd: projectDirectory, env: springEnvironment, windowsHide: true })
@@ -268,6 +267,10 @@ async function main(): Promise<void> {
     const usuario = await requestJson<{ id: number }>("/api/usuario", "POST", { nombre: "Usuario Runtime" }, 201)
     if (!Number.isInteger(usuario.id)) throw new Error("POST Usuario no devolvió un id entero.")
     evidence.usuarioCreated = true
+    await verificarActualizacionUsuario(`http://127.0.0.1:${applicationPort}`, usuario.id)
+    const nombrePersistido = await psql(testDatabase, `SELECT nombre FROM usuario WHERE id=${usuario.id};`)
+    if (nombrePersistido !== nombreUsuarioActualizado) throw new Error("PUT Usuario no persistió el nombre en PostgreSQL.")
+    evidence.usuarioUpdatedAndRead = true
     const rol = await requestJson<{ id: number }>("/api/rol", "POST", { nombre: "Rol Runtime" }, 201)
     if (!Number.isInteger(rol.id)) throw new Error("POST Rol no devolvió un id entero.")
     evidence.rolCreated = true
@@ -289,6 +292,11 @@ async function main(): Promise<void> {
     const remaining = Number(await psql(testDatabase, `SELECT count(*) FROM usuario_rol WHERE usuario_id=${usuario.id} AND rol_id=${rol.id};`))
     if (remaining !== 0) throw new Error("DELETE UsuarioRol no eliminó la fila asociativa.")
     evidence.usuarioRolDeleted = true
+    await deleteRequest(`/api/usuario/${usuario.id}`)
+    const eliminado = await fetch(`http://127.0.0.1:${applicationPort}/api/usuario/${usuario.id}`)
+    const usuariosRestantes = Number(await psql(testDatabase, `SELECT count(*) FROM usuario WHERE id=${usuario.id};`))
+    if (eliminado.status !== 404 || usuariosRestantes !== 0) throw new Error("DELETE Usuario no confirmó ausencia HTTP y PostgreSQL.")
+    evidence.usuarioDeleted = true
     await persistEvidence()
     console.log(`Prueba PostgreSQL completada. Evidencia: ${evidencePath}`)
   } finally {

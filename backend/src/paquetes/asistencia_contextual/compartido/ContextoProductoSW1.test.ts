@@ -10,14 +10,20 @@ describe("ContextoProductoSW1", () => {
     expect(CONTEXTO_PRODUCTO_SW1.capacidades.iaModelado.requiereConfirmacion).toBe(false)
     expect(CONTEXTO_PRODUCTO_SW1.capacidades.imagenUml.requiereConfirmacion).toBe(true)
     expect(CONTEXTO_PRODUCTO_SW1.responsabilidadesIa.asistenteContextual).toContain("único ejecutor UML")
+    expect(CONTEXTO_PRODUCTO_SW1.responsabilidadesIa.iaModelado).toContain("aptitud Spring se evalúa aparte")
+    expect(CONTEXTO_PRODUCTO_SW1.responsabilidadesIa.asistenteContextual).toContain("CU08 determina validez UML y CU09 aptitud Spring")
     expect(CONTEXTO_PRODUCTO_SW1.capacidades.xmi.archivoExportado).toBe("modelo.xmi")
   })
 
-  it("describe voz como envío automático sin un segundo clic en Enviar", () => {
+  it("describe multimedia real con transcripción revisable y candidato local CU05", () => {
     const voz = CONTEXTO_PRODUCTO_SW1.capacidades.iaModelado.voz
-    expect(voz).toContain("transcribe")
-    expect(voz).toContain("envía automáticamente")
-    expect(voz).toContain("sin pulsar Enviar después")
+    expect(voz).toContain("transcripción queda editable")
+    expect(voz).toContain("Terminar de grabar nunca ejecuta cambios")
+    expect(voz).toContain("no contexto visual de CU12")
+    expect(voz).toContain("Desde imagen")
+    expect(CONTEXTO_PRODUCTO_SW1.capacidades.iaModelado.acceso).toContain("Asistente de modelado")
+    expect(CONTEXTO_PRODUCTO_SW1.capacidades.iaModelado.texto).toContain("único chat")
+    expect(CONTEXTO_PRODUCTO_SW1.capacidades.imagenUml.acceso).toContain("PNG/JPEG, hasta 10 MB")
   })
 
   it("separa la sustitución XMI del candidato de imagen y de la generación Spring", () => {
@@ -29,6 +35,9 @@ describe("ContextoProductoSW1", () => {
     expect(xmi.exportar).toContain("modelo.xmi")
     expect(xmi.exportar).toContain("interoperabilidad")
     expect(xmi.exportar).toContain("no es un requisito ni el flujo de generación Spring")
+    expect(xmi.exportar).toContain("extensión propia")
+    expect(xmi.exportar).toContain("otras herramientas pueden omitirla")
+    expect(xmi.exportar).toContain("métodos UML siguen fuera del perfil XMI")
   })
 
   it("no expone implementación, secretos ni acciones internas como ayuda de producto", () => {

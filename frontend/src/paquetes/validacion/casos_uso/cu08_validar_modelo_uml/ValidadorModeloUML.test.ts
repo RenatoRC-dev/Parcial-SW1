@@ -117,11 +117,10 @@ describe("ValidadorModeloUML", () => {
     expect(codigos(resultado)).toContain("RELACION_ID_DUPLICADO")
   })
 
-  it("considera inválido un modelo vacío", () => {
+  it("acepta un borrador vacío sin confundirlo con aptitud Spring", () => {
     const resultado = validarModelo(modelo([]))
 
-    expect(resultado.valido).toBe(false)
-    expect(codigos(resultado)).toContain("MODELO_SIN_CLASES")
+    expect(resultado).toEqual({ valido: true, diagnosticos: [] })
   })
 
   it("acepta una clase válida", () => {

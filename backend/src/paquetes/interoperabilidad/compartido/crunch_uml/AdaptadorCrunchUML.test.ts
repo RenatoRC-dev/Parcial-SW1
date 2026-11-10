@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest"
 import { crearAplicacionGeneracionBackend } from "../../../generacion_backend/api/ServidorGeneracionBackend.js"
 import { exportarXmi, importarXmi, validarAptitudExportacionXmi } from "./AdaptadorCrunchUML.js"
 import { fixtureInteroperabilidad } from "./fixtureInteroperabilidad.js"
+import { fixtureUsuarioRol } from "../../../generacion_backend/casos_uso/cu09_generar_backend_spring_boot/fixtureClaseAsociativa.js"
+import { prepararProyectoSpring } from "../../../generacion_backend/casos_uso/cu09_generar_backend_spring_boot/PrepararProyectoSpring.js"
+import type { ModeloUMLCanonicoIntercambio } from "./ContratoInteroperabilidadXmi.js"
 
 function leerBinario(respuesta: NodeJS.ReadableStream, callback: (error: Error | null, body?: Buffer) => void) {
   const fragmentos: Buffer[] = []
@@ -11,6 +14,53 @@ function leerBinario(respuesta: NodeJS.ReadableStream, callback: (error: Error |
 }
 
 describe("AdaptadorCrunchUML", () => {
+  describe("F8-S3 integridad de ida y vuelta", () => {
+    const modelo: ModeloUMLCanonicoIntercambio = {
+      ...fixtureUsuarioRol, version: "4.2.0",
+      clases: fixtureUsuarioRol.clases.map((clase, i) => ({ ...clase, posicion: { x: i * 300, y: 100 } })),
+      relaciones: fixtureUsuarioRol.relaciones.map((relacion, i) => ({ ...relacion, nombre: i === 0 ? "asigna & autoriza" : "tiene rol" })),
+    }
+    function semantica(entrada: ModeloUMLCanonicoIntercambio) {
+      const porId = (a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id)
+      return {
+        ...entrada,
+        clases: entrada.clases.map((clase) => ({ ...clase, tipoClase: clase.tipoClase ?? "normal", atributos: [...clase.atributos].sort(porId) })).sort(porId),
+        relaciones: [...entrada.relaciones].sort(porId),
+      }
+    }
+    it("preserva marcador asociativo, nombres e IDs sin cambiar la identidad Spring", async () => {
+      const original = structuredClone(modelo)
+      const xml = (await exportarXmi(modelo)).toString("utf8")
+      expect(xml).toContain("urn:nexocase:xmi:1")
+      const importado = await importarXmi(xml)
+      expect(semantica(importado.modelo)).toEqual(semantica(modelo))
+      expect(importado.advertencias).toEqual([])
+      // El orden de enumeración de clases/relaciones no cambia su semántica UML.
+      expect(prepararProyectoSpring(semantica(importado.modelo))).toEqual(prepararProyectoSpring(semantica(modelo)))
+      expect(modelo).toEqual(original)
+    }, 30_000)
+
+    it("no infiere marcador por nombre, estructura ni ausencia de extensión", async () => {
+      const sinMarcador = { ...modelo, clases: modelo.clases.map(({ tipoClase: _tipo, ...clase }) => clase), relaciones: modelo.relaciones.map(({ nombre: _nombre, ...relacion }) => relacion) }
+      const importado = await importarXmi((await exportarXmi(sinMarcador)).toString("utf8"))
+      expect(semantica(importado.modelo)).toEqual(semantica(sinMarcador))
+      expect(importado.modelo.clases.every((clase) => clase.tipoClase === undefined)).toBe(true)
+      expect(importado.modelo.relaciones.every((relacion) => relacion.nombre === undefined)).toBe(true)
+    }, 30_000)
+
+    it("rechaza marcador desconocido en vez de convertirlo silenciosamente", async () => {
+      const xml = (await exportarXmi(modelo)).toString("utf8")
+      await expect(importarXmi(xml.replace('tipoClase="asociativa"', 'tipoClase="inventada"'))).rejects.toMatchObject({ tipo: "entrada" })
+      const invalido = { ...modelo, clases: [{ ...modelo.clases[0], tipoClase: "inventada" }] } as unknown as ModeloUMLCanonicoIntercambio
+      await expect(exportarXmi(invalido)).rejects.toThrow(/tipo de clase/)
+    }, 30_000)
+
+    it("no interpreta una marca homónima de un namespace ajeno", async () => {
+      const xml = (await exportarXmi(modelo)).toString("utf8").replace("urn:nexocase:xmi:1", "urn:otra-herramienta:xmi:1")
+      const importado = await importarXmi(xml)
+      expect(importado.modelo.clases.every((clase) => clase.tipoClase === undefined)).toBe(true)
+    }, 30_000)
+  })
   it("preserva clases, atributos, asociación, multiplicidades, roles, ids y posiciones", async () => {
     const xmi = await exportarXmi(fixtureInteroperabilidad)
     expect(xmi.toString("utf8")).not.toMatch(/isNavigable="true"/)

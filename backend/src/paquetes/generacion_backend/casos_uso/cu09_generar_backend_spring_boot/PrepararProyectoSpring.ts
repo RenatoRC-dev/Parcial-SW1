@@ -1,4 +1,5 @@
 import type { ModeloUMLCanonicoEntrada } from "./ContratoModeloUMLCanonico.js"
+import { validarModelo, type ResultadoValidacion } from "../../../validacion/casos_uso/cu08_validar_modelo_uml/ValidadorModeloUML.js"
 import type {
   CampoSpring,
   EntidadSpring,
@@ -378,6 +379,9 @@ export function prepararProyectoSpring(
     throw new ErrorModeloNoGenerable(errores)
   }
 
+  const validacionUml = validarModelo(modelo)
+  if (!validacionUml.valido) throw new ErrorModeloNoGenerable(validacionUml.diagnosticos.filter((item) => item.severidad === "error").map((item) => item.mensaje))
+
   const entidades = modelo.clases.map(prepararEntidad)
   const entidadesPorId = new Map(
     modelo.clases.map((clase, indice) => [clase.id, entidades[indice]])
@@ -438,4 +442,30 @@ export function prepararProyectoSpring(
     springBootVersion: VERSION_SPRING_BOOT,
     entidades,
   }
+}
+
+export interface ResultadoAptitudGeneracion {
+  apto: boolean
+  motivos: string[]
+  advertencias: Array<{ codigo: "CARDINALIDAD_MINIMA_COLECCION"; relacion: string }>
+}
+
+/** La misma preparación que CU09 es la autoridad del perfil, también en el cliente. */
+export function evaluarAptitudGeneracionSpring(
+  modelo: ModeloUMLCanonicoEntrada,
+  validacion: ResultadoValidacion = validarModelo(modelo),
+): ResultadoAptitudGeneracion {
+  const motivos: string[] = []
+  try {
+    prepararProyectoSpring(modelo)
+  } catch (error) {
+    if (!(error instanceof ErrorModeloNoGenerable)) throw error
+    motivos.push(...error.errores)
+  }
+  if (!validacion.valido && motivos.length === 0) motivos.push("El modelo contiene errores de validación UML.")
+  const clasesPorId = new Map(modelo.clases.map((clase) => [clase.id, clase]))
+  const advertencias: ResultadoAptitudGeneracion["advertencias"] = motivos.length ? [] : modelo.relaciones
+    .filter((relacion) => relacion.multiplicidadOrigen === "1..*" || relacion.multiplicidadDestino === "1..*")
+    .map((relacion) => ({ codigo: "CARDINALIDAD_MINIMA_COLECCION", relacion: describirRelacion(relacion, clasesPorId) }))
+  return { apto: motivos.length === 0, motivos, advertencias }
 }

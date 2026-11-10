@@ -3,10 +3,25 @@ import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLC
 import { validarModelo } from "../../../validacion/casos_uso/cu08_validar_modelo_uml/ValidadorModeloUML"
 import { evaluarAptitudGeneracionSpring } from "./EvaluadorAptitudGeneracionSpring"
 import { PanelGeneracionSpring } from "./PanelGeneracionSpring"
+import { ProveedorPreferenciasUI } from "../../../../configuracion/PreferenciasUI"
 
 const modelo: ModeloUMLCanonico = { id: "m", nombre: "Modelo", version: "1", relaciones: [], clases: [{ id: "c", nombre: "Cliente", abstracta: false, posicion: { x: 0, y: 0 }, atributos: [{ id: "a", nombre: "nombre", tipo: "String" }] }] }
 
 describe("PanelGeneracionSpring", () => {
+  it("mantiene acción visible, estado ocupado y límites traducidos durante la generación", async () => {
+    localStorage.setItem("sw1.idioma", "en")
+    let resolver!: () => void
+    try {
+      const validacion = validarModelo(modelo)
+      render(<ProveedorPreferenciasUI><PanelGeneracionSpring modelo={modelo} validacion={validacion} aptitud={evaluarAptitudGeneracionSpring(modelo, validacion)} alGenerar={() => new Promise<void>((resolve) => { resolver = resolve })} /></ProveedorPreferenciasUI>)
+      fireEvent.click(screen.getByRole("button", { name: "Generate Spring Boot backend" }))
+      expect(screen.getByRole("region", { name: "Spring Boot generation" })).toHaveAttribute("aria-busy", "true")
+      expect(screen.getByRole("button", { name: "Generating…" })).toBeDisabled()
+      expect(screen.getByText("Generation scope")).toBeInTheDocument()
+      resolver()
+      expect(await screen.findByRole("status")).toHaveTextContent("Backend generated and downloaded")
+    } finally { localStorage.clear() }
+  })
   it("habilita la generación y presenta éxito", async () => {
     const alGenerar = vi.fn().mockResolvedValue(undefined)
     const validacion = validarModelo(modelo)
@@ -16,12 +31,13 @@ describe("PanelGeneracionSpring", () => {
     expect(await screen.findByText("Backend generado y descargado.")).toBeVisible()
   })
 
-  it("deshabilita el botón y explica un modelo no apto", () => {
+  it("mantiene el borrador vacío válido UML y explica por qué no genera", () => {
     const invalido = { ...modelo, clases: [] }
     const validacion = validarModelo(invalido)
     render(<PanelGeneracionSpring modelo={invalido} validacion={validacion} aptitud={evaluarAptitudGeneracionSpring(invalido, validacion)} />)
     expect(screen.getByRole("button", { name: "Generar backend Spring Boot" })).toBeDisabled()
-    expect(screen.getByText("El modelo contiene errores de validación UML.")).toBeVisible()
+    expect(screen.getByText("Válido")).toBeVisible()
+    expect(screen.getByText("El modelo no contiene clases.")).toBeVisible()
   })
 
   it("distingue UML editable de generación no apta por atributo incompleto", () => {

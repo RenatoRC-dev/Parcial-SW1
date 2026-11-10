@@ -40,6 +40,7 @@ describe("PanelModeladoDesdeImagen", () => {
   it("selecciona sin analizar automáticamente y limpia el Object URL", () => {
     const vista = render(<PanelModeladoDesdeImagen modelo={modelo} alAplicarModelo={vi.fn()} />)
     fireEvent.change(screen.getByLabelText("Seleccionar imagen"), { target: { files: [archivo] } })
+    expect(screen.getByText(/PNG o JPEG/)).toHaveTextContent("hasta 10 MB")
     expect(fetch).not.toHaveBeenCalled()
     expect(screen.getByAltText("Vista previa de la imagen seleccionada")).toHaveAttribute("src", "blob:preview")
     vista.unmount()
@@ -54,6 +55,7 @@ describe("PanelModeladoDesdeImagen", () => {
     fireEvent.change(screen.getByLabelText("Seleccionar imagen"), { target: { files: [archivo] } })
     fireEvent.click(screen.getByRole("button", { name: "Analizar imagen" }))
     expect(screen.getByRole("button", { name: "Analizando imagen..." })).toBeDisabled()
+    expect(screen.getByTestId("panel-modelado-imagen")).toHaveAttribute("aria-busy", "true")
     expect(aplicar).not.toHaveBeenCalled()
     resolver(new Response(JSON.stringify(respuesta), { status: 200 }))
     expect(await screen.findByText("Factura")).toBeInTheDocument()

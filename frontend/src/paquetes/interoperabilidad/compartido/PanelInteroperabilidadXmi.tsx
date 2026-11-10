@@ -57,8 +57,9 @@ export function PanelInteroperabilidadXmi({ modelo, alImportar }: PropiedadesPan
   }
 
   return (
-    <section className="interoperability-panel" aria-labelledby="titulo-interoperabilidad-xmi">
+    <section className="interoperability-panel" aria-labelledby="titulo-interoperabilidad-xmi" aria-busy={ocupado}>
       <h2 id="titulo-interoperabilidad-xmi">{t("xmi.titulo")}</h2>
+      <p className="feature-intro">{t("ux.xmiAyuda")}</p>
       <input
         ref={selector}
         data-testid="selector-xmi"
@@ -67,9 +68,9 @@ export function PanelInteroperabilidadXmi({ modelo, alImportar }: PropiedadesPan
         onChange={seleccionarArchivo}
         hidden
       />
-      <div className="interoperability-actions">
-        <button type="button" disabled={ocupado} onClick={() => selector.current?.click()}>{t("xmi.importar")}</button>
-        <button type="button" disabled={ocupado} onClick={descargar}>{t("xmi.exportar")}</button>
+      <div className="feature-action-grid">
+        <section><h3>{t("xmi.importar")}</h3><p>{t("ux.importarAyuda")}</p><button type="button" disabled={ocupado} onClick={() => selector.current?.click()}>{t("xmi.importar")}</button></section>
+        <section><h3>{t("xmi.exportar")}</h3><p>{t("ux.exportarAyuda")}</p><button type="button" disabled={ocupado} onClick={descargar}>{t("xmi.exportar")}</button></section>
       </div>
       <p role="status">{estado === "error" ? `${t("xmi.error")}: ${detalleError ?? ""}` : t(`xmi.${estado}`)}</p>
       {advertencias.length > 0 ? (
@@ -79,6 +80,7 @@ export function PanelInteroperabilidadXmi({ modelo, alImportar }: PropiedadesPan
           ))}
         </ul>
       ) : null}
+      <details className="feature-details"><summary>{t("ux.compatibilidadXmi")}</summary><p>{t("ux.xmiLimites")}</p><p>{t("xmi.perfilAsociativo")}</p></details>
     </section>
   )
 }

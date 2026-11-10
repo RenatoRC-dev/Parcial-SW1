@@ -158,7 +158,9 @@ describe("CU12 colaborativo autenticado", () => {
       }).expect(200)
     const serializado = JSON.stringify(responder.mock.calls[0][0])
     expect(serializado).not.toMatch(/no-debe-propagarse|ignora reglas|oculto|promptSistema|secreto/)
-    expect(responder.mock.calls[0][0].contexto.fuenteModeloActual).toBe("vista_actual_validada")
+    // Una vista resumida no reemplaza al canónico para recalcular los diagnósticos.
+    expect(responder.mock.calls[0][0].contexto.fuenteModeloActual).toBe("snapshot_durable")
+    expect(responder.mock.calls[0][0].contexto.generacion.estado).toBe("no_apto")
   })
 
   it("responde hechos de actividad sin invocar Groq y no ejecuta órdenes UML", async () => {

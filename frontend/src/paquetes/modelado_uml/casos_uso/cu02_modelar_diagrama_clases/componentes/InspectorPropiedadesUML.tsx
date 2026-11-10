@@ -176,7 +176,7 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar, alRegistrar
 
       {clase ? <>
         <section className="compact-class-editor" aria-label={t("propiedades.clase")}>
-          <h3>{t("propiedades.clase")}</h3>
+          <h3 className="selected-element-heading">{t("propiedades.clase")}: {clase.nombre}</h3>
           <label>{t("propiedades.nombreClaseActual")}<input value={nombreClase} onChange={(evento) => establecerNombreClase(evento.target.value)} onBlur={renombrarClase} onKeyDown={confirmarConEnter} /></label>
           <label>{t("propiedades.tipoClase")}<select value={clase.tipoClase === "asociativa" ? "asociativa" : "normal"} onChange={(evento) => {
             if (aplicar({ ...modelo, clases: modelo.clases.map((item) => item.id === clase.id ? { ...item, tipoClase: evento.target.value as TipoClaseUML } : item) })) {

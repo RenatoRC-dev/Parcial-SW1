@@ -122,6 +122,9 @@ export function validarAptitudExportacionXmi(modelo: ModeloUMLCanonicoIntercambi
   if (modelo.clases.some((clase) => clase.abstracta)) {
     errores.push("Las clases abstractas no pertenecen al perfil XMI de esta iteración.")
   }
+  if (modelo.clases.some((clase) => clase.tipoClase !== undefined && clase.tipoClase !== "normal" && clase.tipoClase !== "asociativa")) {
+    errores.push("El tipo de clase no pertenece al perfil XMI soportado.")
+  }
   if (modelo.clases.some((clase) => (clase.metodos?.length ?? 0) > 0)) {
     errores.push("Los métodos UML no pertenecen al perfil XMI exportable actual; no se exportaron datos parcialmente.")
   }

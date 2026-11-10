@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useImperativeHandle, useState, type Ref } from "react"
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
 import { analizarImagenUML } from "./analizarImagenUML"
 import { aplicarCandidatoImagen } from "./aplicarCandidatoImagen"
@@ -13,9 +13,14 @@ interface PropiedadesPanelModeladoDesdeImagen {
   modelo: ModeloUMLCanonico
   alAplicarModelo: (modelo: ModeloUMLCanonico) => void
   alCambiarEstadoCandidato?: (pendiente: boolean) => void
+  integrado?: boolean
+  imagenAdjunta?: File | null
+  alConsumirImagen?: () => void
+  alCambiarOcupado?: (ocupado: boolean) => void
+  ref?: Ref<{ analizar: () => Promise<void> }>
 }
 
-export function PanelModeladoDesdeImagen({ modelo, alAplicarModelo, alCambiarEstadoCandidato }: PropiedadesPanelModeladoDesdeImagen) {
+export function PanelModeladoDesdeImagen({ modelo, alAplicarModelo, alCambiarEstadoCandidato, integrado = false, imagenAdjunta, alConsumirImagen, alCambiarOcupado, ref }: PropiedadesPanelModeladoDesdeImagen) {
   const { t } = usarPreferenciasUI()
   const [imagen, establecerImagen] = useState<File | null>(null)
   const [urlVistaPrevia, establecerUrlVistaPrevia] = useState<string | null>(null)
@@ -45,13 +50,17 @@ export function PanelModeladoDesdeImagen({ modelo, alAplicarModelo, alCambiarEst
   }
 
   const analizar = async () => {
-    if (!imagen || imagenesAnalizadas >= MAXIMO_ANALISIS) return
+    const archivo = integrado ? imagenAdjunta : imagen
+    if (!archivo || estado === "analizando") return
+    if (imagenesAnalizadas >= MAXIMO_ANALISIS) { establecerMensaje(t("chat.limiteImagen")); establecerEstado("error"); return }
+    alCambiarOcupado?.(true)
     establecerEstado("analizando")
     establecerMensaje(null)
     try {
-      const respuesta = await analizarImagenUML(imagen)
+      const respuesta = await analizarImagenUML(archivo)
       establecerImagenesAnalizadas((cantidad) => cantidad + 1)
       establecerImagen(null)
+      alConsumirImagen?.()
       establecerMensaje(respuesta.mensaje)
       if (respuesta.resultado === "sin_modelo") {
         establecerEstado(candidato ? "candidato" : "sin_modelo")
@@ -62,8 +71,9 @@ export function PanelModeladoDesdeImagen({ modelo, alAplicarModelo, alCambiarEst
     } catch (error) {
       establecerEstado("error")
       establecerMensaje(error instanceof Error ? error.message : t("imagen.errorAnalisis"))
-    }
+    } finally { alCambiarOcupado?.(false) }
   }
+  useImperativeHandle(ref, () => ({ analizar }))
 
   const confirmar = () => {
     if (!candidato) return
@@ -99,15 +109,21 @@ export function PanelModeladoDesdeImagen({ modelo, alAplicarModelo, alCambiarEst
   }
 
   return (
-    <aside className="image-ai-panel" data-testid="panel-modelado-imagen">
-      <h2>{t("imagen.titulo")}</h2>
+    <aside className={`image-ai-panel${integrado ? " is-integrated" : ""}`} data-testid="panel-modelado-imagen" aria-labelledby={integrado ? undefined : "titulo-imagen"} aria-busy={estado === "analizando" || estado === "aplicando"}>
+      {!integrado ? <>
+      <h2 id="titulo-imagen">{t("imagen.titulo")}</h2>
+      <p className="feature-intro">{t("ux.imagenAyuda")}</p>
+      <div className="image-upload-zone">
       <label htmlFor="imagen-uml">{t("imagen.seleccionar")}</label>
+      <p>{t("ux.imagenFormatos")}</p>
       <input key={imagenesAnalizadas} id="imagen-uml" type="file" accept="image/png,image/jpeg" disabled={estado === "analizando" || estado === "aplicando" || imagenesAnalizadas >= MAXIMO_ANALISIS} onChange={(evento) => seleccionar(evento.target.files?.[0] ?? null)} />
+      </div>
       {imagen ? <p className="image-file">{t("imagen.seleccionada")}: <strong>{imagen.name}</strong> ({Math.ceil(imagen.size / 1024)} KB)</p> : null}
       {urlVistaPrevia ? <img className="image-preview" src={urlVistaPrevia} alt={t("imagen.vistaPrevia")} /> : null}
       <button type="button" disabled={!imagen || estado === "analizando" || estado === "aplicando" || imagenesAnalizadas >= MAXIMO_ANALISIS} onClick={() => void analizar()}>
         {estado === "analizando" ? t("imagen.analizando") : imagenesAnalizadas > 0 ? t("imagen.analizarOtra") : t("imagen.analizar")}
       </button>
+      </> : null}
       {imagenesAnalizadas > 0 ? <p>{t("imagen.imagenesAnalizadas")}: {imagenesAnalizadas} / {MAXIMO_ANALISIS} · {t("imagen.clasesDetectadas")}: {candidato?.clases.length ?? 0} · {t("imagen.relacionesDetectadas")}: {candidato?.relaciones.length ?? 0}</p> : null}
       {mensaje ? <p role="status" className={estado === "error" ? "image-error" : undefined}>{mensaje}</p> : null}
       {!candidato && imagenesAnalizadas > 0 ? <button type="button" onClick={cancelar}>{t("imagen.cancelar")}</button> : null}
@@ -129,7 +145,7 @@ export function PanelModeladoDesdeImagen({ modelo, alAplicarModelo, alCambiarEst
           </div>
         </section>
       ) : null}
-      <p className="ai-note">{t("imagen.nota")}</p>
+      {!integrado ? <p className="ai-note">{t("imagen.nota")}</p> : null}
     </aside>
   )
 }

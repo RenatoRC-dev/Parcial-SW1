@@ -15,6 +15,7 @@ export interface MensajeColaborativo {
   elementosRelacionadosIds: string[]
   revisionModeloObservada: number
   creadoEn: string
+  recomendacion?: { resumen: string; targetElementIds: string[]; normalizedInstruction: string } | null
 }
 
 export interface PaginaMensajesColaborativos { items: MensajeColaborativo[]; siguienteCursor: string | null }

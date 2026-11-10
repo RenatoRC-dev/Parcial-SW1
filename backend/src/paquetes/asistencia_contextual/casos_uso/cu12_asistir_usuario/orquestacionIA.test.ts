@@ -30,6 +30,15 @@ const vistaActual = {
   generacion: { estado: "apto", bloqueos: [], advertencias: [] },
 }
 
+function modeloS4(caso: string): ModeloUMLCanonicoIA {
+  const vivo: ModeloUMLCanonicoIA = structuredClone(modelo)
+  if (caso === "dominio") vivo.clases[0].atributos.push({ id: "saldo", nombre: "saldo", tipo: "Money" })
+  if (caso === "duplicado") vivo.clases[1].nombre = "Venta"
+  if (caso === "vacio") vivo.clases = []
+  if (caso === "minimo" || caso === "unoAuno") vivo.relaciones = [{ id: "r", tipo: "asociacion", claseOrigenId: "cliente", claseDestinoId: "venta", multiplicidadOrigen: "1", multiplicidadDestino: caso === "minimo" ? "1..*" : "1" }]
+  return vivo
+}
+
 describe("orquestacion controlada CU12-CU04", () => {
   let directorio: string
   let mensajes: RepositorioMensajesMemoria
@@ -60,6 +69,24 @@ describe("orquestacion controlada CU12-CU04", () => {
     })
   })
   afterEach(async () => { await rm(directorio, { recursive: true, force: true }) })
+
+  it.each([
+    ["dominio", "valido", "no_apto"], ["duplicado", "invalido", "no_apto"],
+    ["vacio", "valido", "no_apto"], ["minimo", "valido", "apto"], ["unoAuno", "valido", "no_apto"],
+  ])("F8-S4 CU12 diagnostica el canónico con reglas autoritativas (%s)", async (caso, uml, spring) => {
+    const creado = await crear()
+    responder.mockResolvedValueOnce({ respuesta: "Diagnóstico consultivo.", accionSugerida: "NINGUNA", elementoRelacionadoId: null, nivel: "informacion", categoriaRecomendacion: "INFORMATIVO", recomendacion: null })
+    await request(aplicacion).post(`/api/proyectos/${creado.body.proyecto.id}/asistente-colaborativo/interactuar`)
+      .set({ Authorization: `Bearer ${creado.body.credencial}` })
+      .send({ requestId: crypto.randomUUID(), contenido: "Revisa el modelo actual.", modeloEjecucion: modeloS4(caso), revisionEditor: 7, vistaActual }).expect(200)
+    const contexto = responder.mock.calls[0][0].contexto
+    expect(contexto.estadoUml.estado).toBe(uml)
+    expect(contexto.generacion.estado).toBe(spring)
+    expect(contexto.estadoUml.errores.length > 0).toBe(caso === "duplicado")
+    expect(contexto.generacion.advertencias.length > 0).toBe(caso === "minimo")
+    expect(interpretar).not.toHaveBeenCalled()
+    expect((await request(aplicacion).get(`/api/proyectos/${creado.body.proyecto.id}`).set({ Authorization: `Bearer ${creado.body.credencial}` })).body.revisionModelo).toBe(0)
+  })
 
   async function crear(nombreParticipante = "Renato") {
     return request(aplicacion).post("/api/proyectos").send({ nombre: "Ventas", nombreParticipante }).expect(201)

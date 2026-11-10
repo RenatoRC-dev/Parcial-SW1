@@ -43,6 +43,12 @@ function seleccionarCliente() {
 }
 
 describe("InspectorPropiedadesUML compacto", () => {
+  it("identifica por nombre la clase seleccionada sin modificarla", () => {
+    const aplicar = renderizar(modelo)
+    act(() => seleccionar(["cliente"]))
+    expect(screen.getByRole("heading", { name: "Clase: Cliente" })).toBeVisible()
+    expect(aplicar).not.toHaveBeenCalled()
+  })
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()

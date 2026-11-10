@@ -5,7 +5,8 @@ import type { RepositorioMensajes } from "../../../mensajeria_colaborativa/compa
 import type { RepositorioEventos } from "../../../trazabilidad/compartido/RepositorioEventos.js"
 import type { ContextoAsistente, MensajeConversacionContextual, SolicitudAsistenteContextual } from "../../compartido/ContratoAsistenteContextual.js"
 import type { PreguntaAsistenteColaborativo, VistaActualColaborativa } from "../../compartido/ContratoPreguntaColaborativa.js"
-import { ErrorModeloNoGenerable, prepararProyectoSpring } from "../../../generacion_backend/casos_uso/cu09_generar_backend_spring_boot/PrepararProyectoSpring.js"
+import { evaluarAptitudGeneracionSpring } from "../../../generacion_backend/casos_uso/cu09_generar_backend_spring_boot/PrepararProyectoSpring.js"
+import { validarModelo } from "../../../validacion/casos_uso/cu08_validar_modelo_uml/ValidadorModeloUML.js"
 
 const MAX_MENSAJES = 16
 const MAX_EVENTOS = 25
@@ -30,17 +31,13 @@ function resumirModelo(modelo: ModeloUMLCanonicoIntercambio): ContextoAsistente[
 }
 
 function evaluarModelo(modelo: ModeloUMLCanonicoIntercambio): Pick<VistaActualColaborativa, "estadoUml" | "generacion"> {
-  const incompletos = modelo.clases.flatMap((clase) => clase.atributos.filter((atributo) => !atributo.tipo?.trim()).map((atributo) => `${clase.nombre}.${atributo.nombre} no tiene tipo.`)).slice(0, 8)
-  let generacion: VistaActualColaborativa["generacion"]
-  try {
-    prepararProyectoSpring(modelo)
-    generacion = { estado: "apto", bloqueos: [], advertencias: [] }
-  } catch (error) {
-    generacion = { estado: "no_apto", bloqueos: error instanceof ErrorModeloNoGenerable ? error.errores.slice(0, 8) : ["El modelo actual no es apto para generación."], advertencias: [] }
-  }
+  const validacion = validarModelo(modelo)
+  const aptitud = evaluarAptitudGeneracionSpring(modelo, validacion)
+  const errores = validacion.diagnosticos.filter((item) => item.severidad === "error").map((item) => item.mensaje).slice(0, 8)
+  const advertencias = validacion.diagnosticos.filter((item) => item.severidad === "advertencia").map((item) => item.mensaje).slice(0, 8)
   return {
-    estadoUml: { estado: incompletos.length ? "incompleto" : "valido", problemas: incompletos, errores: [], advertencias: incompletos },
-    generacion,
+    estadoUml: { estado: !validacion.valido ? "invalido" : advertencias.length ? "incompleto" : "valido", problemas: [...errores, ...advertencias].slice(0, 8), errores, advertencias },
+    generacion: { estado: aptitud.apto ? "apto" : "no_apto", bloqueos: aptitud.motivos.slice(0, 8), advertencias: aptitud.advertencias.slice(0, 8).map((item) => item.relacion) },
   }
 }
 
@@ -68,8 +65,9 @@ export class ConstruirContextoAsistenteColaborativo {
     ])
     const durable = resumirModelo(proyecto.modelo)
     const vista = pregunta.vistaActual
-    const evaluacion = pregunta.modeloEjecucion ? evaluarModelo(pregunta.modeloEjecucion) : vista ?? evaluarModelo(proyecto.modelo)
-    const modeloActual = pregunta.modeloEjecucion ? resumirModelo(pregunta.modeloEjecucion) : vista?.modeloActual ?? durable
+    const modeloCanonico = pregunta.modeloEjecucion ?? proyecto.modelo
+    const evaluacion = evaluarModelo(modeloCanonico)
+    const modeloActual = pregunta.modeloEjecucion ? resumirModelo(modeloCanonico) : durable
     const seleccion = resolverSeleccion(modeloActual, pregunta.foco?.elementoId)
     const elementosRelevantes = [
       ...(seleccion ? [{ id: seleccion.id, tipo: seleccion.tipo, nombre: seleccion.tipo === "clase" ? seleccion.nombre : seleccion.nombre ?? `${seleccion.origen.nombre} — ${seleccion.destino.nombre}` }] : []),
@@ -91,7 +89,7 @@ export class ConstruirContextoAsistenteColaborativo {
       accionesDisponibles: ["NINGUNA", ...(seleccion ? ["ENFOCAR_ELEMENTO" as const] : []), "IR_A_VALIDACION", "IR_A_GENERACION", "IR_A_XMI"],
       participanteActual: { id: acceso.participantId, nombreVisible: acceso.displayName },
       modeloDurable: { revision: proyecto.revisionModelo, actualizadoEn: proyecto.actualizadoEn, resumen: durable },
-      fuenteModeloActual: vista || pregunta.modeloEjecucion ? "vista_actual_validada" : "snapshot_durable",
+      fuenteModeloActual: pregunta.modeloEjecucion ? "vista_actual_validada" : "snapshot_durable",
       conversacionCompartida: mensajesCronologicos.map((mensaje) => ({
         id: mensaje.id, tipoRemitente: mensaje.tipoRemitente, participantId: mensaje.participantId,
         nombreVisibleSnapshot: mensaje.nombreVisibleSnapshot, contenido: mensaje.contenido, requestId: mensaje.requestId,

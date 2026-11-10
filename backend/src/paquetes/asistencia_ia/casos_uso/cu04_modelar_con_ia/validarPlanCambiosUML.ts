@@ -1,14 +1,12 @@
 import { TIPOS_UML_SOPORTADOS_IA, type ComandoModeloUML, type ModeloUMLCanonicoIA } from "../../compartido/contrato/ComandoModeloUML.js"
 import type { RespuestaInterpretacionUML } from "../../compartido/contrato/PlanCambiosUML.js"
 import { ErrorPlanCambiosUML, ejecutarComandosUML } from "./EjecutorComandosUML.js"
+import { validarModelo } from "../../../validacion/casos_uso/cu08_validar_modelo_uml/ValidadorModeloUML.js"
 
 const MULTIPLICIDADES = new Set(["0..1", "1", "0..*", "1..*"])
 const VISIBILIDADES_ATRIBUTO = new Set(["publica", "privada", "protegida", "paquete"])
 const VISIBILIDADES_METODO = new Set(["publica", "privada"])
 const TIPOS = new Set<string>(TIPOS_UML_SOPORTADOS_IA)
-const TIPOS_RETORNO = new Set<string>([...TIPOS_UML_SOPORTADOS_IA, "void"])
-const CLASE = /^[A-Z][A-Za-z0-9]*$/
-const ATRIBUTO = /^[a-z][A-Za-z0-9]*$/
 
 function objeto(valor: unknown): valor is Record<string, unknown> {
   return typeof valor === "object" && valor !== null && !Array.isArray(valor)
@@ -97,70 +95,15 @@ export function esRespuestaInterpretacionUML(valor: unknown): valor is Respuesta
   return valor.resultado === "aplicar" ? valor.comandos.length > 0 : valor.comandos.length === 0
 }
 
-function validarModeloResultado(modelo: ModeloUMLCanonicoIA): void {
-  const errores: string[] = []
-  if (modelo.clases.length === 0) errores.push("El modelo resultante debe contener al menos una clase.")
-  const nombresClases = new Set<string>()
-  const idsClases = new Set<string>()
-  const idsAtributos = new Set<string>()
-  const idsMetodos = new Set<string>()
-  for (const clase of modelo.clases) {
-    if (clase.tipoClase !== undefined && clase.tipoClase !== "normal" && clase.tipoClase !== "asociativa") errores.push(`Tipo de clase no soportado: ${String(clase.tipoClase)}.`)
-    const clave = clase.nombre.trim().toLowerCase()
-    if (!CLASE.test(clase.nombre.trim())) errores.push(`Nombre de clase inválido: ${clase.nombre}.`)
-    if (nombresClases.has(clave)) errores.push(`Nombre de clase duplicado: ${clase.nombre}.`)
-    nombresClases.add(clave)
-    if (!clase.id.trim() || idsClases.has(clase.id)) errores.push(`Id de clase inválido o duplicado: ${clase.id}.`)
-    idsClases.add(clase.id)
-    const nombresAtributos = new Set<string>()
-    for (const atributo of clase.atributos) {
-      const nombre = atributo.nombre.trim()
-      const claveAtributo = nombre.toLowerCase()
-      if (!ATRIBUTO.test(nombre)) errores.push(`Nombre de atributo inválido: ${atributo.nombre}.`)
-      if (!atributo.tipo || !TIPOS.has(atributo.tipo.trim())) errores.push(`Tipo de atributo no soportado: ${atributo.tipo ?? "sin tipo"}.`)
-      if (nombre === "id" && atributo.tipo?.trim() !== "Long") errores.push("El identificador explícito id debe utilizar el tipo Long.")
-      if (nombresAtributos.has(claveAtributo)) errores.push(`Atributo duplicado en ${clase.nombre}: ${atributo.nombre}.`)
-      nombresAtributos.add(claveAtributo)
-      if (!atributo.id.trim() || idsAtributos.has(atributo.id)) errores.push(`Id de atributo inválido o duplicado: ${atributo.id}.`)
-      idsAtributos.add(atributo.id)
-    }
-    const firmas = new Set<string>()
-    for (const metodo of clase.metodos ?? []) {
-      if (!metodo.id.trim() || idsMetodos.has(metodo.id)) errores.push(`Id de método inválido o duplicado: ${metodo.id}.`)
-      idsMetodos.add(metodo.id)
-      if (metodo.nombre.trim() === "") errores.push("El método debe tener un nombre.")
-      if (!VISIBILIDADES_METODO.has(metodo.visibilidad)) errores.push(`Visibilidad de método no soportada: ${metodo.visibilidad}.`)
-      if (!TIPOS_RETORNO.has(metodo.tipoRetorno.trim())) errores.push(`Tipo de retorno no soportado: ${metodo.tipoRetorno}.`)
-      const firma = `${metodo.nombre.trim().toLowerCase()}(${metodo.parametros.map((parametro) => parametro.tipo.trim()).join(",")})`
-      if (firmas.has(firma)) errores.push(`Firma de método duplicada en ${clase.nombre}: ${metodo.nombre}.`)
-      firmas.add(firma)
-      const idsParametros = new Set<string>()
-      const nombresParametros = new Set<string>()
-      for (const parametro of metodo.parametros) {
-        const nombreParametro = parametro.nombre.trim()
-        if (!parametro.id.trim() || idsParametros.has(parametro.id)) errores.push(`Id de parámetro inválido o duplicado: ${parametro.id}.`)
-        idsParametros.add(parametro.id)
-        if (nombreParametro === "" || nombresParametros.has(nombreParametro.toLowerCase())) errores.push(`Nombre de parámetro inválido o duplicado: ${parametro.nombre}.`)
-        nombresParametros.add(nombreParametro.toLowerCase())
-        if (!TIPOS.has(parametro.tipo.trim())) errores.push(`Tipo de parámetro no soportado: ${parametro.tipo}.`)
-      }
-    }
-  }
-  const idsRelaciones = new Set<string>()
-  for (const relacion of modelo.relaciones) {
-    if (!relacion.id.trim() || idsRelaciones.has(relacion.id)) errores.push(`Id de relación inválido o duplicado: ${relacion.id}.`)
-    idsRelaciones.add(relacion.id)
-    if (!idsClases.has(relacion.claseOrigenId) || !idsClases.has(relacion.claseDestinoId)) errores.push(`La relación ${relacion.id} tiene un extremo inexistente.`)
-    if (relacion.claseOrigenId === relacion.claseDestinoId) errores.push(`La relación ${relacion.id} debe conectar dos clases diferentes.`)
-    if (relacion.tipo === "generalizacion" && (relacion.multiplicidadOrigen !== null || relacion.multiplicidadDestino !== null || relacion.rolOrigen !== undefined || relacion.rolDestino !== undefined)) {
-      errores.push(`La generalización ${relacion.id} no admite multiplicidades ni roles de asociación.`)
-    }
-  }
-  if (errores.length > 0) throw new ErrorPlanCambiosUML(errores.join(" "))
-}
-
 export function validarPlanCambiosUML(modelo: ModeloUMLCanonicoIA, comandos: ComandoModeloUML[]): void {
+  // El canal IA sigue acotado; los tipos conceptuales existentes no son errores UML.
+  for (const comando of comandos) {
+    const tipoNuevo = comando.tipo === "agregar_atributo" ? comando.tipoDato
+      : comando.tipo === "modificar_atributo" ? comando.nuevoTipo : null
+    if (tipoNuevo !== null && !TIPOS.has(tipoNuevo.trim())) throw new ErrorPlanCambiosUML(`Tipo de atributo no soportado por CU04: ${tipoNuevo}.`)
+  }
   let contador = 0
   const resultado = ejecutarComandosUML(modelo, comandos, (categoria) => `validacion-${categoria}-${++contador}`)
-  validarModeloResultado(resultado)
+  const validacion = validarModelo(resultado)
+  if (!validacion.valido) throw new ErrorPlanCambiosUML(validacion.diagnosticos.filter((item) => item.severidad === "error").map((item) => item.mensaje).join(" "))
 }

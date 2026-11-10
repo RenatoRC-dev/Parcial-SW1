@@ -144,7 +144,7 @@ describe("evaluarAptitudGeneracionSpring", () => {
 
   it("rechaza nombres que colisionan con tipos Java", () => {
     const modelo = crearModelo({ clases: [{ ...crearModelo().clases[0], nombre: "String" }] })
-    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).motivos).toContain("El nombre de entidad String entra en conflicto con un tipo Java.")
+    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).motivos.join(" ")).toContain("conflicto con un tipo Java")
   })
 
   it("rechaza ids canónicos duplicados mediante CU08", () => {
@@ -166,6 +166,8 @@ describe("evaluarAptitudGeneracionSpring", () => {
   it("mantiene editable un tipo conceptual y lo bloquea sólo para generación", () => {
     const modelo = crearModelo({ clases: [{ ...crearModelo().clases[0], atributos: [{ id: "saldo", nombre: "saldo", tipo: "Money" }] }] })
     expect(validarModelo(modelo).valido).toBe(true)
-    expect(evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).motivos.join(" ")).toContain("Cliente.saldo (Money)")
+    const motivos = evaluarAptitudGeneracionSpring(modelo, validarModelo(modelo)).motivos.join(" ")
+    expect(motivos).toContain("Cliente.saldo")
+    expect(motivos).toContain("Money")
   })
 })

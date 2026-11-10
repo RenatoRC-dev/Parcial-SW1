@@ -33,6 +33,7 @@ const VISIBILIDADES: Readonly<Record<string, VisibilidadUML>> = {
 interface ElementoClaseApollon {
   id: string
   name: string
+  sw1Parametros?: unknown
 }
 
 interface DatosClaseApollon {
@@ -90,10 +91,35 @@ function interpretarMetodo(
     return null
   }
   const [, simbolo, nombre, textoParametros, tipoRetorno] = coincidencia
+  const metadata = metodoApollon.sw1Parametros
+  let identidades: MetodoUML["parametros"] = []
+  if (metadata !== undefined) {
+    if (Array.isArray(metadata) && metadata.every((item) => esRegistro(item)
+      && typeof item.id === "string" && item.id.trim() !== ""
+      && typeof item.nombre === "string" && item.nombre.trim() !== ""
+      && typeof item.tipo === "string")
+      && new Set(metadata.map((item) => item.id)).size === metadata.length
+      && new Set(metadata.map((item) => item.nombre.trim())).size === metadata.length) {
+      identidades = metadata
+    } else {
+      advertencias.push(`Las identidades de parámetros del método ${metodoApollon.id} son inválidas; se conservaron las firmas con identificadores locales.`)
+    }
+  }
+  const reservados = new Set(identidades.map((item) => item.id))
+  const asignados = new Set<string>()
   const parametros = textoParametros.trim() === "" ? [] : textoParametros.split(",").map((texto, indice) => {
     const partes = texto.trim().match(/^([^:]+?)\s*:\s*(\S+)$/)
     if (!partes) return null
-    return { id: `${metodoApollon.id}:parametro:${indice}`, nombre: partes[1].trim(), tipo: partes[2].trim() }
+    const nombre = partes[1].trim()
+    const identidad = identidades.find((item) => item.nombre.trim() === nombre && !asignados.has(item.id))
+    let id = identidad?.id ?? `${metodoApollon.id}:parametro:${indice}`
+    if (!identidad) {
+      const base = id
+      let sufijo = 0
+      while (reservados.has(id) || asignados.has(id)) id = `${base}:nuevo:${++sufijo}`
+    }
+    asignados.add(id)
+    return { id, nombre, tipo: partes[2].trim() }
   })
   if (parametros.some((parametro) => parametro === null)) {
     advertencias.push(`El método ${metodoApollon.id} contiene parámetros fuera de la notación "nombre: Tipo".`)
@@ -391,7 +417,10 @@ export function convertirDesdeModeloCanonico(modelo: ModeloUMLCanonico): UMLMode
       data: {
         name: clase.nombre,
         attributes: clase.atributos.map((atributo) => ({ id: atributo.id, name: notacionAtributo(atributo) })),
-        methods: (clase.metodos ?? []).map((metodo) => ({ id: metodo.id, name: notacionMetodo(metodo) })),
+        methods: (clase.metodos ?? []).map((metodo) => ({
+          id: metodo.id, name: notacionMetodo(metodo),
+          sw1Parametros: metodo.parametros.map((parametro) => ({ ...parametro })),
+        })),
         isAbstract: clase.abstracta,
         sw1TipoClase: clase.tipoClase === "asociativa" ? "asociativa" : "normal",
       },

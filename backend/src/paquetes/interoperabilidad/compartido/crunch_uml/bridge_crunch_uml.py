@@ -6,6 +6,9 @@ import sys
 from argparse import Namespace
 from pathlib import Path
 
+# Metadato propio: no implica soporte de uml:AssociationClass de otros perfiles.
+NS_NEXOCASE = "urn:nexocase:xmi:1"
+
 
 def configurar_crunch(ruta: str):
     repositorio = Path(ruta).resolve()
@@ -63,6 +66,7 @@ def importar(entrada: Path, salida: Path):
     tipos_asociacion = {}
     todos_asociacion = {}
     clases_abstractas = set()
+    tipos_clase = {}
     visibilidades_atributos = {}
     cantidad_metodos_omitidos = 0
     visibilidades_uml = {
@@ -71,6 +75,14 @@ def importar(entrada: Path, salida: Path):
     }
     for elemento in raiz.iter():
         nombre_local = etree.QName(elemento).localname if isinstance(elemento.tag, str) else ""
+        if elemento.get(ns_xmi + "type") == "uml:Class":
+            tipo_clase = elemento.get(f"{{{NS_NEXOCASE}}}tipoClase")
+            if tipo_clase is not None:
+                if tipo_clase not in ("normal", "asociativa"):
+                    raise ValueError("ENTRADA: Marcador tipoClase de NexoCASE no soportado.")
+                clase_id = elemento.get(ns_xmi + "id")
+                if clase_id:
+                    tipos_clase[clase_id] = tipo_clase
         if nombre_local == "ownedOperation":
             cantidad_metodos_omitidos += 1
         if elemento.get("isAbstract") == "true":
@@ -148,6 +160,7 @@ def importar(entrada: Path, salida: Path):
             "atributos": atributos,
             "posicion": posicion,
             "abstracta": clase.id in clases_abstractas,
+            **({"tipoClase": tipos_clase[clase.id]} if clase.id in tipos_clase else {}),
         })
 
     atributos_sin_tipo = [
@@ -191,6 +204,8 @@ def importar(entrada: Path, salida: Path):
             "multiplicidadOrigen": origen,
             "multiplicidadDestino": destino,
         }
+        if asociacion.name:
+            relacion["nombre"] = asociacion.name
         if rol_origen:
             relacion["rolOrigen"] = rol_origen
         if rol_destino:
@@ -271,7 +286,11 @@ def exportar(entrada: Path, salida: Path):
     }
     arbol = etree.parse(str(salida))
     ns_xmi = "{http://schema.omg.org/spec/XMI/2.1}"
+    tipos_clase = {clase["id"]: clase.get("tipoClase") for clase in modelo["clases"]}
     for elemento in arbol.iter():
+        if elemento.get(ns_xmi + "type") == "uml:Class":
+            if tipos_clase.get(elemento.get(ns_xmi + "id")) == "asociativa":
+                elemento.set(f"{{{NS_NEXOCASE}}}tipoClase", "asociativa")
         if etree.QName(elemento).localname != "ownedAttribute" or elemento.get("association") is not None:
             continue
         atributo_id = elemento.get(ns_xmi + "id")
