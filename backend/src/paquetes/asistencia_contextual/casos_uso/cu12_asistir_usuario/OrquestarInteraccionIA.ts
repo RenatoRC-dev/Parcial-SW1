@@ -10,10 +10,19 @@ import type { PreguntaAsistenteColaborativo } from "../../compartido/ContratoPre
 import type { ProveedorAsistenteContextual } from "../../compartido/ProveedorAsistenteContextual.js"
 import { AsistirColaborativamente } from "./AsistirColaborativamente.js"
 import type { ConstruirContextoAsistenteColaborativo } from "./ConstruirContextoAsistenteColaborativo.js"
+import { validarPlanLocal, type PlanificadorLocal } from "../../compartido/PlanificadorLocal.js"
+import { validarModelo } from "../../../validacion/casos_uso/cu08_validar_modelo_uml/ValidadorModeloUML.js"
+import { evaluarAptitudGeneracionSpring } from "../../../generacion_backend/casos_uso/cu09_generar_backend_spring_boot/PrepararProyectoSpring.js"
+import { exportarModeloXmi } from "../../../interoperabilidad/casos_uso/cu07_exportar_modelo_xmi/exportarModeloXmi.js"
+import { ErrorAsistenteContextual } from "../../compartido/ProveedorAsistenteContextual.js"
+import { detectarComandoFlujo, ErrorFlujoAsistente, type AdjuntoTurno, type EjecutarFlujosAsistente } from "./EjecutarFlujosAsistente.js"
+import type { RespuestaFlujoAsistente } from "../../compartido/FlujoAsistente.js"
 
 export type IntencionInteraccionIA = "PRODUCT_QUERY" | "CONCEPTUAL_QUERY" | "MODEL_QUERY" | "ACTIVITY_QUERY" | "REVIEW_REQUEST" | "EXPLICIT_MODIFICATION" | "CONTEXTUAL_MODIFICATION" | "CLARIFICATION_REQUIRED"
 
 export type ResultadoOrquestacion =
+  | RespuestaFlujoAsistente
+  | { kind: "tool"; mensajeHumano: MensajeProyecto; mensajeIA: MensajeProyecto; operacion: "validar_uml" | "exportar_xmi"; baseEditorRevision: number; artifact?: { nombre: "modelo.xmi"; mime: "application/xml"; contenido: string } }
   | { kind: "advisory"; intent: IntencionInteraccionIA; mensajeHumano: MensajeProyecto; mensajeIA: MensajeProyecto }
   | { kind: "clarification"; intent: "CLARIFICATION_REQUIRED"; mensajeHumano: MensajeProyecto; mensajeIA: MensajeProyecto }
   | { kind: "action"; intent: "EXPLICIT_MODIFICATION" | "CONTEXTUAL_MODIFICATION"; mensajeHumano: MensajeProyecto; actionId: string; sourceMessageId: string; normalizedInstruction: string; plan: AccionIAModeladoPersistida["plan"]; baseEditorRevision: number }
@@ -119,6 +128,7 @@ function resolverAccionContextual(
 }
 
 export class OrquestarInteraccionIA {
+  ejecutarHerramienta?: (acceso: ContextoAccesoProyecto, pregunta: PreguntaAsistenteColaborativo) => Promise<ResultadoOrquestacion | null>
   private readonly asistente: AsistirColaborativamente
   private readonly enCurso = new Map<string, Promise<ResultadoOrquestacion>>()
   constructor(
@@ -128,9 +138,30 @@ export class OrquestarInteraccionIA {
     proveedorCU12: ProveedorAsistenteContextual,
     private readonly proveedorCU04: ProveedorModeloLenguaje,
     private readonly publicador: PublicadorMensajesProyecto,
+    private readonly planificadorLocal?: PlanificadorLocal,
+    private readonly flujos?: EjecutarFlujosAsistente,
   ) { this.asistente = new AsistirColaborativamente(gestionarMensajes, construirContexto, proveedorCU12, publicador) }
 
-  async ejecutar(acceso: ContextoAccesoProyecto, pregunta: PreguntaAsistenteColaborativo): Promise<ResultadoOrquestacion> {
+  async ejecutar(acceso: ContextoAccesoProyecto, pregunta: PreguntaAsistenteColaborativo, adjunto?: AdjuntoTurno): Promise<ResultadoOrquestacion> {
+    if (!adjunto && this.ejecutarHerramienta) {
+      const resultado = await this.ejecutarHerramienta(acceso, pregunta)
+      if (resultado) return resultado
+    }
+    // El adjunto no pasa jamás al proveedor CU12 ni se interpreta como texto visual.
+    if (adjunto && this.flujos) {
+      const operacion = adjunto.tipo === "imagen" ? "analizar_imagen" : "importar_xmi"
+      const existente = await this.repositorioMensajes.obtenerFlujo(acceso.projectId, pregunta.requestId)
+      if (!existente && this.planificadorLocal) {
+        const solicitud = await this.construirContexto.construir(acceso, pregunta)
+        const plan = validarPlanLocal(await this.planificadorLocal.planificar({ ...solicitud, pregunta: `${pregunta.contenido}\nAdjunto: ${adjunto.tipo}, ${adjunto.nombre}. Interpreta este turno con el servicio especializado, no tienes contexto visual.` }))
+        if (plan.operacion !== operacion) throw new ErrorFlujoAsistente(400, "La intención no corresponde al archivo. Precisa analizar la imagen o importar el XMI; no se ejecutó otra operación.")
+      }
+      return this.flujos.ejecutar(acceso, pregunta, operacion, adjunto)
+    }
+    if (this.flujos && !this.planificadorLocal) {
+      const operacion = detectarComandoFlujo(pregunta.contenido)
+      if (operacion) return this.flujos.ejecutar(acceso, pregunta, operacion)
+    }
     const clave = JSON.stringify([acceso.projectId, acceso.participantId, pregunta.requestId, pregunta.contenido])
     const pendiente = this.enCurso.get(clave)
     if (pendiente) {
@@ -143,6 +174,8 @@ export class OrquestarInteraccionIA {
   }
 
   private async ejecutarUnaVez(acceso: ContextoAccesoProyecto, pregunta: PreguntaAsistenteColaborativo): Promise<ResultadoOrquestacion> {
+    const flujo = this.flujos && await this.repositorioMensajes.obtenerFlujo(acceso.projectId, pregunta.requestId)
+    if (flujo && this.flujos) return this.flujos.ejecutar(acceso, pregunta, flujo.operacion)
     const humano = await this.gestionarMensajes.registrarMensajeHumanoIdempotente(acceso, pregunta.contenido, pregunta.requestId, pregunta.foco ? [pregunta.foco.elementoId] : [])
     if (humano.creado) this.publicador.publicar(humano.mensaje)
     const accionExistente = await this.repositorioMensajes.obtenerAccionIAPorMensaje(acceso.projectId, humano.mensaje.id)
@@ -153,6 +186,54 @@ export class OrquestarInteraccionIA {
       return { kind: "action_already_finished", mensajeHumano: humano.mensaje, actionId: accionExistente.actionId, mensajeIA: await this.gestionarMensajes.obtenerPorRequestId(acceso.projectId, pregunta.requestId, "ai") }
     }
     const intent = clasificarIntencionInteraccion(pregunta.contenido)
+    // Reutilizar primero el resultado durable: ni el planner ni Groq se repiten.
+    const respuestaPrevia = await this.gestionarMensajes.obtenerPorRequestId(acceso.projectId, pregunta.requestId, "ai")
+    if (this.planificadorLocal && respuestaPrevia) return { kind: "advisory", intent, mensajeHumano: humano.mensaje, mensajeIA: respuestaPrevia }
+    if (this.planificadorLocal) {
+      // Se valida incluso el proveedor inyectado. El LLM no otorga autorización.
+      const plan = validarPlanLocal(await this.planificadorLocal.planificar(await this.construirContexto.construir(acceso, pregunta)))
+      if ((plan.operacion === "exportar_xmi" || plan.operacion === "generar_spring") && this.flujos) {
+        if (detectarComandoFlujo(pregunta.contenido) !== plan.operacion) return this.aclarar(acceso, pregunta, humano.mensaje, "Confirma explícitamente exportar XMI o generar el backend Spring.")
+        return this.flujos.ejecutar(acceso, pregunta, plan.operacion)
+      }
+      if (plan.operacion === "modificar_uml") {
+        if (!["EXPLICIT_MODIFICATION", "CONTEXTUAL_MODIFICATION"].includes(intent)) return this.aclarar(acceso, pregunta, humano.mensaje, "Indica explícitamente el cambio UML que autorizas; la interpretación local no constituye autorización.")
+      } else if (plan.operacion === "conversar") {
+        if (["EXPLICIT_MODIFICATION", "CONTEXTUAL_MODIFICATION"].includes(intent)) return this.aclarar(acceso, pregunta, humano.mensaje, "No pude confirmar el servicio solicitado. Precisa qué cambio deseas realizar.")
+        return { kind: "advisory", intent, ...await this.asistente.ejecutar(acceso, pregunta, plan.respuesta) }
+      } else if (plan.operacion === "validar_uml" || plan.operacion === "exportar_xmi") {
+        const texto = normalizar(pregunta.contenido).replace(/^por favor[, ]+/, "")
+        const autorizado = plan.operacion === "validar_uml"
+          ? /^(valida|validar|validate|comprueba|verifica)\b/.test(texto)
+          : /^(exporta|exportar|export)\b/.test(texto) && /\bxmi\b/.test(texto)
+        if (!autorizado || /\b(no|not|si|if|pero|but)\b/.test(texto)) return this.aclarar(acceso, pregunta, humano.mensaje, "Confirma la operación con «valida el modelo» o «exporta XMI».")
+        if (!pregunta.modeloEjecucion || pregunta.revisionEditor === undefined) return this.aclarar(acceso, pregunta, humano.mensaje, "Necesito la vista actual del UML para ejecutar esta operación.")
+        const modelo = pregunta.modeloEjecucion
+        let artifact: { nombre: "modelo.xmi"; mime: "application/xml"; contenido: string } | undefined
+        let contenido: string
+        if (plan.operacion === "validar_uml") {
+          const validacion = validarModelo(modelo)
+          const spring = evaluarAptitudGeneracionSpring(modelo, validacion)
+          contenido = `Validación completada sobre la revisión local ${pregunta.revisionEditor}. UML ${validacion.valido ? "válido" : "inválido"}. Spring: ${spring.apto ? "apto" : "no apto"}.\n${validacion.diagnosticos.slice(0, 12).map((d) => d.mensaje).join("\n")}\n${spring.motivos.slice(0, 8).join("\n")}`
+        } else {
+          try { artifact = { nombre: "modelo.xmi", mime: "application/xml", contenido: (await exportarModeloXmi(modelo)).toString("utf8") } }
+          catch { throw new ErrorAsistenteContextual("no_disponible", "El servicio XMI no pudo producir el archivo; no se ha exportado.") }
+          contenido = `Archivo XMI generado sobre la revisión local ${pregunta.revisionEditor}. Disponible para descargar en esta respuesta; no se importó en Enterprise Architect.`
+        }
+        const ia = await this.gestionarMensajes.registrarMensajeIAIdempotente(acceso.projectId, contenido, pregunta.requestId, humano.mensaje.id, [])
+        if (ia.creado) this.publicador.publicar(ia.mensaje)
+        return { kind: "tool", mensajeHumano: humano.mensaje, mensajeIA: ia.mensaje, operacion: plan.operacion, baseEditorRevision: pregunta.revisionEditor, ...(artifact ? { artifact } : {}) }
+      } else {
+        const mensajes = {
+          analizar_imagen: "Adjunta la imagen en este mismo asistente. El análisis existente usa Groq y presenta un candidato; debes confirmar Agregar antes de modificar el UML.",
+          importar_xmi: "Adjunta el archivo .xmi o .xml en este mismo asistente. Se analizará con CU06 y verás una vista previa y advertencias antes de confirmar explícitamente el reemplazo del diagrama.",
+          generar_spring: "Solicita explícitamente generar el backend Spring Boot. CU08/CU09 comprobarán el perfil y CU10 entregará el ZIP en esta conversación. No se generó un backend en este turno.",
+          automatizar_ea: "Enterprise Architect no está disponible en este asistente: no hay un conector instalado y autorizado registrado en el backend. No se ejecutó automatización.",
+          aclarar: "Precisa una sola operación y su objetivo. Las solicitudes ambiguas no se ejecutan.",
+        }
+        return this.aclarar(acceso, pregunta, humano.mensaje, mensajes[plan.operacion])
+      }
+    }
     if (!["EXPLICIT_MODIFICATION", "CONTEXTUAL_MODIFICATION"].includes(intent)) {
       console.info("[CU12] request_lifecycle", { requestId: pregunta.requestId, phase: humano.creado ? "first_request" : "existing_request" })
       const resultado = await this.asistente.ejecutar(acceso, pregunta)

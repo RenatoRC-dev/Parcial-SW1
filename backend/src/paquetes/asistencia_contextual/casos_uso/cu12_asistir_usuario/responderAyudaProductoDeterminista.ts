@@ -45,21 +45,21 @@ export function responderAyudaProductoDeterminista(solicitud: SolicitudAsistente
 
   if (/(desde imagen|imagen|foto|image|photo)/.test(pregunta)) {
     return crearRespuesta(ingles
-      ? "How to use it:\n1. Open From image from the left rail.\n2. Select an image and run Analyze image.\n3. NexoCASE creates a UML candidate for review.\n4. Choose Add to diagram to apply it, or Cancel to leave the current model unchanged."
-      : `Cómo hacerlo:\n1. Abre ${CONTEXTO_PRODUCTO_SW1.capacidades.imagenUml.acceso}.\n2. Selecciona una imagen y pulsa Analizar imagen.\n3. NexoCASE crea un modelo UML candidato para revisión.\n4. Pulsa Agregar al diagrama para aplicarlo o Cancelar para conservar el modelo actual.`)
+      ? "Attach a PNG/JPEG image in this assistant, write your instruction and press Send. NexoCASE analyzes image and instruction together, and shows a candidate for review. Choose Add to diagram to add the validated elements, or Cancel to leave the current model unchanged. From image remains available as a manual alternative."
+      : "Adjunta una imagen PNG/JPEG en este asistente, escribe tu instrucción y pulsa Enviar. Se analizan imagen e instrucción juntas y se muestra un modelo UML candidato. Pulsa Agregar al diagrama para agregar los elementos validados o Cancelar para conservar el modelo actual. Desde imagen sigue disponible como alternativa manual.")
   }
 
   if (/(xmi|importar|exportar|import|export)/.test(pregunta)) {
     return crearRespuesta(ingles
-      ? "How it works:\nImport XMI: open XMI from the left rail, choose Import XMI and select a .xmi or .xml file. NexoCASE asks for confirmation because the import replaces the current diagram; after confirmation it imports the model and may show warnings.\nExport XMI: choose Export XMI to download the current model as modelo.xmi for interoperability. XMI is not required for Spring generation."
-      : `Cómo funciona:\nImportar XMI: abre ${CONTEXTO_PRODUCTO_SW1.capacidades.xmi.acceso}, pulsa Importar XMI y selecciona un archivo .xmi o .xml. NexoCASE pide confirmación porque reemplazará el diagrama actual; si confirmas, importa el modelo y puede mostrar advertencias.\nExportar XMI: pulsa Exportar XMI para descargar el modelo actual como ${CONTEXTO_PRODUCTO_SW1.capacidades.xmi.archivoExportado} para interoperabilidad. XMI no es necesario para generar Spring.`, "IR_A_XMI")
+      ? "Attach a .xmi or .xml file (up to 5 MB) and ask to import it in this chat. Review the summary and warnings, then explicitly confirm replacement of the current diagram. To export, request Export my model to XMI; the actual interoperability service must be available before the downloadable modelo.xmi is offered here. XMI is not required for Spring generation and exporting does not synchronize Enterprise Architect."
+      : "Importar XMI: adjunta un archivo .xmi o .xml (hasta 5 MB) y pide importarlo en este chat. Revisa la vista previa y las advertencias; NexoCASE pide confirmación porque reemplazará el diagrama actual. Exportar XMI: pide Exporta mi modelo a XMI; cuando el servicio real de interoperabilidad esté disponible se ofrecerá modelo.xmi en esta conversación. XMI no es necesario para generar Spring y exportar no sincroniza Enterprise Architect.", "IR_A_XMI")
   }
 
   if (/(spring|generar|generacion|backend|generate|generation)/.test(pregunta)) {
     const estado = resumenEstado(solicitud)
     return crearRespuesta(ingles
-      ? `Result:\n${estado}\n\nHow to do it:\nOpen Generate from the left rail. NexoCASE only enables Spring Boot generation when the current model satisfies its generation profile.`
-      : `Resultado:\n${estado}\n\nCómo hacerlo:\nAbre ${CONTEXTO_PRODUCTO_SW1.capacidades.generacionSpring.acceso}. NexoCASE habilita la generación Spring Boot únicamente cuando el modelo actual cumple su perfil de generación.`, "IR_A_GENERACION", solicitud.contexto.generacion.estado === "apto" ? "informacion" : "advertencia")
+      ? `Result:\n${estado}\n\nRequest Generate Spring Boot backend in this chat. NexoCASE checks the supported generation profile and offers a ZIP only after generation and packaging complete. Generate remains available as a manual alternative.`
+      : `Resultado:\n${estado}\n\nPide Genera el backend Spring Boot en este chat. Se comprueba el perfil soportado y se ofrece el ZIP solo después de generar y empaquetar. Generar permanece disponible como alternativa manual.`, "IR_A_GENERACION", solicitud.contexto.generacion.estado === "apto" ? "informacion" : "advertencia")
   }
 
   if (/(validar|validacion|errores del modelo|modelo valido|corregir.*error|(error|problema|riesgo).*modelo|modelo.*(error|problema|riesgo)|structurally valid|validation|validate|fix.*error)/.test(pregunta)) {
@@ -76,7 +76,7 @@ export function responderAyudaProductoDeterminista(solicitud: SolicitudAsistente
 
   if (/(asistente contextual|asistente colaborativo|contextual assistant|collaborative assistant|que puedes hacer|what can you do)/.test(pregunta)) {
     return crearRespuesta(ingles
-      ? "The Collaborative assistant teaches NexoCASE, reviews the current UML and shares the conversation. It does not execute changes by itself; a clear human request is routed to CU04, the only UML executor. It never saves, imports or exports XMI, or generates the backend by itself."
+      ? "The assistant explains and reviews the current UML. Clear text changes go through CU04. You can attach image plus instruction for a confirmed additive candidate, attach XMI for a confirmed replacement, request XMI export or generate a Spring ZIP in this same chat. Existing services validate and execute; Save remains explicit. This does not synchronize Enterprise Architect."
       : CONTEXTO_PRODUCTO_SW1.responsabilidadesIa.asistenteContextual)
   }
 

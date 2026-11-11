@@ -5,7 +5,7 @@ export interface ProveedorAsistenteContextual {
 }
 
 export class ErrorAsistenteContextual extends Error {
-  constructor(public readonly tipo: "limite" | "no_disponible" | "respuesta_invalida", mensaje: string, public readonly retryAfterSeconds?: number) {
+  constructor(public readonly tipo: "limite" | "no_disponible" | "respuesta_invalida" | "timeout", mensaje: string, public readonly retryAfterSeconds?: number) {
     super(mensaje)
   }
 }

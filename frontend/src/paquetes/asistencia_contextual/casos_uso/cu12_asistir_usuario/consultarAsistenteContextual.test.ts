@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import type { ContextoAsistente } from "./ContextoAsistente"
-import { cargarMensajesColaborativos, combinarMensajes, consultarAsistenteContextual, ErrorConsultaContextual } from "./consultarAsistenteContextual"
+import { cargarMensajesColaborativos, combinarMensajes, consultarAsistenteContextual, descargarArchivoFlujo, ErrorConsultaContextual } from "./consultarAsistenteContextual"
 
 const contexto: ContextoAsistente = {
   proyecto: { id: "p", nombre: "Ventas" }, area: "modelado_uml", idioma: "es", revisionModelo: 7,
@@ -16,6 +16,34 @@ const contexto: ContextoAsistente = {
 afterEach(() => vi.unstubAllGlobals())
 
 describe("cliente del asistente colaborativo", () => {
+  it("transporta texto, archivo, modelo y revisión en una única petición autenticada", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(new Response(JSON.stringify({ kind: "workflow" })))
+    vi.stubGlobal("fetch", fetch)
+    const archivo = new File(["<XMI/>"], "modelo.xmi", { type: "application/xml" })
+    const modelo = { id: "m", nombre: "M", version: "1", clases: [], relaciones: [] }
+    await consultarAsistenteContextual("p", "cred", "id", "Importa este XMI", contexto, modelo, 9, archivo)
+    const opciones = fetch.mock.calls[0][1]!
+    expect(opciones.headers).toEqual({ Authorization: "Bearer cred" })
+    expect(opciones.body).toBeInstanceOf(FormData)
+    const datos = opciones.body as FormData
+    expect(JSON.parse(String(datos.get("turno")))).toMatchObject({ requestId: "id", contenido: "Importa este XMI", modeloEjecucion: modelo, revisionEditor: 9 })
+    expect((datos.get("archivo") as File).name).toBe("modelo.xmi")
+    expect(fetch).toHaveBeenCalledOnce()
+  })
+
+  it("descarga el binario autorizado mediante Blob sin interpretar URLs del modelo", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(new Response("ZIP bytes", { headers: { "Content-Type": "application/zip" } }))
+    vi.stubGlobal("fetch", fetch)
+    const crear = vi.fn((_blob: Blob) => "blob:zip")
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: crear })
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
+    await descargarArchivoFlujo("p", "cred", { requestId: "id", sourceMessageId: "h", participantId: "u", revision: 0, estado: "ready", operacion: "generar_spring", resumen: "Listo", advertencias: [], archivo: { nombre: "backend-generado.zip", mime: "application/zip" } })
+    expect(String(fetch.mock.calls[0][0])).toContain("/turnos/id/archivo")
+    expect(fetch.mock.calls[0][1]?.headers).toEqual({ Authorization: "Bearer cred" })
+    expect(crear).toHaveBeenCalledOnce(); expect(click).toHaveBeenCalledOnce()
+    click.mockRestore()
+  })
   it("envía Bearer, requestId, foco y solo la vista actual acotada", async () => {
     const fetch = vi.fn(async (_entrada: RequestInfo | URL, _opciones?: RequestInit) => new Response(JSON.stringify({ mensajeHumano: {}, mensajeIA: {} }), { status: 200, headers: { "Content-Type": "application/json" } }))
     vi.stubGlobal("fetch", fetch)

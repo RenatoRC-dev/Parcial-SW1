@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process"
 import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { dirname, join, resolve } from "node:path"
+import { dirname, isAbsolute, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
 import type {
@@ -31,24 +31,46 @@ async function existe(ruta: string): Promise<boolean> {
   }
 }
 
-async function resolverCrunchUml(): Promise<string> {
+async function resolverCrunchUml(python: string): Promise<string> {
   const configurado = process.env.SW1_CRUNCH_UML_PATH
   const candidato = configurado
     ? resolve(configurado)
     : resolve(DIRECTORIO_ACTUAL, "../../../../../../../crunch_uml")
-  if (!(await existe(join(candidato, "crunch_uml", "__init__.py")))) {
-    throw new ErrorInteroperabilidadXmi(
+  if (await existe(join(candidato, "crunch_uml", "__init__.py"))) return candidato
+  // La ruta explícita sigue siendo autoritativa: nunca ocultar una mala configuración.
+  if (!configurado) {
+    try {
+      const { stdout } = await ejecutarArchivo(python, ["-c", "import importlib.util,pathlib; s=importlib.util.find_spec('crunch_uml'); print(pathlib.Path(s.origin).parent.parent if s and s.origin else '')"], { timeout: 10_000, windowsHide: true, maxBuffer: 16_384 })
+      const instalado = stdout.trim()
+      if (instalado && await existe(join(instalado, "crunch_uml", "__init__.py"))) return instalado
+    } catch {
+      throw new ErrorInteroperabilidadXmi("No se pudo ejecutar el intérprete XMI. Configure SW1_PYTHON_PATH o prepare backend/.venv-crunch.", "configuracion")
+    }
+  }
+  throw new ErrorInteroperabilidadXmi(
       "No se encontró crunch_uml. Configure SW1_CRUNCH_UML_PATH.",
       "configuracion",
     )
-  }
-  return candidato
 }
 
 async function resolverPython(): Promise<string> {
   if (process.env.SW1_PYTHON_PATH) return process.env.SW1_PYTHON_PATH
-  const local = resolve(DIRECTORIO_ACTUAL, "../../../../../.venv-crunch/Scripts/python.exe")
-  return (await existe(local)) ? local : "python"
+  const configuracionLocal = resolve(DIRECTORIO_ACTUAL, "../../../../../.python-xmi/runtime.json")
+  if (await existe(configuracionLocal)) {
+    try {
+      const configuracion = JSON.parse(await readFile(configuracionLocal, "utf8")) as { python?: unknown }
+      if (typeof configuracion.python !== "string" || !isAbsolute(configuracion.python) || !await existe(configuracion.python)) throw new Error("Ruta Python inválida")
+      return configuracion.python
+    } catch { throw new ErrorInteroperabilidadXmi("La configuración local .python-xmi/runtime.json no contiene un intérprete accesible en este entorno.", "configuracion") }
+  }
+  const local = resolve(DIRECTORIO_ACTUAL, process.platform === "win32" ? "../../../../../.venv-crunch/Scripts/python.exe" : "../../../../../.venv-crunch/bin/python")
+  return (await existe(local)) ? local : process.platform === "win32" ? "python" : "python3"
+}
+
+/** Diagnóstico sin exponer variables ajenas, credenciales ni contenido UML. */
+export async function obtenerRuntimeXmi(): Promise<{ python: string; crunch: string; puente: string }> {
+  const python = await resolverPython()
+  return { python, crunch: await resolverCrunchUml(python), puente: PUENTE }
 }
 
 async function ejecutarPuente(
@@ -56,8 +78,7 @@ async function ejecutarPuente(
   entrada: string,
   salida: string,
 ): Promise<void> {
-  const crunch = await resolverCrunchUml()
-  const python = await resolverPython()
+  const { crunch, python } = await obtenerRuntimeXmi()
   try {
     await ejecutarArchivo(python, [PUENTE, operacion, crunch, entrada, salida], {
       env: {

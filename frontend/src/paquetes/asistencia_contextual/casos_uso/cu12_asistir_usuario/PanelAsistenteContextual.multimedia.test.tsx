@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { PanelAsistenteContextual } from "./PanelAsistenteContextual"
 import type { ContextoAsistente } from "./ContextoAsistente"
-import type { MensajeColaborativo } from "./consultarAsistenteContextual"
+import type { MensajeColaborativo, RespuestaInteraccionColaborativa, VistaFlujoAsistente } from "./consultarAsistenteContextual"
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
 
 class GrabadorFalso extends EventTarget {
@@ -33,12 +33,16 @@ const microfono = vi.fn()
 const respuesta = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
 const archivo = new File(["png"], "modelo.png", { type: "image/png" })
 function mostrar() {
-  const consultar = vi.fn(async () => ({ kind: "advisory" as const, mensajeHumano: mensaje("3", "human", "Pregunta"), mensajeIA: mensaje("4", "ai", "Respuesta") }))
+  const consultar = vi.fn(async (..._args: Parameters<NonNullable<Parameters<typeof PanelAsistenteContextual>[0]["consultar"]>>): Promise<RespuestaInteraccionColaborativa> => ({ kind: "advisory" as const, mensajeHumano: mensaje("3", "human", "Pregunta"), mensajeIA: mensaje("4", "ai", "Respuesta") }))
   const aplicar = vi.fn(); const candidatoPendiente = vi.fn()
   const cargar = vi.fn(async () => ({ items: [mensaje("2", "ai", "Recomendación anterior"), mensaje("1", "human", "Hola")], siguienteCursor: null }))
   const conectar = ({ alAutenticar }: { alAutenticar: () => void }) => { alAutenticar(); return { desconectar: vi.fn() } }
-  const vista = render(<PanelAsistenteContextual projectId="p" credential="cred" participantId="u" contexto={contexto} modelo={modelo} revisionEditor={0} alAplicarModelo={aplicar} alCambiarEstadoCandidato={candidatoPendiente} consultar={consultar} cargar={cargar} conectar={conectar} />)
-  return { ...vista, consultar, aplicar, candidatoPendiente }
+  const flujo: VistaFlujoAsistente = { requestId: "request", sourceMessageId: "3", participantId: "u", operacion: "analizar_imagen", estado: "review", revision: 0, resumen: "Candidato local", advertencias: [], candidato: { clases: [{ refTemporal: "tmp_prestamo", nombre: "Prestamo", atributos: [] }], relaciones: [], advertencias: [] } }
+  const modeloResultado = { ...modelo, clases: [{ id: "prestamo", nombre: "Prestamo", abstracta: false, atributos: [], posicion: { x: 0, y: 0 } }] }
+  const confirmar = vi.fn(async () => ({ flujo: { ...flujo, estado: "issued" as const }, modeloResultado }))
+  const completar = vi.fn(async () => ({ kind: "workflow" as const, mensajeHumano: mensaje("3", "human", "Pregunta"), mensajeIA: mensaje("5", "ai", "Aplicado tras confirmar"), flujo: { ...flujo, estado: "applied" as const } }))
+  const vista = render(<PanelAsistenteContextual projectId="p" credential="cred" participantId="u" contexto={contexto} modelo={modelo} revisionEditor={0} alAplicarModelo={aplicar} alCambiarEstadoCandidato={candidatoPendiente} consultar={consultar} cargar={cargar} conectar={conectar} recuperar={async () => []} confirmar={confirmar} completar={completar} />)
+  return { ...vista, consultar, aplicar, candidatoPendiente, flujo, confirmar, completar }
 }
 beforeEach(() => {
   localStorage.clear(); detenerPista.mockClear()
@@ -133,34 +137,34 @@ describe("F8-UX03 compositor multimedia", () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it("envía solo imagen a CU05, conserva texto/historial y exige confirmar el candidato", async () => {
-    vi.mocked(fetch).mockResolvedValue(respuesta({ resultado: "candidato", modelo: "fake", mensaje: "Candidato local", candidato: { clases: [{ refTemporal: "tmp_prestamo", nombre: "Prestamo", atributos: [] }], relaciones: [], advertencias: [] } }))
-    const { consultar, aplicar, candidatoPendiente } = mostrar()
+  it("envía imagen y texto atómicamente, conserva historial y exige confirmar el candidato", async () => {
+    const { consultar, aplicar, candidatoPendiente, flujo, confirmar } = mostrar()
+    consultar.mockImplementationOnce(async (...args) => ({ kind: "workflow", mensajeHumano: { ...mensaje("3", "human", "Agrega esta imagen"), requestId: args[2] }, mensajeIA: mensaje("4", "ai", "Pendiente de revisión"), flujo: { ...flujo, requestId: args[2] } }))
     await screen.findByText("Recomendación anterior")
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Borrador conservado" } })
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Agrega esta imagen" } })
     fireEvent.change(screen.getByLabelText("Adjuntar imagen"), { target: { files: [archivo] } })
-    expect(screen.getByText(/la imagen no se adjunta como contexto de CU12/)).toBeVisible()
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
-    expect(await screen.findByRole("region", { name: "Modelo UML candidato" })).toBeVisible()
-    expect(String(vi.mocked(fetch).mock.calls[0][0])).toContain("/api/ia/imagen/analizar")
-    expect(vi.mocked(fetch).mock.calls[0][1]?.body).toBeInstanceOf(FormData)
-    expect(consultar).not.toHaveBeenCalled(); expect(aplicar).not.toHaveBeenCalled()
-    expect(screen.getByRole("textbox")).toHaveValue("Borrador conservado")
+    expect(await screen.findByText("Candidato local")).toBeVisible()
+    expect(consultar.mock.calls[0][3]).toBe("Agrega esta imagen")
+    expect(consultar.mock.calls[0][7]).toBe(archivo)
+    expect(aplicar).not.toHaveBeenCalled()
+    expect(screen.getByRole("textbox")).toHaveValue("")
     expect(screen.getByText("Recomendación anterior")).toBeVisible()
     expect(candidatoPendiente).toHaveBeenCalledWith(true)
+    confirmar.mockImplementationOnce(async (...args: unknown[]) => ({ flujo: { ...flujo, requestId: args[2] as string, estado: "issued" }, modeloResultado: { ...modelo, clases: [{ id: "prestamo", nombre: "Prestamo", abstracta: false, atributos: [], posicion: { x: 0, y: 0 } }] } }))
     fireEvent.click(screen.getByRole("button", { name: "Agregar al diagrama" }))
-    expect(aplicar).toHaveBeenCalledOnce()
+    await waitFor(() => expect(aplicar).toHaveBeenCalledOnce())
     expect(aplicar.mock.calls[0][0].clases[0].nombre).toBe("Prestamo")
   })
 
   it("fallo de imagen mantiene adjunto y permite reintento explícito sin CU12", async () => {
-    vi.mocked(fetch).mockResolvedValue(respuesta({ error: "Imagen no disponible" }, 503))
     const { aplicar, consultar } = mostrar()
+    consultar.mockRejectedValueOnce(new Error("Imagen no disponible"))
     fireEvent.change(screen.getByLabelText("Adjuntar imagen"), { target: { files: [archivo] } })
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }))
     expect(await screen.findByText("Imagen no disponible")).toBeVisible()
-    expect(screen.getByText("modelo.png")).toBeVisible()
+    expect(screen.getAllByText("modelo.png").length).toBeGreaterThan(0)
     expect(screen.getByRole("button", { name: "Enviar" })).toBeEnabled()
-    expect(fetch).toHaveBeenCalledOnce(); expect(aplicar).not.toHaveBeenCalled(); expect(consultar).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled(); expect(aplicar).not.toHaveBeenCalled(); expect(consultar).toHaveBeenCalledOnce()
   })
 })

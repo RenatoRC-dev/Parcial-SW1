@@ -1451,6 +1451,9 @@ button:disabled {
 .chat-attach-control input { padding: 4px 0; border: 0; font-size: 0.72rem; }
 .chat-attachment { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; overflow-wrap: anywhere; font-size: 0.78rem; }
 .chat-attachment img { width: 64px; height: 64px; object-fit: contain; }
+.assistant-workflow-card { min-width: 0; max-width: 100%; padding: 0.65rem; margin-top: 0.5rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-surface); overflow-wrap: anywhere; }
+.assistant-workflow-card .candidate-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.assistant-workflow-card button { max-width: 100%; white-space: normal; }
 .chat-attachment p { margin: 0; line-height: 1.4; color: var(--text-secondary); }
 .contextual-suggestions { margin-top: 8px; font-size: 0.8rem; }
 .contextual-suggestions summary { cursor: pointer; }

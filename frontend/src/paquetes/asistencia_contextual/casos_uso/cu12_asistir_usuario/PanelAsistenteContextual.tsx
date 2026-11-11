@@ -7,6 +7,8 @@ import {
   consultarAsistenteContextual,
   ErrorConsultaContextual,
   type MensajeColaborativo,
+  type VistaFlujoAsistente,
+  recuperarFlujosAsistente, confirmarFlujoAsistente, completarFlujoAsistente, descargarArchivoFlujo,
 } from "./consultarAsistenteContextual"
 import { obtenerGrupoPreguntasRapidas, obtenerOrientacionDeterminista, type ContextoAsistente } from "./ContextoAsistente"
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
@@ -14,7 +16,7 @@ import { aplicarPlanIA } from "../../../asistencia_ia/casos_uso/cu04_modelar_con
 import { completarCambioIA } from "../../../asistencia_ia/casos_uso/cu04_modelar_con_ia/solicitarCambioIA"
 import type { CambioAplicadoIA } from "../../../asistencia_ia/casos_uso/cu04_modelar_con_ia/ComandoModeloUML"
 import { GrabadorInstruccionVoz } from "../../../asistencia_ia/casos_uso/cu04_modelar_con_ia/voz/GrabadorInstruccionVoz"
-import { PanelModeladoDesdeImagen } from "../../../asistencia_ia/casos_uso/cu05_modelar_desde_imagen/PanelModeladoDesdeImagen"
+import { TarjetaFlujoAsistente } from "./TarjetaFlujoAsistente"
 
 interface PropiedadesPanelAsistenteContextual {
   projectId: string
@@ -25,16 +27,24 @@ interface PropiedadesPanelAsistenteContextual {
   revisionEditor: number
   alAplicarModelo: (modelo: ModeloUMLCanonico) => void
   alAplicarImagen?: (modelo: ModeloUMLCanonico) => void
+  alAplicarXmi?: (modelo: ModeloUMLCanonico) => void
   alCambiarEstadoCandidato?: (pendiente: boolean) => void
   consultar?: typeof consultarAsistenteContextual
   cargar?: typeof cargarMensajesColaborativos
   conectar?: typeof conectarConversacionColaborativa
+  recuperar?: typeof recuperarFlujosAsistente
+  confirmar?: typeof confirmarFlujoAsistente
+  completar?: typeof completarFlujoAsistente
+  descargar?: typeof descargarArchivoFlujo
 }
 
-export function PanelAsistenteContextual({ projectId, credential, participantId, contexto, modelo, revisionEditor, alAplicarModelo, alAplicarImagen = alAplicarModelo, alCambiarEstadoCandidato, consultar = consultarAsistenteContextual, cargar = cargarMensajesColaborativos, conectar = conectarConversacionColaborativa }: PropiedadesPanelAsistenteContextual) {
+export function PanelAsistenteContextual({ projectId, credential, participantId, contexto, modelo, revisionEditor, alAplicarModelo, alAplicarImagen = alAplicarModelo, alAplicarXmi = alAplicarModelo, alCambiarEstadoCandidato, consultar = consultarAsistenteContextual, cargar = cargarMensajesColaborativos, conectar = conectarConversacionColaborativa, recuperar = recuperarFlujosAsistente, confirmar = confirmarFlujoAsistente, completar = completarFlujoAsistente, descargar = descargarArchivoFlujo }: PropiedadesPanelAsistenteContextual) {
   const { t } = usarPreferenciasUI()
   const [pregunta, establecerPregunta] = useState("")
   const [mensajes, establecerMensajes] = useState<MensajeColaborativo[]>([])
+  const [archivos, establecerArchivos] = useState<Record<string, string>>({})
+  const [flujos, establecerFlujos] = useState<Record<string, VistaFlujoAsistente>>({})
+  const [adjuntosEnviados, establecerAdjuntosEnviados] = useState<Record<string, File>>({})
   const [cursorAnterior, establecerCursorAnterior] = useState<string | null>(null)
   const [error, establecerError] = useState<string | null>(null)
   const [consultando, establecerConsultando] = useState(false)
@@ -42,16 +52,15 @@ export function PanelAsistenteContextual({ projectId, credential, participantId,
   const [estadoAccion, establecerEstadoAccion] = useState<"interpretando" | "aplicando" | "listo" | "aclaracion" | null>(null)
   const [cargando, establecerCargando] = useState(true)
   const [vozOcupada, establecerVozOcupada] = useState(false)
-  const [imagenOcupada, establecerImagenOcupada] = useState(false)
   const [imagen, establecerImagen] = useState<File | null>(null)
+  const imagenOcupada = consultando && imagen?.type.startsWith("image/") === true
   const [vistaPrevia, establecerVistaPrevia] = useState<string | null>(null)
   const [estadoVoz, establecerEstadoVoz] = useState(false)
-  const panelImagen = useRef<{ analizar: () => Promise<void> }>(null)
   const historial = useRef<HTMLDivElement>(null)
   const seguirFinal = useRef(true)
   const entrada = useRef<HTMLTextAreaElement>(null)
   useEffect(() => {
-    if (!imagen || typeof URL.createObjectURL !== "function") { establecerVistaPrevia(null); return }
+    if (!imagen?.type.startsWith("image/") || typeof URL.createObjectURL !== "function") { establecerVistaPrevia(null); return }
     const url = URL.createObjectURL(imagen)
     establecerVistaPrevia(url)
     return () => URL.revokeObjectURL(url)
@@ -60,11 +69,30 @@ export function PanelAsistenteContextual({ projectId, credential, participantId,
     const contenedor = historial.current
     if (contenedor && seguirFinal.current) contenedor.scrollTop = contenedor.scrollHeight
   }, [mensajes, imagenOcupada])
-  const solicitudPendiente = useRef<{ contenido: string; requestId: string } | null>(null)
+  const solicitudPendiente = useRef<{ contenido: string; requestId: string; archivo?: File; base: { modelo: ModeloUMLCanonico; revision: number } } | null>(null)
   const enviando = useRef(false)
   const estadoModelo = useRef({ modelo, revision: revisionEditor })
+  const identidadActual = useRef({ projectId, participantId })
+  identidadActual.current = { projectId, participantId }
   const accionesAplicadas = useRef(new Map<string, CambioAplicadoIA[]>())
+  const flujosAplicados = useRef(new Map<string, ModeloUMLCanonico>())
   estadoModelo.current = { modelo, revision: revisionEditor }
+  useEffect(() => { alCambiarEstadoCandidato?.(Object.values(flujos).some((f) => f.estado === "review" || f.estado === "issued")) }, [flujos, alCambiarEstadoCandidato])
+  useEffect(() => {
+    const pendientes = Object.values(flujos).filter((f) => f.operacion === "automatizar_ea" && ["queued", "importing"].includes(f.estado)).map((f) => f.requestId)
+    if (!pendientes.length) return
+    let cancelado = false, enVuelo = false
+    const timer = setInterval(async () => {
+      if (enVuelo) return
+      enVuelo = true
+      try {
+        const resultados = await recuperar(projectId, credential, pendientes)
+        if (!cancelado && identidadActual.current.projectId === projectId && identidadActual.current.participantId === participantId) establecerFlujos((actuales) => ({ ...actuales, ...Object.fromEntries(resultados.map((f) => [f.requestId, f])) }))
+      } catch (fallo) { if (!cancelado) establecerError(fallo instanceof Error ? fallo.message : "No se pudo consultar el conector EA.") }
+      finally { enVuelo = false }
+    }, 2000)
+    return () => { cancelado = true; clearInterval(timer) }
+  }, [flujos, recuperar, projectId, credential, participantId])
   useEffect(() => {
     if (!espera) return
     const temporizador = setTimeout(() => establecerEspera((actual) => Math.max(0, actual - 1)), 1000)
@@ -85,16 +113,19 @@ export function PanelAsistenteContextual({ projectId, credential, participantId,
   const cargarHistoria = useCallback(async (cursor?: string) => {
     try {
       const pagina = await cargar(projectId, credential, cursor)
+      if (identidadActual.current.projectId !== projectId || identidadActual.current.participantId !== participantId) return
       establecerMensajes((actuales) => combinarMensajes(actuales, pagina.items))
       establecerCursorAnterior(pagina.siguienteCursor)
-      establecerError(null)
+      const recuperados = await recuperar(projectId, credential, pagina.items.filter((m) => m.tipoRemitente === "human" && m.participantId === participantId && m.requestId).map((m) => m.requestId!))
+      if (identidadActual.current.projectId !== projectId || identidadActual.current.participantId !== participantId) return
+      establecerFlujos((actuales) => ({ ...actuales, ...Object.fromEntries(recuperados.map((f) => [f.requestId, f])) }))
     } catch (fallo) {
       establecerError(fallo instanceof Error ? fallo.message : t("contextual.errorInterno"))
     } finally { establecerCargando(false) }
-  }, [cargar, credential, projectId, t])
+  }, [cargar, recuperar, credential, projectId, participantId, t])
 
   useEffect(() => {
-    establecerMensajes([]); establecerCargando(true)
+    establecerMensajes([]); establecerArchivos({}); establecerFlujos({}); establecerAdjuntosEnviados({}); establecerError(null); solicitudPendiente.current = null; flujosAplicados.current.clear(); establecerCargando(true)
     const conexion = conectar({
       projectId, credential,
       alAutenticar: () => { void cargarHistoria() },
@@ -104,17 +135,31 @@ export function PanelAsistenteContextual({ projectId, credential, participantId,
     return () => conexion.desconectar()
   }, [cargarHistoria, conectar, credential, projectId])
 
-  const preguntar = async (texto = pregunta) => {
-    const limpia = texto.trim()
+  const preguntar = async (texto = pregunta, archivo: File | undefined = imagen ?? undefined) => {
+    const limpia = texto.trim() || (archivo ? /\.(xmi|xml)$/i.test(archivo.name) ? "Importa este archivo XMI" : "Analiza esta imagen" : "")
     if (!limpia || enviando.current || espera || vozOcupada || imagenOcupada) return
     enviando.current = true
     const pendiente = solicitudPendiente.current
-    const requestId = pendiente?.contenido === limpia ? pendiente.requestId : crypto.randomUUID()
-    solicitudPendiente.current = { contenido: limpia, requestId }
+    const repetido = pendiente?.contenido === limpia && pendiente.archivo === archivo
+    const requestId = repetido ? pendiente.requestId : crypto.randomUUID()
+    const base = repetido ? pendiente.base : structuredClone(estadoModelo.current)
+    solicitudPendiente.current = { contenido: limpia, requestId, archivo, base }
+    if (archivo) establecerAdjuntosEnviados((actuales) => ({ ...actuales, [requestId]: archivo }))
     establecerConsultando(true); establecerError(null); establecerEstadoAccion("interpretando")
     try {
-      const resultado = await consultar(projectId, credential, requestId, limpia, contexto, estadoModelo.current.modelo, estadoModelo.current.revision)
+      const resultado = await consultar(projectId, credential, requestId, limpia, contexto, base.modelo, base.revision, archivo)
+      if (identidadActual.current.projectId !== projectId || identidadActual.current.participantId !== participantId) return
       establecerMensajes((actuales) => combinarMensajes(actuales, [resultado.mensajeHumano, ...resultadoMensajes(resultado)]))
+      if (resultado.kind === "workflow") {
+        if (resultado.flujo.participantId !== participantId || resultado.mensajeHumano.projectId !== projectId || resultado.flujo.sourceMessageId !== resultado.mensajeHumano.id) throw new Error(t("contextual.accionAjena"))
+        establecerFlujos((actuales) => ({ ...actuales, [resultado.flujo.requestId]: resultado.flujo }))
+      }
+      if (resultado.kind === "tool" && resultado.artifact) {
+        if (resultado.mensajeHumano.projectId !== projectId || resultado.mensajeHumano.participantId !== participantId
+          || resultado.artifact.nombre !== "modelo.xmi" || resultado.artifact.mime !== "application/xml" || typeof resultado.artifact.contenido !== "string") throw new Error(t("contextual.accionAjena"))
+        const contenido = resultado.artifact.contenido
+        establecerArchivos((actuales) => ({ ...actuales, [resultado.mensajeIA.id]: contenido }))
+      }
       if (resultado.kind === "action") {
         if (resultado.mensajeHumano.projectId !== projectId || resultado.mensajeHumano.participantId !== participantId || resultado.sourceMessageId !== resultado.mensajeHumano.id) throw new Error(t("contextual.accionAjena"))
         establecerEstadoAccion("aplicando")
@@ -130,6 +175,7 @@ export function PanelAsistenteContextual({ projectId, credential, participantId,
       } else establecerEstadoAccion(resultado.kind === "clarification" ? "aclaracion" : resultado.kind === "action_already_applied" ? "listo" : null)
       solicitudPendiente.current = null
       establecerPregunta("")
+      establecerImagen(null)
       establecerEstadoVoz(false)
     } catch (fallo) {
       establecerEstadoAccion(null)
@@ -138,12 +184,42 @@ export function PanelAsistenteContextual({ projectId, credential, participantId,
     } finally { enviando.current = false; establecerConsultando(false) }
   }
 
-  const enviar = async () => {
-    if (!imagen) { await preguntar(); return }
-    if (enviando.current || vozOcupada || imagenOcupada || espera) return
-    enviando.current = true
-    try { await panelImagen.current?.analizar() }
-    finally { enviando.current = false }
+  const enviar = async () => { await preguntar() }
+
+  const decidir = async (flujo: VistaFlujoAsistente, decision: "confirmar" | "rechazar") => {
+    if (enviando.current || flujo.participantId !== participantId) return
+    enviando.current = true; establecerConsultando(true); establecerError(null)
+    try {
+      const yaAplicado = flujosAplicados.current.get(flujo.requestId)
+      if (yaAplicado) {
+        const cierre = await completar(projectId, credential, flujo.requestId, "applied", yaAplicado)
+        establecerFlujos((actuales) => ({ ...actuales, [flujo.requestId]: cierre.flujo }))
+        establecerMensajes((actuales) => combinarMensajes(actuales, resultadoMensajes(cierre)))
+        return
+      }
+      const base = structuredClone(estadoModelo.current)
+      const salida = await confirmar(projectId, credential, flujo.requestId, decision, base.modelo, base.revision)
+      if (identidadActual.current.projectId !== projectId || identidadActual.current.participantId !== participantId || salida.flujo.participantId !== participantId || salida.flujo.requestId !== flujo.requestId) throw new Error(t("contextual.accionAjena"))
+      establecerFlujos((actuales) => ({ ...actuales, [flujo.requestId]: salida.flujo }))
+      if (!salida.modeloResultado) return
+      // Última barrera contra cambios de Yjs ocurridos mientras responde HTTP.
+      if (salida.flujo.revision !== estadoModelo.current.revision || base.revision !== estadoModelo.current.revision || JSON.stringify(base.modelo) !== JSON.stringify(estadoModelo.current.modelo)) {
+        const fallida = await completar(projectId, credential, flujo.requestId, "failed")
+        establecerFlujos((actuales) => ({ ...actuales, [flujo.requestId]: fallida.flujo }))
+        throw new Error("El UML cambió antes de aplicar la propuesta. Vuelve a analizar sobre la revisión actual.")
+      }
+      try { (flujo.operacion === "analizar_imagen" ? alAplicarImagen : alAplicarXmi)(salida.modeloResultado) }
+      catch (fallo) {
+        const fallida = await completar(projectId, credential, flujo.requestId, "failed")
+        establecerFlujos((actuales) => ({ ...actuales, [flujo.requestId]: fallida.flujo }))
+        throw fallo
+      }
+      flujosAplicados.current.set(flujo.requestId, salida.modeloResultado)
+      const cierre = await completar(projectId, credential, flujo.requestId, "applied", salida.modeloResultado)
+      establecerFlujos((actuales) => ({ ...actuales, [flujo.requestId]: cierre.flujo }))
+      establecerMensajes((actuales) => combinarMensajes(actuales, resultadoMensajes(cierre)))
+    } catch (fallo) { establecerError(fallo instanceof Error ? fallo.message : t("contextual.errorInterno")) }
+    finally { enviando.current = false; establecerConsultando(false) }
   }
 
   // Solo metadatos durables correlacionados al último turno propio; el backend
@@ -168,6 +244,17 @@ export function PanelAsistenteContextual({ projectId, credential, participantId,
       {mensajes.map((mensaje) => <article className={mensaje.tipoRemitente === "ai" ? "contextual-answer" : "contextual-message"} key={mensaje.id} data-message-id={mensaje.id}>
         <strong>{mensaje.tipoRemitente === "ai" ? t("contextual.ia") : mensaje.nombreVisibleSnapshot ?? t("contextual.sistema")}:</strong>
         <div className="contextual-message-body">{mensaje.tipoRemitente === "ai" ? formatearMensaje(mensaje.contenido) : mensaje.contenido}</div>
+        {mensaje.tipoRemitente === "human" && mensaje.requestId && adjuntosEnviados[mensaje.requestId] ? <VistaAdjunto archivo={adjuntosEnviados[mensaje.requestId]} /> : null}
+        {mensaje.tipoRemitente === "human" && mensaje.requestId && flujos[mensaje.requestId]?.sourceMessageId === mensaje.id && flujos[mensaje.requestId]?.participantId === participantId ? <TarjetaFlujoAsistente flujo={flujos[mensaje.requestId]} ocupado={consultando} alDecidir={(d) => void decidir(flujos[mensaje.requestId!], d)} alDescargar={() => {
+          establecerConsultando(true); establecerError(null)
+          void descargar(projectId, credential, flujos[mensaje.requestId!]).catch((e: unknown) => establecerError(e instanceof Error ? e.message : t("contextual.errorInterno"))).finally(() => establecerConsultando(false))
+        }} /> : null}
+        {archivos[mensaje.id] !== undefined ? <button type="button" onClick={() => {
+          const url = URL.createObjectURL(new Blob([archivos[mensaje.id]], { type: "application/xml" }))
+          const enlace = document.createElement("a")
+          enlace.href = url; enlace.download = "modelo.xmi"; enlace.click()
+          setTimeout(() => URL.revokeObjectURL(url), 1000)
+        }}>↓ modelo.xmi</button> : null}
         {mensaje.id === propuestaPendiente ? <button type="button" disabled={consultando || vozOcupada || imagenOcupada || espera > 0} title={t("contextual.validarPropuesta")} onClick={() => {
           // Instrucción explícita para el clasificador existente; nunca ejecutar
           // directamente ni reinterpretar una propuesta desde su texto visible.
@@ -175,21 +262,21 @@ export function PanelAsistenteContextual({ projectId, credential, participantId,
         }}>{t("contextual.aplicarCambio")}</button> : null}
       </article>)}
       {!cargando && mensajes.length === 0 ? <p>{t("contextual.sinMensajes")}</p> : null}
-      <PanelModeladoDesdeImagen ref={panelImagen} integrado imagenAdjunta={imagen} modelo={modelo} alAplicarModelo={alAplicarImagen} alConsumirImagen={() => establecerImagen(null)} alCambiarOcupado={establecerImagenOcupada} alCambiarEstadoCandidato={alCambiarEstadoCandidato} />
     </div>
     <div className="contextual-composer">
     {error ? <p role="alert">{error}</p> : null}
     {estadoAccion ? <p className="assistant-action-status" role="status">{t(estadoAccion === "aclaracion" ? "contextual.aclaracion" : `ia.${estadoAccion}`)}</p> : null}
     {espera ? <p role="status">{espera}s</p> : null}
-    {error && solicitudPendiente.current ? <button type="button" disabled={consultando || espera > 0} onClick={() => void preguntar(solicitudPendiente.current?.contenido)}>↻ {t("contextual.preguntar")}</button> : null}
+    {error && solicitudPendiente.current ? <button type="button" disabled={consultando || espera > 0} onClick={() => void preguntar(solicitudPendiente.current?.contenido, solicitudPendiente.current?.archivo)}>↻ {t("contextual.preguntar")}</button> : null}
     <label htmlFor="pregunta-contextual">{t("contextual.pregunta")}</label>
     <textarea ref={entrada} rows={3} id="pregunta-contextual" value={pregunta} placeholder={t("contextual.placeholder")} onChange={(evento) => establecerPregunta(evento.target.value)} onKeyDown={(evento) => { if (evento.key === "Enter" && !evento.shiftKey && !evento.nativeEvent.isComposing) { evento.preventDefault(); void enviar() } }} />
-    {imagen ? <div className="chat-attachment">{vistaPrevia ? <img src={vistaPrevia} alt={t("imagen.vistaPrevia")} /> : null}<span>{imagen.name}</span><button type="button" disabled={imagenOcupada} onClick={() => establecerImagen(null)}>{t("chat.quitarImagen")}</button><p>{t("chat.limiteContextoImagen")}</p></div> : null}
+    {imagen ? <div className="chat-attachment">{vistaPrevia ? <img src={vistaPrevia} alt={t("imagen.vistaPrevia")} /> : null}<span>{imagen.name}</span><button type="button" disabled={consultando} onClick={() => establecerImagen(null)}>{t("chat.quitarImagen")}</button><p>PNG/JPEG ≤10 MB · XMI/XML ≤5 MB. La instrucción se envía junto al archivo; aplicar requiere confirmación.</p></div> : null}
     <div className="contextual-composer-controls">
-    <label className="chat-attach-control">{t("chat.adjuntarImagen")}<input type="file" accept="image/png,image/jpeg" aria-label={t("chat.adjuntarImagen")} disabled={consultando || imagenOcupada || vozOcupada} onChange={(evento) => {
+    <label className="chat-attach-control">{t("chat.adjuntarImagen")} · XMI<input type="file" accept="image/png,image/jpeg,.xmi,.xml" aria-label={t("chat.adjuntarImagen")} disabled={consultando || imagenOcupada || vozOcupada} onChange={(evento) => {
       const archivo = evento.target.files?.[0]; evento.target.value = ""
       if (!archivo) return
-      if (!["image/png", "image/jpeg"].includes(archivo.type) || archivo.size === 0 || archivo.size > 10 * 1024 * 1024) { establecerError(t("chat.imagenInvalida")); return }
+      const xmi = /\.(xmi|xml)$/i.test(archivo.name)
+      if ((!xmi && !["image/png", "image/jpeg"].includes(archivo.type)) || archivo.size === 0 || archivo.size > (xmi ? 5 : 10) * 1024 * 1024) { establecerError(xmi ? "XMI/XML: archivo vacío o mayor a 5 MB." : t("chat.imagenInvalida")); return }
       establecerError(null); establecerImagen(archivo)
     }} /></label>
     <GrabadorInstruccionVoz mostrarTranscripcion={false} deshabilitado={consultando || imagenOcupada} alCambiarOcupado={establecerVozOcupada} alReconocer={async (texto) => {
@@ -207,6 +294,16 @@ export function PanelAsistenteContextual({ projectId, credential, participantId,
     <p className="ai-note">{t("contextual.noMuta")}</p></details>
     </div>
   </aside>
+}
+
+function VistaAdjunto({ archivo }: { archivo: File }) {
+  const [url, establecerUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (!archivo.type.startsWith("image/") || typeof URL.createObjectURL !== "function") return
+    const actual = URL.createObjectURL(archivo); establecerUrl(actual)
+    return () => URL.revokeObjectURL(actual)
+  }, [archivo])
+  return <div className="chat-attachment">{url ? <img src={url} alt={archivo.name} /> : null}<span>{archivo.name}</span></div>
 }
 
 // Solo párrafos, listas y énfasis; React escapa todo el texto, incluido HTML generado.

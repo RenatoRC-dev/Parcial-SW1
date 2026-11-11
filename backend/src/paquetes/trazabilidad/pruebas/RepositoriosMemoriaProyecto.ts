@@ -2,6 +2,7 @@ import type { ConsultaMensajes, MensajeProyecto, PaginaMensajes } from "../../me
 import { ErrorRequestMensajeDuplicado, type AccionIAModeladoPersistida, type RepositorioMensajes } from "../../mensajeria_colaborativa/compartido/RepositorioMensajes.js"
 import type { ConsultaEventos, EventoProyecto, PaginaEventos } from "../compartido/EventoProyecto.js"
 import { ErrorClientChangeIdDuplicado, type RepositorioEventos } from "../compartido/RepositorioEventos.js"
+import type { EstadoFlujo, FlujoAsistentePersistido } from "../../asistencia_contextual/compartido/FlujoAsistente.js"
 
 function despuesDeCursor<T extends { creadoEn: string; id: string }>(items: T[], cursor?: { creadoEn: string; id: string }): T[] {
   if (!cursor) return items
@@ -34,6 +35,18 @@ export class RepositorioEventosMemoria implements RepositorioEventos {
 }
 
 export class RepositorioMensajesMemoria implements RepositorioMensajes {
+  private readonly flujos = new Map<string, FlujoAsistentePersistido>()
+  async reservarFlujo(flujo: FlujoAsistentePersistido): Promise<boolean> {
+    const clave = `${flujo.projectId}:${flujo.requestId}`
+    if (this.flujos.has(clave) || !this.datos.some((m) => m.id === flujo.sourceMessageId && m.projectId === flujo.projectId && m.participantId === flujo.participantId)) return false
+    this.flujos.set(clave, structuredClone(flujo)); return true
+  }
+  async obtenerFlujo(projectId: string, requestId: string): Promise<FlujoAsistentePersistido | null> { return structuredClone(this.flujos.get(`${projectId}:${requestId}`) ?? null) }
+  async actualizarFlujo(flujo: FlujoAsistentePersistido, esperado: EstadoFlujo): Promise<boolean> {
+    const actual = this.flujos.get(`${flujo.projectId}:${flujo.requestId}`)
+    if (!actual || actual.estado !== esperado || actual.participantId !== flujo.participantId || actual.huella !== flujo.huella) return false
+    this.flujos.set(`${flujo.projectId}:${flujo.requestId}`, structuredClone(flujo)); return true
+  }
   private readonly datos: MensajeProyecto[] = []
   private readonly acciones = new Map<string, AccionIAModeladoPersistida>()
   async buscarRecomendaciones(projectId: string, participantId: string, limite: number): Promise<Array<{ mensaje: MensajeProyecto; solicitud: MensajeProyecto }>> {
@@ -59,6 +72,7 @@ export class RepositorioMensajesMemoria implements RepositorioMensajes {
     return item ? structuredClone(item) : null
   }
   async reservarAccionIA(accion: AccionIAModeladoPersistida): Promise<AccionIAModeladoPersistida> {
+    if ([...this.flujos.values()].some((f) => f.projectId === accion.projectId && f.sourceMessageId === accion.sourceMessageId)) throw new Error("El turno ya está reservado por un flujo del asistente.")
     const existente = [...this.acciones.values()].find((item) => item.projectId === accion.projectId && item.sourceMessageId === accion.sourceMessageId)
     if (existente) return structuredClone(existente)
     const mensaje = this.datos.find((item) => item.id === accion.sourceMessageId && item.projectId === accion.projectId && item.tipoRemitente === "human")

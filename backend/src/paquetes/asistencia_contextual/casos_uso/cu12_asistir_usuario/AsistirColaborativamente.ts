@@ -54,16 +54,16 @@ export class AsistirColaborativamente {
     private readonly publicador: PublicadorMensajesProyecto,
   ) {}
 
-  async ejecutar(acceso: ContextoAccesoProyecto, pregunta: PreguntaAsistenteColaborativo): Promise<{ mensajeHumano: MensajeProyecto; mensajeIA: MensajeProyecto }> {
+  async ejecutar(acceso: ContextoAccesoProyecto, pregunta: PreguntaAsistenteColaborativo, respuestaLocal?: string): Promise<{ mensajeHumano: MensajeProyecto; mensajeIA: MensajeProyecto }> {
     const clave = `${acceso.projectId}:${pregunta.requestId}:${acceso.participantId}:${pregunta.contenido.trim()}`
     const enCurso = this.solicitudesEnCurso.get(clave)
     if (enCurso) return enCurso
-    const ejecucion = this.ejecutarUnaVez(acceso, pregunta).finally(() => this.solicitudesEnCurso.delete(clave))
+    const ejecucion = this.ejecutarUnaVez(acceso, pregunta, respuestaLocal).finally(() => this.solicitudesEnCurso.delete(clave))
     this.solicitudesEnCurso.set(clave, ejecucion)
     return ejecucion
   }
 
-  private async ejecutarUnaVez(acceso: ContextoAccesoProyecto, pregunta: PreguntaAsistenteColaborativo): Promise<{ mensajeHumano: MensajeProyecto; mensajeIA: MensajeProyecto }> {
+  private async ejecutarUnaVez(acceso: ContextoAccesoProyecto, pregunta: PreguntaAsistenteColaborativo, respuestaLocal?: string): Promise<{ mensajeHumano: MensajeProyecto; mensajeIA: MensajeProyecto }> {
     const existenteIA = await this.mensajes.obtenerPorRequestId(acceso.projectId, pregunta.requestId, "ai")
     const humano = await this.mensajes.registrarMensajeHumanoIdempotente(acceso, pregunta.contenido, pregunta.requestId, pregunta.foco ? [pregunta.foco.elementoId] : [])
     if (humano.creado) this.publicador.publicar(humano.mensaje)
@@ -75,7 +75,7 @@ export class AsistirColaborativamente {
     const solicitud = await this.construirContexto.construir(acceso, pregunta)
     const respuesta = responderAyudaProductoDeterminista(solicitud)
       ?? responderActividad(solicitud)
-      ?? await asistirUsuario(solicitud, this.proveedor)
+      ?? (respuestaLocal ? respuestaDeterminista(respuestaLocal) : await asistirUsuario(solicitud, this.proveedor))
     const ids = respuesta.elementoRelacionadoId ? [respuesta.elementoRelacionadoId] : []
     const ia = await this.mensajes.registrarMensajeIAIdempotente(acceso.projectId, respuesta.respuesta, pregunta.requestId, humano.mensaje.id, ids, respuesta.recomendacion ?? null)
     if (ia.creado) this.publicador.publicar(ia.mensaje)

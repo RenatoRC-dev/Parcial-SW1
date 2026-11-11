@@ -1,6 +1,7 @@
 import type { RespuestaInterpretacionUMLHttp } from "../../asistencia_ia/compartido/contrato/PlanCambiosUML.js"
 import type { ModeloUMLCanonicoIA } from "../../asistencia_ia/compartido/contrato/ComandoModeloUML.js"
 import type { ConsultaMensajes, MensajeProyecto, PaginaMensajes } from "./MensajeProyecto.js"
+import type { EstadoFlujo, FlujoAsistentePersistido } from "../../asistencia_contextual/compartido/FlujoAsistente.js"
 
 export type EstadoAccionIAModelado = "planned" | "applied" | "failed"
 export type OrigenAccionIAModelado = "direct" | "collaborative"
@@ -23,6 +24,9 @@ export interface AccionIAModeladoPersistida {
 }
 
 export interface RepositorioMensajes {
+  reservarFlujo(flujo: FlujoAsistentePersistido): Promise<boolean>
+  obtenerFlujo(projectId: string, requestId: string): Promise<FlujoAsistentePersistido | null>
+  actualizarFlujo(flujo: FlujoAsistentePersistido, esperado: EstadoFlujo): Promise<boolean>
   buscarRecomendaciones(projectId: string, participantId: string, limite: number): Promise<Array<{ mensaje: MensajeProyecto; solicitud: MensajeProyecto }>>
   crear(mensaje: MensajeProyecto): Promise<MensajeProyecto>
   listarPorProyecto(consulta: ConsultaMensajes): Promise<PaginaMensajes>

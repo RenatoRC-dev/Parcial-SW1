@@ -25,6 +25,8 @@ import { ProveedorAsistenteContextualGroq } from "../../asistencia_contextual/co
 import { registrarRutaAsistenteColaborativo } from "../../asistencia_contextual/casos_uso/cu12_asistir_usuario/registrarRutaAsistenteColaborativo.js"
 import { obtenerOrigenesFrontendPermitidos } from "../../../configuracion/origenesFrontendPermitidos.js"
 import { PUBLICADOR_MENSAJES_NULO, type PublicadorMensajesProyecto } from "../../mensajeria_colaborativa/compartido/PublicadorMensajesProyecto.js"
+import type { PlanificadorLocal } from "../../asistencia_contextual/compartido/PlanificadorLocal.js"
+import { leerConfiguracionOllama, PlanificadorOllama } from "../../asistencia_contextual/compartido/proveedores/ollama/PlanificadorOllama.js"
 
 export function crearAplicacionGeneracionBackend(dependencias: {
   proveedorIA?: ProveedorModeloLenguaje
@@ -33,8 +35,11 @@ export function crearAplicacionGeneracionBackend(dependencias: {
   proveedorAsistenteContextual?: ProveedorAsistenteContextual
   accesoProyectos?: DependenciasRutasProyectos
   publicadorMensajes?: PublicadorMensajesProyecto
+  planificadorLocal?: PlanificadorLocal
 } = {}) {
   const aplicacion = express()
+  const configuracionOllama = dependencias.planificadorLocal ? null : leerConfiguracionOllama()
+  const planificadorLocal = dependencias.planificadorLocal ?? (configuracionOllama ? new PlanificadorOllama(configuracionOllama) : undefined)
   const origenesPermitidos = obtenerOrigenesFrontendPermitidos()
   aplicacion.use((solicitud, respuesta, siguiente) => {
     const origen = solicitud.headers.origin
@@ -71,6 +76,8 @@ export function crearAplicacionGeneracionBackend(dependencias: {
       mensajes: dependencias.accesoProyectos.mensajes,
       proveedor: dependencias.proveedorAsistenteContextual ?? new ProveedorAsistenteContextualGroq(),
       proveedorCU04,
+      planificadorLocal,
+      proveedorVision: dependencias.proveedorVision ?? new ProveedorVisionGroq(),
       publicador: dependencias.publicadorMensajes ?? PUBLICADOR_MENSAJES_NULO,
       })
     }

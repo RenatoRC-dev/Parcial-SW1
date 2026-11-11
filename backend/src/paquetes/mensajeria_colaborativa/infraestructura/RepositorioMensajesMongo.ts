@@ -2,9 +2,10 @@ import { MongoServerError, type Collection, type Db, type Filter } from "mongodb
 import { COLECCION_MENSAJES } from "../../../infraestructura/mongodb/crearIndicesMongo.js"
 import type { ConsultaMensajes, MensajeProyecto, PaginaMensajes } from "../compartido/MensajeProyecto.js"
 import { ErrorDatosMensajeCorruptos, ErrorPersistenciaMensaje, ErrorRequestMensajeDuplicado, type AccionIAModeladoPersistida, type RepositorioMensajes } from "../compartido/RepositorioMensajes.js"
+import type { EstadoFlujo, FlujoAsistentePersistido } from "../../asistencia_contextual/compartido/FlujoAsistente.js"
 
 interface DocumentoAccionIA extends Omit<AccionIAModeladoPersistida, "creadoEn" | "completadoEn"> { creadoEn: Date; completadoEn: Date | null }
-interface DocumentoMensaje extends Omit<MensajeProyecto, "id" | "creadoEn"> { _id: string; creadoEn: Date; accionIA?: DocumentoAccionIA }
+interface DocumentoMensaje extends Omit<MensajeProyecto, "id" | "creadoEn"> { _id: string; creadoEn: Date; accionIA?: DocumentoAccionIA; flujoAsistente?: FlujoAsistentePersistido }
 const esFecha = (valor: unknown): valor is Date => valor instanceof Date && !Number.isNaN(valor.getTime())
 
 function validar(documento: DocumentoMensaje): void {
@@ -27,7 +28,7 @@ function validar(documento: DocumentoMensaje): void {
   }
 }
 function aDominio(documento: DocumentoMensaje): MensajeProyecto {
-  validar(documento); const { _id, creadoEn, accionIA: _accionIA, ...resto } = documento
+  validar(documento); const { _id, creadoEn, accionIA: _accionIA, flujoAsistente: _flujo, ...resto } = documento
   return { id: _id, ...structuredClone(resto), creadoEn: creadoEn.toISOString() }
 }
 function aDocumento(mensaje: MensajeProyecto): DocumentoMensaje {
@@ -38,6 +39,34 @@ function aDocumento(mensaje: MensajeProyecto): DocumentoMensaje {
 export class RepositorioMensajesMongo implements RepositorioMensajes {
   private readonly mensajes: Collection<DocumentoMensaje>
   constructor(baseDatos: Db) { this.mensajes = baseDatos.collection<DocumentoMensaje>(COLECCION_MENSAJES) }
+  async reservarFlujo(flujo: FlujoAsistentePersistido): Promise<boolean> {
+    try {
+      const resultado = await this.mensajes.updateOne({ _id: flujo.sourceMessageId, projectId: flujo.projectId, requestId: flujo.requestId, participantId: flujo.participantId, tipoRemitente: "human", flujoAsistente: { $exists: false }, accionIA: { $exists: false } }, { $set: { flujoAsistente: structuredClone(flujo) } })
+      return resultado.modifiedCount === 1
+    } catch (cause) { throw new ErrorPersistenciaMensaje("No se pudo reservar el flujo del asistente.", { cause }) }
+  }
+  async obtenerFlujo(projectId: string, requestId: string): Promise<FlujoAsistentePersistido | null> {
+    try {
+      const documento = await this.mensajes.findOne({ projectId, requestId, tipoRemitente: "human" })
+      const flujo = documento?.flujoAsistente
+      if (!flujo) return null
+      if (flujo.projectId !== projectId || flujo.requestId !== requestId || flujo.participantId !== documento?.participantId || flujo.sourceMessageId !== documento?._id
+        || !["analizar_imagen", "importar_xmi", "exportar_xmi", "generar_spring", "automatizar_ea"].includes(flujo.operacion)
+        || !["processing", "review", "ready", "issued", "applied", "cancelled", "failed", "queued", "importing"].includes(flujo.estado)
+        || !Number.isInteger(flujo.revision) || flujo.revision < 0 || typeof flujo.huella !== "string" || !/^[a-f0-9]{64}$/.test(flujo.huella)
+        || typeof flujo.resumen !== "string" || !Array.isArray(flujo.advertencias)
+        || (flujo.archivo && (!((flujo.archivo.nombre === "modelo.xmi" && flujo.archivo.mime === "application/xml") || (flujo.archivo.nombre === "backend-generado.zip" && flujo.archivo.mime === "application/zip"))
+          || typeof flujo.archivo.base64 !== "string" || flujo.archivo.base64.length > 7_000_000))) throw new ErrorDatosMensajeCorruptos("El flujo del asistente no corresponde a su mensaje fuente.")
+      return structuredClone(flujo)
+    }
+    catch (cause) { throw new ErrorPersistenciaMensaje("No se pudo recuperar el flujo del asistente.", { cause }) }
+  }
+  async actualizarFlujo(flujo: FlujoAsistentePersistido, esperado: EstadoFlujo): Promise<boolean> {
+    try {
+      const resultado = await this.mensajes.updateOne({ _id: flujo.sourceMessageId, projectId: flujo.projectId, requestId: flujo.requestId, participantId: flujo.participantId, tipoRemitente: "human", "flujoAsistente.estado": esperado, "flujoAsistente.huella": flujo.huella }, { $set: { flujoAsistente: structuredClone(flujo) } })
+      return resultado.modifiedCount === 1
+    } catch (cause) { throw new ErrorPersistenciaMensaje("No se pudo actualizar el flujo del asistente.", { cause }) }
+  }
   async buscarRecomendaciones(projectId: string, participantId: string, limite: number): Promise<Array<{ mensaje: MensajeProyecto; solicitud: MensajeProyecto }>> {
     try {
       const documentos = await this.mensajes.aggregate<DocumentoMensaje & { solicitud: DocumentoMensaje[] }>([
@@ -76,7 +105,7 @@ export class RepositorioMensajesMongo implements RepositorioMensajes {
     const documento = aDocumentoAccion(accion)
     try {
       const resultado = await this.mensajes.findOneAndUpdate(
-        { _id: accion.sourceMessageId, projectId: accion.projectId, tipoRemitente: "human", accionIA: { $exists: false } },
+        { _id: accion.sourceMessageId, projectId: accion.projectId, tipoRemitente: "human", accionIA: { $exists: false }, flujoAsistente: { $exists: false } },
         { $set: { accionIA: documento } }, { returnDocument: "after" },
       )
       if (resultado?.accionIA) return aDominioAccion(resultado.accionIA)

@@ -27,10 +27,32 @@ const mensaje = (id: string, tipoRemitente: "human" | "ai", contenido: string, n
 function dependencias(items: MensajeColaborativo[] = []) {
   const cargar = vi.fn(async () => ({ items, siguienteCursor: null }))
   const conectar = vi.fn(({ alAutenticar }: { alAutenticar: () => void }) => { alAutenticar(); return { desconectar: vi.fn() } })
-  return { cargar, conectar }
+  return { cargar, conectar, recuperar: vi.fn(async () => []) }
 }
 
 describe("PanelAsistenteContextual colaborativo", () => {
+  it("ofrece descargar el artefacto XMI del turno propio sin mutar ni llamar otra IA", async () => {
+    const deps = dependencias()
+    const consultar = vi.fn(async () => ({ kind: "tool" as const, operacion: "exportar_xmi" as const, baseEditorRevision: 0,
+      mensajeHumano: mensaje("1", "human", "Exporta XMI"), mensajeIA: mensaje("2", "ai", "Archivo generado"),
+      artifact: { nombre: "modelo.xmi" as const, mime: "application/xml" as const, contenido: "<XMI/>" } }))
+    const crearURL = vi.fn((_blob: Blob) => "blob:xmi")
+    const revocarURL = vi.fn()
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: crearURL })
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revocarURL })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
+    const aplicar = vi.fn()
+    render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} alAplicarModelo={aplicar} {...deps} consultar={consultar} />)
+    await waitFor(() => expect(deps.cargar).toHaveBeenCalled())
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Exporta XMI" } })
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" })
+    fireEvent.click(await screen.findByRole("button", { name: "↓ modelo.xmi" }))
+    expect(click).toHaveBeenCalledOnce()
+    expect(crearURL.mock.calls[0][0]).toBeInstanceOf(Blob)
+    expect(consultar).toHaveBeenCalledOnce(); expect(aplicar).not.toHaveBeenCalled()
+    click.mockRestore()
+  })
+
   it.each(["Crea una clase Prestamo", "¿Qué es una asociación?", "Recomienda un atributo", "Ejecuta"])("usa el único compositor y el orquestador para: %s", async (texto) => {
     const deps = dependencias()
     const consultar = vi.fn(async (..._args: Parameters<typeof consultarAsistenteContextual>) => ({ kind: "advisory" as const, mensajeHumano: mensaje("1", "human", texto), mensajeIA: mensaje("2", "ai", "Respuesta compartida") }))
@@ -43,7 +65,7 @@ describe("PanelAsistenteContextual colaborativo", () => {
     expect(await screen.findByText("Respuesta compartida")).toBeVisible()
     expect(consultar.mock.calls[0].slice(0, 2)).toEqual(["p", "cred"])
     expect(consultar.mock.calls[0][3]).toBe(texto)
-    expect(consultar.mock.calls[0][5]).toBe(modelo)
+    expect(consultar.mock.calls[0][5]).toEqual(modelo)
     expect(screen.queryByRole("button", { name: "Aplicar cambio" })).not.toBeInTheDocument()
   })
 

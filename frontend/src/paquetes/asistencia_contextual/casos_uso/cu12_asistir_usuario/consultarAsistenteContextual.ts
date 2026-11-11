@@ -2,6 +2,8 @@ import { construirUrlBackend } from "../../../../configuracion/BackendRemoto"
 import type { ContextoAsistente } from "./ContextoAsistente"
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
 import type { RespuestaInterpretacionUML } from "../../../asistencia_ia/casos_uso/cu04_modelar_con_ia/ComandoModeloUML"
+import type { VistaFlujoAsistente, RespuestaFlujoAsistente, AplicacionFlujoAsistente } from "../../../../../../backend/src/paquetes/asistencia_contextual/compartido/FlujoAsistente.js"
+export type { VistaFlujoAsistente }
 
 export interface MensajeColaborativo {
   id: string
@@ -21,6 +23,8 @@ export interface MensajeColaborativo {
 export interface PaginaMensajesColaborativos { items: MensajeColaborativo[]; siguienteCursor: string | null }
 export interface RespuestaPreguntaColaborativa { mensajeHumano: MensajeColaborativo; mensajeIA: MensajeColaborativo }
 export type RespuestaInteraccionColaborativa =
+  | RespuestaFlujoAsistente
+  | ({ kind: "tool"; operacion: "validar_uml" | "exportar_xmi"; baseEditorRevision: number; artifact?: { nombre: "modelo.xmi"; mime: "application/xml"; contenido: string } } & RespuestaPreguntaColaborativa)
   | ({ kind: "advisory" | "clarification" } & RespuestaPreguntaColaborativa)
   | { kind: "action"; mensajeHumano: MensajeColaborativo; actionId: string; sourceMessageId: string; normalizedInstruction: string; baseEditorRevision: number; plan: RespuestaInterpretacionUML }
   | { kind: "action_already_applied" | "action_already_finished"; mensajeHumano: MensajeColaborativo; actionId: string; mensajeIA: MensajeColaborativo | null }
@@ -56,6 +60,7 @@ export async function consultarAsistenteContextual(
   contexto: ContextoAsistente,
   modeloEjecucion?: ModeloUMLCanonico,
   revisionEditor = 0,
+  archivo?: File,
 ): Promise<RespuestaInteraccionColaborativa> {
   const vistaActual = {
     idioma: contexto.idioma, modeloActual: contexto.modeloActual, estadoUml: contexto.estadoUml,
@@ -63,10 +68,35 @@ export async function consultarAsistenteContextual(
     candidatoImagenPendiente: contexto.candidatoImagenPendiente,
   }
   const elementoId = contexto.elementoSeleccionado?.id
+  const turno = JSON.stringify({ requestId, contenido: pregunta, ...(elementoId ? { foco: { elementoId } } : {}), vistaActual, ...(modeloEjecucion ? { modeloEjecucion, revisionEditor } : {}) })
+  const datos = archivo ? new FormData() : null
+  if (archivo && datos) { datos.append("turno", turno); datos.append("archivo", archivo) }
   return leer(await fetch(construirUrlBackend(`/api/proyectos/${projectId}/asistente-colaborativo/interactuar`), {
-    method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${credencial}` },
-    body: JSON.stringify({ requestId, contenido: pregunta, ...(elementoId ? { foco: { elementoId } } : {}), vistaActual, ...(modeloEjecucion ? { modeloEjecucion, revisionEditor } : {}) }),
+    method: "POST", headers: { ...(!archivo ? { "Content-Type": "application/json" } : {}), Authorization: `Bearer ${credencial}` },
+    body: datos ?? turno,
   }))
+}
+
+const rutaFlujo = (projectId: string, requestId?: string) => construirUrlBackend(`/api/proyectos/${encodeURIComponent(projectId)}/asistente-colaborativo/turnos${requestId ? `/${encodeURIComponent(requestId)}` : ""}`)
+export async function recuperarFlujosAsistente(projectId: string, credencial: string, requestIds?: string[]): Promise<VistaFlujoAsistente[]> {
+  const consulta = requestIds ? `?${new URLSearchParams({ requestIds: requestIds.join(",") })}` : ""
+  return leer(await fetch(`${rutaFlujo(projectId)}${consulta}`, { headers: { Authorization: `Bearer ${credencial}` } }))
+}
+export async function confirmarFlujoAsistente(projectId: string, credencial: string, requestId: string, decision: "confirmar" | "rechazar", modeloEjecucion: ModeloUMLCanonico, revisionEditor: number): Promise<AplicacionFlujoAsistente> {
+  return leer(await fetch(`${rutaFlujo(projectId, requestId)}/confirmar`, { method: "POST", headers: { Authorization: `Bearer ${credencial}`, "Content-Type": "application/json" }, body: JSON.stringify({ decision, modeloEjecucion, revisionEditor }) }))
+}
+export async function completarFlujoAsistente(projectId: string, credencial: string, requestId: string, resultado: "applied" | "failed", modeloEjecucion?: ModeloUMLCanonico): Promise<RespuestaFlujoAsistente> {
+  return leer(await fetch(`${rutaFlujo(projectId, requestId)}/completar`, { method: "POST", headers: { Authorization: `Bearer ${credencial}`, "Content-Type": "application/json" }, body: JSON.stringify({ resultado, modeloEjecucion }) }))
+}
+export async function descargarArchivoFlujo(projectId: string, credencial: string, flujo: VistaFlujoAsistente): Promise<void> {
+  if (!flujo.archivo || flujo.estado !== "ready") throw new Error("No hay un archivo generado para descargar.")
+  const respuesta = await fetch(`${rutaFlujo(projectId, flujo.requestId)}/archivo`, { headers: { Authorization: `Bearer ${credencial}` } })
+  if (!respuesta.ok) { await leer(respuesta); return }
+  if (!respuesta.headers.get("Content-Type")?.startsWith(flujo.archivo.mime)) throw new Error("El servidor no devolvió el formato de archivo esperado.")
+  const blob = await respuesta.blob()
+  const url = URL.createObjectURL(blob)
+  const enlace = document.createElement("a"); enlace.href = url; enlace.download = flujo.archivo.nombre; enlace.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 export function combinarMensajes(...grupos: MensajeColaborativo[][]): MensajeColaborativo[] {

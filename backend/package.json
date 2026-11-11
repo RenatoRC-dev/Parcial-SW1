@@ -24,13 +24,15 @@
     "proof:proyectos": "tsx src/paquetes/gestion_proyectos/pruebas_runtime/probarPersistenciaProyectos.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
     "ejs": "3.1.10",
     "express": "5.2.1",
     "groq-sdk": "^1.6.0",
     "jszip": "3.10.2",
     "mongodb": "^7.8.0",
     "multer": "^2.0.2",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/ejs": "3.1.5",

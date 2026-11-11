@@ -4,6 +4,7 @@ export interface ImagenParaAnalizar {
   datos: Buffer
   mimeType: "image/png" | "image/jpeg"
   nombreArchivo: string
+  instruccion?: string
 }
 
 export interface ProveedorVisionUML {
