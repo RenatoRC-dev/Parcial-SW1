@@ -20,6 +20,13 @@ services:
         sync: false
       - key: FRONTEND_ORIGIN
         sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB_NAME
+        value: nexocase
+
+      - key: PROJECT_ACCESS_PEPPER
+        generateValue: true
 
   - type: web
     name: nexocase-frontend
