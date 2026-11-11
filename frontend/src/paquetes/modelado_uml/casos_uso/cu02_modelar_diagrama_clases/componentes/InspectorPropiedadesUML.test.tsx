@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react"
+import { useState } from "react"
 import type { ApollonEditor } from "@tumaet/apollon"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { ModeloUMLCanonico } from "../../../../../nucleo/modelo_uml/ModeloUMLCanonico"
@@ -143,12 +144,13 @@ describe("InspectorPropiedadesUML compacto", () => {
     const fila = screen.getByRole("group", { name: "Nuevo atributo" })
     const tipos = within(fila).getByLabelText("Tipo") as HTMLSelectElement
     const visibilidades = within(fila).getByLabelText("Visibilidad") as HTMLSelectElement
-    expect(Array.from(tipos.options).map((opcion) => opcion.value)).toEqual([...TIPOS_GENERACION_SOPORTADOS])
+    expect(Array.from(tipos.options).map((opcion) => opcion.value)).toEqual(["", ...TIPOS_GENERACION_SOPORTADOS])
     expect(Array.from(tipos.options).map((opcion) => opcion.value)).not.toContain("strin")
     expect(Array.from(visibilidades.options).map((opcion) => opcion.value)).toEqual([...VISIBILIDADES_UML])
-    expect(tipos).toHaveValue(TIPOS_GENERACION_SOPORTADOS[0])
+    expect(tipos).toHaveValue("")
     expect(visibilidades).toHaveValue("privada")
     fireEvent.change(within(fila).getByLabelText("Nombre"), { target: { value: "nombre" } })
+    fireEvent.change(tipos, { target: { value: "String" } })
     fireEvent.click(within(fila).getByRole("button", { name: "Confirmar atributo" }))
     expect(aplicar).toHaveBeenCalledOnce()
     expect(aplicar.mock.calls[0][0].clases[0].atributos.at(-1)).toMatchObject({ nombre: "nombre", tipo: "String", visibilidad: "privada" })
@@ -164,6 +166,54 @@ describe("InspectorPropiedadesUML compacto", () => {
     fireEvent.click(within(fila).getByRole("button", { name: "Confirmar atributo" }))
 
     expect(aplicar.mock.calls[0][0].clases[0].atributos.at(-1)).toMatchObject({ nombre: "id", tipo: "Long" })
+  })
+
+  it("crea un atributo solo con nombre, con Sin tipo seleccionado y null canónico", () => {
+    const aplicar = renderizar()
+    seleccionarCliente()
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar atributo" }))
+    const fila = screen.getByRole("group", { name: "Nuevo atributo" })
+    expect(within(fila).getByRole("option", { name: "Sin tipo" })).toHaveProperty("selected", true)
+    fireEvent.change(within(fila).getByLabelText("Nombre"), { target: { value: "telefono" } })
+    fireEvent.click(within(fila).getByRole("button", { name: "Confirmar atributo" }))
+    expect(aplicar.mock.calls[0][0].clases[0].atributos.at(-1)).toMatchObject({ nombre: "telefono", tipo: null })
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar atributo" }))
+    expect(within(screen.getByRole("group", { name: "Nuevo atributo" })).getByLabelText("Tipo")).toHaveValue("")
+  })
+
+  it("edita null → String → null conservando identidad y selección", () => {
+    const aplicado = vi.fn()
+    function Editor() {
+      const [actual, setActual] = useState<ModeloUMLCanonico>({ ...modelo, clases: [{ ...modelo.clases[0], atributos: [{ id: "nombre-estable", nombre: "nombre", tipo: null }] }] })
+      return <ProveedorPreferenciasUI><InspectorPropiedadesUML editor={editor} modelo={actual} alAplicar={(m) => { aplicado(m); setActual(m) }} /></ProveedorPreferenciasUI>
+    }
+    render(<Editor />); seleccionarCliente()
+    const selector = () => screen.getByLabelText("Tipo nombre")
+    expect(selector()).toHaveValue("")
+    fireEvent.change(selector(), { target: { value: "String" } })
+    expect(selector()).toHaveValue("String")
+    fireEvent.change(selector(), { target: { value: "" } })
+    expect(selector()).toHaveValue("")
+    expect(aplicado.mock.calls.map(([m]) => m.clases[0].atributos[0])).toEqual([
+      { id: "nombre-estable", nombre: "nombre", tipo: "String" },
+      { id: "nombre-estable", nombre: "nombre", tipo: null },
+    ])
+    expect(screen.getByRole("heading", { name: "Clase: Cliente" })).toBeVisible()
+  })
+
+  it("descarta el tipo de un borrador al cambiar de clase sin volverlo un valor implícito", () => {
+    const aplicar = renderizar()
+    seleccionarCliente()
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar atributo" }))
+    let fila = screen.getByRole("group", { name: "Nuevo atributo" })
+    fireEvent.change(within(fila).getByLabelText("Tipo"), { target: { value: "String" } })
+    fireEvent.change(within(fila).getByLabelText("Nombre"), { target: { value: "borrador" } })
+    act(() => seleccionar(["factura"]))
+    fireEvent.click(screen.getByRole("button", { name: "+ Agregar atributo" }))
+    fila = screen.getByRole("group", { name: "Nuevo atributo" })
+    expect(within(fila).getByLabelText("Tipo")).toHaveValue("")
+    expect(within(fila).getByLabelText("Nombre")).toHaveValue("")
+    expect(aplicar).not.toHaveBeenCalled()
   })
 
   it("crea un método compacto con retorno y visibilidad controlados", () => {
@@ -279,7 +329,7 @@ describe("InspectorPropiedadesUML compacto", () => {
     const fila = screen.getByRole("group", { name: "Atributo saldo" })
     const tipo = within(fila).getByLabelText("Tipo saldo") as HTMLSelectElement
     expect(tipo).toHaveValue("Money")
-    expect(tipo.options[0]?.textContent).toContain("no soportado")
+    expect(Array.from(tipo.options).find((opcion) => opcion.value === "Money")?.textContent).toContain("no soportado")
     expect(modelo.clases[0].atributos[0].tipo).toBe("Money")
     fireEvent.change(tipo, { target: { value: "Double" } })
     expect(aplicar).toHaveBeenCalledOnce()
