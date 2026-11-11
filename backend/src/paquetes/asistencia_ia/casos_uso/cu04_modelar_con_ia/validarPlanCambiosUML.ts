@@ -54,7 +54,8 @@ export function esComandoModeloUML(valor: unknown): valor is ComandoModeloUML {
     case "eliminar_clase":
       return cadena(valor.claseId)
     case "agregar_atributo":
-      return cadena(valor.claseRef) && cadena(valor.refTemporal) && cadena(valor.nombre) && cadena(valor.tipoDato) && visibilidadAtributoONull(valor.visibilidad)
+      return Object.keys(valor).sort().join(",") === "claseRef,nombre,refTemporal,tipo,tipoDato,visibilidad"
+        && cadena(valor.claseRef) && cadena(valor.refTemporal) && cadena(valor.nombre) && cadenaONull(valor.tipoDato) && visibilidadAtributoONull(valor.visibilidad)
     case "modificar_atributo":
       return cadena(valor.atributoId) && cadenaONull(valor.nuevoNombre) && cadenaONull(valor.nuevoTipo) && visibilidadAtributoONull(valor.nuevaVisibilidad)
     case "eliminar_atributo":
@@ -98,6 +99,7 @@ export function esRespuestaInterpretacionUML(valor: unknown): valor is Respuesta
 export function validarPlanCambiosUML(modelo: ModeloUMLCanonicoIA, comandos: ComandoModeloUML[]): void {
   // El canal IA sigue acotado; los tipos conceptuales existentes no son errores UML.
   for (const comando of comandos) {
+    if (!esComandoModeloUML(comando)) throw new ErrorPlanCambiosUML("El comando no cumple el contrato UML permitido.")
     const tipoNuevo = comando.tipo === "agregar_atributo" ? comando.tipoDato
       : comando.tipo === "modificar_atributo" ? comando.nuevoTipo : null
     if (tipoNuevo !== null && !TIPOS.has(tipoNuevo.trim())) throw new ErrorPlanCambiosUML(`Tipo de atributo no soportado por CU04: ${tipoNuevo}.`)

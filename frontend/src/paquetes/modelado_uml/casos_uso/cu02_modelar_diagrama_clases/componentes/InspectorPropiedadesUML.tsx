@@ -55,7 +55,7 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar, alRegistrar
   const [nombreClase, establecerNombreClase] = useState("")
   const [creandoAtributo, establecerCreandoAtributo] = useState(false)
   const [nombreAtributo, establecerNombreAtributo] = useState("")
-  const [tipoAtributo, establecerTipoAtributo] = useState<string>(TIPOS_GENERACION_SOPORTADOS[0])
+  const [tipoAtributo, establecerTipoAtributo] = useState("")
   const [visibilidad, establecerVisibilidad] = useState<VisibilidadUML>("privada")
   const [error, establecerError] = useState<string | null>(null)
   const clase = modelo.clases.find((item) => seleccion.includes(item.id))
@@ -77,6 +77,9 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar, alRegistrar
   useEffect(() => {
     establecerNombreClase(clase?.nombre ?? "")
     establecerCreandoAtributo(false)
+    establecerNombreAtributo("")
+    establecerTipoAtributo("")
+    establecerVisibilidad("privada")
   }, [clase?.id, clase?.nombre])
 
   const aplicar = (
@@ -136,7 +139,7 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar, alRegistrar
     const atributo: AtributoUML = {
       id: idNuevo("atributo"),
       nombre: nombreAtributo.trim(),
-      tipo: tipoAtributo,
+      tipo: tipoAtributo || null,
       visibilidad,
     }
     const siguiente = {
@@ -148,7 +151,7 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar, alRegistrar
     if (aplicar(siguiente, atributo.id)) {
       alRegistrarActividad?.({ tipo: "UML_ELEMENT_CREATED", elemento: { id: atributo.id, tipo: "attribute", nombreSnapshot: atributo.nombre }, detalle: { elementoPadreId: clase.id } })
       establecerNombreAtributo("")
-      establecerTipoAtributo(TIPOS_GENERACION_SOPORTADOS[0])
+      establecerTipoAtributo("")
       establecerVisibilidad("privada")
       establecerCreandoAtributo(false)
     }
@@ -156,7 +159,7 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar, alRegistrar
 
   const cancelarAtributo = () => {
     establecerNombreAtributo("")
-    establecerTipoAtributo(TIPOS_GENERACION_SOPORTADOS[0])
+    establecerTipoAtributo("")
     establecerVisibilidad("privada")
     establecerCreandoAtributo(false)
     establecerError(null)
@@ -213,7 +216,7 @@ export function InspectorPropiedadesUML({ editor, modelo, alAplicar, alRegistrar
           {creandoAtributo ? (
             <div className="compact-attribute-row compact-new-row" role="group" aria-label={t("propiedades.nuevoAtributo")}>
               <input aria-label={t("propiedades.nombre")} value={nombreAtributo} autoFocus onChange={(evento) => establecerNombreAtributo(evento.target.value)} />
-              <select aria-label={t("propiedades.tipo")} value={tipoAtributo} onChange={(evento) => establecerTipoAtributo(evento.target.value)}>{TIPOS_GENERACION_SOPORTADOS.map((tipo) => <option key={tipo}>{tipo}</option>)}</select>
+              <select aria-label={t("propiedades.tipo")} value={tipoAtributo} onChange={(evento) => establecerTipoAtributo(evento.target.value)}><option value="">{t("propiedades.sinTipo")}</option>{TIPOS_GENERACION_SOPORTADOS.map((tipo) => <option key={tipo}>{tipo}</option>)}</select>
               <select aria-label={t("propiedades.visibilidad")} value={visibilidad} onChange={(evento) => establecerVisibilidad(evento.target.value as VisibilidadUML)}>{VISIBILIDADES_UML.map((valor) => <option key={valor} value={valor}>{t(`propiedades.${valor}`)}</option>)}</select>
               <div className="compact-row-actions">
                 <button type="button" className="compact-icon-button" aria-label={t("propiedades.confirmarAtributo")} title={t("propiedades.confirmarAtributo")} onClick={confirmarAtributo}>✓</button>
@@ -274,7 +277,7 @@ function EditorAtributo({ atributo, alRenombrar, alActualizar, alEliminar }: {
     <div className="compact-attribute-row" role="group" aria-label={`${t("propiedades.atributo")} ${atributo.nombre}`}>
       <input aria-label={`${t("propiedades.nombre")} ${atributo.nombre}`} value={nombre} onChange={(evento) => establecerNombre(evento.target.value)} onBlur={confirmarNombre} onKeyDown={confirmarConEnter} />
       <select aria-label={`${t("propiedades.tipo")} ${atributo.nombre}`} value={tipo} onChange={(evento) => cambiarTipo(evento.target.value)}>
-        {atributo.tipo === null ? <option value="">—</option> : null}
+        <option value="">{t("propiedades.sinTipo")}</option>
         {!soportado && atributo.tipo ? <option value={atributo.tipo}>{atributo.tipo} — {t("propiedades.noSoportado")}</option> : null}
         {TIPOS_GENERACION_SOPORTADOS.map((item) => <option key={item}>{item}</option>)}
       </select>

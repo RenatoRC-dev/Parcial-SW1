@@ -64,7 +64,7 @@ export function normalizarComandosAsistidos(
       case "eliminar_clase":
         return { ...comando, claseId: resolverClase(modelo, comando.claseId) }
       case "agregar_atributo":
-        return { ...comando, claseRef: resolverClase(modelo, comando.claseRef), tipoDato: normalizarTipoAsistido(comando.tipoDato), visibilidad: comando.visibilidad ?? "privada" }
+        return { ...comando, claseRef: resolverClase(modelo, comando.claseRef), tipoDato: comando.tipoDato === null ? null : normalizarTipoAsistido(comando.tipoDato), visibilidad: comando.visibilidad ?? "privada" }
       case "modificar_atributo":
         return { ...comando, nuevoTipo: comando.nuevoTipo === null ? null : normalizarTipoAsistido(comando.nuevoTipo) }
       case "crear_metodo":

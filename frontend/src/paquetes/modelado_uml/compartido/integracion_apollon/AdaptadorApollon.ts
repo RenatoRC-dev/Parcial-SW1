@@ -138,7 +138,7 @@ export function interpretarAtributo(
   atributoApollon: ElementoClaseApollon
 ): ResultadoInterpretacionAtributo {
   const notacion = atributoApollon.name.trim()
-  const coincidencia = notacion.match(/^([+\-#~])?\s*([^:]+?)\s*:\s*(.+)$/)
+  const coincidencia = notacion.match(/^([+\-#~])?\s*([^:]+?)(?:\s*:\s*(.*))?$/)
 
   if (!coincidencia) {
     const nombreSinVisibilidad = notacion.replace(/^[+\-#~]\s*/, "").trim()
@@ -156,7 +156,7 @@ export function interpretarAtributo(
   const atributo: AtributoUML = {
     id: atributoApollon.id,
     nombre: nombre.trim(),
-    tipo: tipo.trim(),
+    tipo: tipo?.trim() || null,
   }
 
   if (simboloVisibilidad) {

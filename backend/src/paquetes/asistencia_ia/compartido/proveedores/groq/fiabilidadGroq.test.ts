@@ -28,6 +28,22 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllEnvs() })
 
 describe("Groq CU04/CU12 sin red", () => {
+  it("CU04 conserva tipoDato null por esquema, instrucciones y adaptador real sin consumir red", async () => {
+    const contenido = { resultado: "aplicar", mensaje: "Nombre sin tipo", comandos: [{ tipo: "agregar_atributo", claseRef: "tmp_cliente", refTemporal: "tmp_nombre", nombre: "nombre", tipoDato: null, visibilidad: null }] }
+    crear.mockResolvedValueOnce(completar(contenido))
+    expect(await new ProveedorGroq("clave-prueba").interpretarCambiosUML(solicitud)).toEqual(contenido)
+    const enviada = crear.mock.calls[0][0]
+    expect(enviada.response_format.json_schema).toMatchObject({ strict: true, schema: ESQUEMA_RESPUESTA_GROQ })
+    expect(enviada.messages[0].content).toContain("tipoDato=null")
+    expect(enviada.messages[0].content).toContain("PK/FK")
+    expect(crear).toHaveBeenCalledOnce()
+  })
+
+  it("CU04 rechaza campos de tipo inventados aunque el proveedor devuelva JSON con tipoDato null", async () => {
+    crear.mockResolvedValueOnce(completar({ resultado: "aplicar", mensaje: "Inválido", comandos: [{ tipo: "agregar_atributo", claseRef: "tmp_cliente", refTemporal: "tmp_nombre", nombre: "nombre", tipoDato: null, visibilidad: null, inferredType: "String" }] }))
+    await expect(new ProveedorGroq("clave-prueba").interpretarCambiosUML(solicitud)).rejects.toMatchObject({ tipo: "respuesta_invalida" })
+  })
+
   it("recupera metadatos opcionales de un atributo sugerido conservando la clase real y sin reintentar", async () => {
     const contenido = { ...respuestaCU12, respuesta: "OPCIONAL: estado: String para registrar el estado.", categoriaRecomendacion: "OPCIONAL", elementoRelacionadoId: "tmp_estado",
       recomendacion: { resumen: "Estado", targetElementIds: ["tmp_estado"], normalizedInstruction: "Agrega estado String a Prestamo." } }

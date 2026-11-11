@@ -65,6 +65,21 @@ function crearRelacion(
 }
 
 describe("AdaptadorApollon", () => {
+  it.each([["", undefined], ["- ", "privada"], ["+ ", "publica"], ["# ", "protegida"], ["~ ", "paquete"]] as const)("preserva atributo sin tipo/visibilidad %j en JSON y ciclos Apollon", (prefijo, visibilidad) => {
+    const resultado = convertirAModeloCanonicoConAdvertencias(crearModelo([crearClase("cliente", "Cliente", { attributes: [{ id: "nombre-estable", name: `${prefijo}nombre` }, { id: "correo", name: "correo: String" }] })]))
+    const atributo = resultado.modelo.clases[0].atributos[0]
+    expect(atributo).toEqual({ id: "nombre-estable", nombre: "nombre", tipo: null, ...(visibilidad ? { visibilidad } : {}) })
+    expect(resultado.advertencias).toEqual([])
+    const apollon = convertirDesdeModeloCanonico(JSON.parse(JSON.stringify(resultado.modelo)))
+    expect(apollon.nodes[0].data).toMatchObject({ attributes: [{ name: `${prefijo}nombre` }, { name: "correo: String" }] })
+    expect(convertirAModeloCanonico(apollon).clases[0].atributos).toEqual(resultado.modelo.clases[0].atributos)
+  })
+
+  it("normaliza nombre: vacío a tipo null solo en la frontera textual del editor", () => {
+    const resultado = convertirAModeloCanonico(crearModelo([crearClase("cliente", "Cliente", { attributes: [{ id: "dato", name: "- nombre:  " }] })]))
+    expect(resultado.clases[0].atributos[0]).toEqual({ id: "dato", nombre: "nombre", tipo: null, visibilidad: "privada" })
+  })
+
   it("convierte un diagrama de clases vacío", () => {
     const canonico = convertirAModeloCanonico(crearModelo())
 
