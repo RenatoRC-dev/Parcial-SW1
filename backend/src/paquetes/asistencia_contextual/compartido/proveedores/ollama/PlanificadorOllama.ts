@@ -1,3 +1,5 @@
+import { isIP } from "node:net"
+import { solicitarOllamaRemoto } from "./TransporteOllamaRemoto.js"
 import type { SolicitudAsistenteContextual } from "../../ContratoAsistenteContextual.js"
 import { ErrorAsistenteContextual } from "../../ProveedorAsistenteContextual.js"
 import { ESQUEMA_PLAN_LOCAL, validarPlanLocal, type PlanificadorLocal, type PlanLocal } from "../../PlanificadorLocal.js"
@@ -18,14 +20,52 @@ Ejemplos de clasificación (manda la petición, no la aptitud Spring ni el estad
 "Lleva el modelo a Enterprise Architect" => automatizar_ea. "Haz varias cosas sin especificar" => aclarar.
 Devuelve exclusivamente JSON.`
 
-export interface ConfiguracionOllama { baseUrl: string; modelo: string; timeoutMs: number }
+export interface ConfiguracionOllama {
+  baseUrl: string; modelo: string; timeoutMs: number
+  remoto?: { host: string; clientId: string; clientSecret: string; basicAuth?: never }
+    | { host: string; basicAuth: string; clientId?: never; clientSecret?: never }
+}
+
+function urlRemota(valor: string | undefined, host: string | undefined): URL {
+  const error = () => new Error("REMOTE_LLM_BASE_URL requiere HTTPS y REMOTE_LLM_ALLOWED_HOST exacto, publico y sin rutas.")
+  let base: URL
+  try { base = new URL(valor ?? "") } catch { throw error() }
+  if (!host || host !== host.toLowerCase() || host.length > 253 || isIP(host) || !host.includes(".")
+    || host.split(".").some((parte) => !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(parte))
+    || /(?:^|\.)(?:localhost|local|internal|test|invalid|onion|trycloudflare\.com|nip\.io|sslip\.io)$/.test(host)
+    || base.protocol !== "https:" || base.hostname !== host || base.port || base.username || base.password
+    || base.search || base.hash || base.pathname !== "/" || valor !== base.origin) throw error()
+  return base
+}
 
 export function leerConfiguracionOllama(env: NodeJS.ProcessEnv = process.env): ConfiguracionOllama | null {
   const modo = env.AI_ORCHESTRATOR_MODE ?? "legacy"
   if (modo === "legacy") return null
+  if (modo === "hybrid_remote") {
+    // Explicit Basic Auth configuration uses only the fixed backend LOCAL_LLM_* endpoint.
+    // A partial/invalid configuration must never fall through to another provider/auth mode.
+    if (env.LOCAL_LLM_BASIC_AUTH_USER !== undefined || env.LOCAL_LLM_BASIC_AUTH_PASSWORD !== undefined) {
+      const user = env.LOCAL_LLM_BASIC_AUTH_USER, password = env.LOCAL_LLM_BASIC_AUTH_PASSWORD
+      if (!user?.trim() || !password?.trim() || user.length > 128 || password.length > 512
+        || user.includes(":") || /[\u0000-\u001f\u007f]/.test(user + password)) throw new Error("LOCAL_LLM_BASIC_AUTH_USER/PASSWORD invalidos o incompletos en backend.")
+      let host: string
+      try { host = new URL(env.LOCAL_LLM_BASE_URL ?? "").hostname } catch { throw new Error("LOCAL_LLM_BASE_URL remoto invalido.") }
+      const base = urlRemota(env.LOCAL_LLM_BASE_URL, host)
+      const modelo = env.LOCAL_LLM_MODEL ?? "qwen3:8b", timeoutMs = Number(env.LOCAL_LLM_TIMEOUT_MS ?? 120_000)
+      if (modelo !== "qwen3:8b") throw new Error("LOCAL_LLM_MODEL solo admite qwen3:8b.")
+      if (!Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 120_000) throw new Error("LOCAL_LLM_TIMEOUT_MS invalido.")
+      return { baseUrl: base.origin, modelo, timeoutMs, remoto: { host, basicAuth: `Basic ${Buffer.from(`${user}:${password}`, "utf8").toString("base64")}` } }
+    }
+    const base = urlRemota(env.REMOTE_LLM_BASE_URL, env.REMOTE_LLM_ALLOWED_HOST)
+    const clientId = env.CF_ACCESS_CLIENT_ID, clientSecret = env.CF_ACCESS_CLIENT_SECRET
+    if (!clientId || !clientSecret || ![clientId, clientSecret].every((v) => /^[A-Za-z0-9._-]{16,512}$/.test(v))) throw new Error("Cloudflare Access requiere CF_ACCESS_CLIENT_ID y CF_ACCESS_CLIENT_SECRET validos en backend.")
+    const modelo = env.REMOTE_LLM_MODEL ?? "qwen3:8b", timeoutMs = Number(env.REMOTE_LLM_TIMEOUT_MS ?? 120_000)
+    if (modelo !== "qwen3:8b") throw new Error("REMOTE_LLM_MODEL solo admite qwen3:8b.")
+    if (!Number.isInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 120_000) throw new Error("REMOTE_LLM_TIMEOUT_MS invalido.")
+    return { baseUrl: base.origin, modelo, timeoutMs, remoto: { host: base.hostname, clientId, clientSecret } }
+  }
   if (modo !== "hybrid_local") throw new Error("AI_ORCHESTRATOR_MODE inválido.")
   const base = new URL(env.LOCAL_LLM_BASE_URL ?? "http://127.0.0.1:11434")
-  // Este slice es local. Túnel remoto/autenticación se implementarán por separado.
   if (base.protocol !== "http:" || !["127.0.0.1", "localhost", "[::1]", "host.docker.internal"].includes(base.hostname)
     || base.username || base.password || base.search || base.hash || base.pathname !== "/") throw new Error("Ollama requiere una dirección local sin credenciales ni rutas.")
   const timeoutMs = Number(env.LOCAL_LLM_TIMEOUT_MS ?? 120_000)
@@ -36,13 +76,43 @@ export function leerConfiguracionOllama(env: NodeJS.ProcessEnv = process.env): C
 }
 
 export class PlanificadorOllama implements PlanificadorLocal {
-  constructor(private readonly config: ConfiguracionOllama, private readonly solicitar: typeof fetch = fetch) {}
+  readonly modo: "hybrid_local" | "hybrid_remote"
+  private readonly solicitar: typeof fetch
+  constructor(private readonly config: ConfiguracionOllama, solicitar?: typeof fetch) {
+    if (config.remoto) urlRemota(config.baseUrl, config.remoto.host)
+    this.modo = config.remoto ? "hybrid_remote" : "hybrid_local"
+    this.solicitar = solicitar ?? (config.remoto ? solicitarOllamaRemoto : fetch)
+  }
+
+  private headers(): Record<string, string> {
+    if (this.config.remoto?.basicAuth) return { Authorization: this.config.remoto.basicAuth }
+    return this.config.remoto?.clientId !== undefined ? { "CF-Access-Client-Id": this.config.remoto.clientId, "CF-Access-Client-Secret": this.config.remoto.clientSecret } : {}
+  }
+
+  private diagnosticar(requestId: string | undefined, reason: string) {
+    console.warn("[Ollama] provider_failure", { requestId, transport: this.config.remoto ? "remote_https" : "local_http", reason })
+  }
+
+  private async leerJson(respuesta: Response): Promise<any> {
+    if (!respuesta.body) throw new ErrorAsistenteContextual("respuesta_invalida", "Ollama no devolvio contenido.")
+    const lector = respuesta.body.getReader(), partes: Uint8Array[] = []; let bytes = 0
+    try {
+      while (true) {
+        const parte = await lector.read()
+        if (parte.done) break
+        bytes += parte.value.byteLength
+        if (bytes > 32_768) { await lector.cancel(); throw new ErrorAsistenteContextual("respuesta_invalida", "La respuesta Ollama excede el limite.") }
+        partes.push(parte.value)
+      }
+    } finally { lector.releaseLock() }
+    return JSON.parse(Buffer.concat(partes).toString("utf8"))
+  }
 
   async comprobarEstado(): Promise<"disponible" | "modelo_ausente" | "no_disponible"> {
     try {
-      const respuesta = await this.solicitar(`${this.config.baseUrl}/api/tags`, { redirect: "error", signal: AbortSignal.timeout(Math.min(5000, this.config.timeoutMs)) })
-      if (!respuesta.ok) return "no_disponible"
-      const cuerpo = await respuesta.json() as { models?: Array<{ name?: string }> }
+      const respuesta = await this.solicitar(`${this.config.baseUrl}/api/tags`, { redirect: "error", headers: this.headers(), signal: AbortSignal.timeout(Math.min(5000, this.config.timeoutMs)) })
+      if (!respuesta.ok) { await respuesta.body?.cancel(); return "no_disponible" }
+      const cuerpo = await this.leerJson(respuesta) as { models?: Array<{ name?: string }> }
       if (!Array.isArray(cuerpo.models)) return "no_disponible"
       return cuerpo.models.some((modelo) => modelo.name === this.config.modelo) ? "disponible" : "modelo_ausente"
     } catch { return "no_disponible" }
@@ -75,37 +145,31 @@ export class PlanificadorOllama implements PlanificadorLocal {
       }
       const respuesta = await this.solicitar(`${this.config.baseUrl}/api/chat`, {
         method: "POST", redirect: "error", signal: controlador.signal,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...this.headers() },
         body: JSON.stringify({
           model: this.config.modelo, stream: false, think: false, format: ESQUEMA_PLAN_LOCAL,
           options: { temperature: 0, num_predict: 700, num_ctx: 4096 },
           messages: [{ role: "system", content: INSTRUCCIONES }, { role: "user", content: JSON.stringify(datos) }],
         }),
       })
-      if (!respuesta.ok) throw new ErrorAsistenteContextual("no_disponible", "Ollama o el modelo local no están disponibles.")
-      // Acota también el cuerpo HTTP antes de parsearlo; no confía en Content-Length.
-      if (!respuesta.body) throw new ErrorAsistenteContextual("respuesta_invalida", "Ollama no devolvió contenido.")
-      const lector = respuesta.body.getReader()
-      const partes: Uint8Array[] = []; let bytes = 0
-      try {
-        while (true) {
-          const parte = await lector.read()
-          if (parte.done) break
-          bytes += parte.value.byteLength
-          if (bytes > 32_768) { await lector.cancel(); throw new ErrorAsistenteContextual("respuesta_invalida", "La respuesta local excede el límite.") }
-          partes.push(parte.value)
-        }
-      } finally { lector.releaseLock() }
-      const cuerpo = JSON.parse(Buffer.concat(partes).toString("utf8"))
-      if (cuerpo.model !== this.config.modelo || cuerpo.done !== true || cuerpo.done_reason === "length"
+      if (!respuesta.ok) {
+        this.diagnosticar(solicitud.requestId, [401, 403].includes(respuesta.status) ? "ACCESS_DENIED" : respuesta.status >= 300 && respuesta.status < 400 ? "REDIRECT_REJECTED" : "UPSTREAM_UNAVAILABLE")
+        await respuesta.body?.cancel()
+        throw new ErrorAsistenteContextual("no_disponible", this.config.remoto
+          ? "Ollama remoto no está disponible; comprueba el túnel y su autorización en backend."
+          : "Ollama o el modelo local no están disponibles.")
+      }
+      const cuerpo = await this.leerJson(respuesta)
+      if (!cuerpo || typeof cuerpo !== "object" || Array.isArray(cuerpo) || cuerpo.model !== this.config.modelo || cuerpo.done !== true || cuerpo.done_reason === "length"
         || cuerpo.message?.role !== "assistant" || typeof cuerpo.message?.content !== "string"
         || cuerpo.message.tool_calls?.length) throw new ErrorAsistenteContextual("respuesta_invalida", "Ollama no cumplió el contrato estructurado.")
       return validarPlanLocal(JSON.parse(cuerpo.message.content))
     } catch (error) {
+      this.diagnosticar(solicitud.requestId, controlador.signal.aborted ? "TIMEOUT" : error instanceof ErrorAsistenteContextual || error instanceof SyntaxError ? "INVALID_OR_REJECTED_RESPONSE" : "CONNECTION_FAILED")
       if (error instanceof ErrorAsistenteContextual) throw error
       if (controlador.signal.aborted) throw new ErrorAsistenteContextual("timeout", "Ollama excedió el tiempo de espera.")
       if (error instanceof SyntaxError) throw new ErrorAsistenteContextual("respuesta_invalida", "Ollama devolvió JSON inválido.")
-      throw new ErrorAsistenteContextual("no_disponible", "No se pudo conectar con Ollama local.")
+      throw new ErrorAsistenteContextual("no_disponible", this.config.remoto ? "No se pudo conectar con Ollama remoto; no se ejecutó una alternativa." : "No se pudo conectar con Ollama local.")
     } finally { clearTimeout(temporizador) }
   }
 }
