@@ -55,6 +55,8 @@ export function crearAplicacionGeneracionBackend(dependencias: {
     }
     siguiente()
   })
+  // Únicamente recibos de conector admiten XMI base64 de hasta 5 MB.
+  aplicacion.use(["/api/conector-ea/recibo", "/api/proyectos/:id/conector-ea/recibo"], express.json({ limit: "8mb" }))
   aplicacion.use(express.json({ limit: "1mb" }))
   registrarRutaTranscripcionVoz(aplicacion, dependencias.proveedorTranscripcion ?? new ProveedorTranscripcionGroq())
   registrarRutaAnalisisImagen(aplicacion, dependencias.proveedorVision ?? new ProveedorVisionGroq())

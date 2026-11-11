@@ -9,8 +9,9 @@ export interface PlanificadorLocal {
   comprobarEstado?(): Promise<"disponible" | "modelo_ausente" | "no_disponible">
 }
 
-// Ninguna referencia, instrucción, URL, permiso o revisión puede provenir del modelo.
-// Los ejecutores reciben exclusivamente el contexto autenticado y la petición original.
+// El modelo no aporta IDs, permisos, revisiones ni autoridad de ejecución.
+// El backend puede recuperar el consejo durable propio como datos de una petición
+// humana explícita; únicamente CU04 interpreta esa instrucción autocontenida.
 export const ESQUEMA_PLAN_LOCAL = {
   type: "object", additionalProperties: false,
   properties: {

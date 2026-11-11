@@ -11,6 +11,24 @@ function crear(f = flujo) {
   return { repo: new RepositorioMensajesMongo({ collection: () => coleccion } as unknown as Db), coleccion }
 }
 describe("persistencia privada de flujos Mongo", () => {
+  function mensajeIA(extras: Record<string, unknown>) {
+    const documento = { _id: "ia", projectId: "p", participantId: null, requestId: "r", tipoRemitente: "ai", nombreVisibleSnapshot: "Asistente", contenido: "Cliente: id Long.", replyToMessageId: "h", elementosRelacionadosIds: [], revisionModeloObservada: 0, creadoEn: new Date(), ...extras }
+    return new RepositorioMensajesMongo({ collection: () => ({ findOne: async () => documento }) } as unknown as Db)
+  }
+  it("lee mensajes históricos sin inventar procedencia", async () => {
+    const mensaje = await mensajeIA({}).obtenerPorId("p", "ia")
+    expect(mensaje).not.toHaveProperty("procedencia")
+    expect(mensaje).not.toHaveProperty("recomendacion")
+  })
+  it("preserva referencia consultiva, revisión y procedencia sin exponer metadatos privados", async () => {
+    const recomendacion = { fuente: "asesoria_local", revisionEditor: 3, resumen: "Cliente", normalizedInstruction: "Referencia al consejo original", targetElementIds: [] }
+    const procedencia = [{ nombre: "ollama", estado: "completed" }]
+    const mensaje = await mensajeIA({ recomendacion, procedencia }).obtenerPorId("p", "ia")
+    expect(mensaje).toMatchObject({ id: "ia", replyToMessageId: "h", recomendacion, procedencia })
+  })
+  it("rechaza procedencia corrupta en lugar de atribuirla a un proveedor", async () => {
+    await expect(mensajeIA({ procedencia: [{ nombre: "shell", estado: "completed" }] }).obtenerPorId("p", "ia")).rejects.toThrow()
+  })
   it("los metadatos, modelos y binarios privados nunca aparecen en el mensaje público", async () => {
     const { repo } = crear()
     expect(await repo.obtenerFlujo("p", "r")).toEqual(flujo)

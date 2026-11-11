@@ -1,9 +1,11 @@
+import type { PasoIA } from "../../../../../../backend/src/paquetes/mensajeria_colaborativa/compartido/MensajeProyecto.js"
 import { construirUrlBackend } from "../../../../configuracion/BackendRemoto"
 import type { ContextoAsistente } from "./ContextoAsistente"
 import type { ModeloUMLCanonico } from "../../../../nucleo/modelo_uml/ModeloUMLCanonico"
 import type { RespuestaInterpretacionUML } from "../../../asistencia_ia/casos_uso/cu04_modelar_con_ia/ComandoModeloUML"
 import type { VistaFlujoAsistente, RespuestaFlujoAsistente, AplicacionFlujoAsistente } from "../../../../../../backend/src/paquetes/asistencia_contextual/compartido/FlujoAsistente.js"
 export type { VistaFlujoAsistente }
+export type { EstadoConectorEA } from "../../../../../../backend/src/paquetes/asistencia_contextual/compartido/FlujoAsistente.js"
 
 export interface MensajeColaborativo {
   id: string
@@ -17,6 +19,7 @@ export interface MensajeColaborativo {
   elementosRelacionadosIds: string[]
   revisionModeloObservada: number
   creadoEn: string
+  procedencia?: PasoIA[]
   recomendacion?: { resumen: string; targetElementIds: string[]; normalizedInstruction: string } | null
 }
 
@@ -26,7 +29,7 @@ export type RespuestaInteraccionColaborativa =
   | RespuestaFlujoAsistente
   | ({ kind: "tool"; operacion: "validar_uml" | "exportar_xmi"; baseEditorRevision: number; artifact?: { nombre: "modelo.xmi"; mime: "application/xml"; contenido: string } } & RespuestaPreguntaColaborativa)
   | ({ kind: "advisory" | "clarification" } & RespuestaPreguntaColaborativa)
-  | { kind: "action"; mensajeHumano: MensajeColaborativo; actionId: string; sourceMessageId: string; normalizedInstruction: string; baseEditorRevision: number; plan: RespuestaInterpretacionUML }
+  | { kind: "action"; mensajeHumano: MensajeColaborativo; actionId: string; sourceMessageId: string; normalizedInstruction: string; baseEditorRevision: number; plan: RespuestaInterpretacionUML; procedencia?: PasoIA[] }
   | { kind: "action_already_applied" | "action_already_finished"; mensajeHumano: MensajeColaborativo; actionId: string; mensajeIA: MensajeColaborativo | null }
 export type TipoErrorConsultaContextual = "no_disponible" | "limite" | "respuesta_invalida" | "solicitud_invalida" | "conflicto" | "interno"
 
@@ -78,6 +81,27 @@ export async function consultarAsistenteContextual(
 }
 
 const rutaFlujo = (projectId: string, requestId?: string) => construirUrlBackend(`/api/proyectos/${encodeURIComponent(projectId)}/asistente-colaborativo/turnos${requestId ? `/${encodeURIComponent(requestId)}` : ""}`)
+const rutaEA = (projectId: string, accion: string) => construirUrlBackend(`/api/proyectos/${encodeURIComponent(projectId)}/conector-ea/${accion}`)
+export async function consultarEstadoConectorEA(projectId: string, credencial: string) {
+  return leer<import("../../../../../../backend/src/paquetes/asistencia_contextual/compartido/FlujoAsistente.js").EstadoConectorEA>(await fetch(rutaEA(projectId, "estado"), { headers: { Authorization: `Bearer ${credencial}` }, cache: "no-store" }))
+}
+export async function crearCodigoConectorEA(projectId: string, credencial: string) {
+  return leer<{ codigo: string; expires: number }>(await fetch(rutaEA(projectId, "emparejamiento"), { method: "POST", headers: { Authorization: `Bearer ${credencial}`, "Content-Type": "application/json" }, body: "{}" }))
+}
+export async function revocarConectorEA(projectId: string, credencial: string) {
+  const respuesta = await fetch(rutaEA(projectId, "revocar"), { method: "POST", headers: { Authorization: `Bearer ${credencial}`, "Content-Type": "application/json" }, body: "{}" })
+  if (!respuesta.ok) await leer(respuesta)
+}
+export async function descargarConectorEA(projectId: string, credencial: string): Promise<void> {
+  const respuesta = await fetch(rutaEA(projectId, "paquete"), { headers: { Authorization: `Bearer ${credencial}` } })
+  if (!respuesta.ok) return leer<never>(respuesta)
+  const url = URL.createObjectURL(await respuesta.blob())
+  const enlace = document.createElement("a"); enlace.href = url; enlace.download = "NexoCASE-Connector.zip"; enlace.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+export async function cancelarFlujoEA(projectId: string, credencial: string, requestId: string): Promise<RespuestaFlujoAsistente> {
+  return leer(await fetch(`${rutaFlujo(projectId, requestId)}/cancelar`, { method: "POST", headers: { Authorization: `Bearer ${credencial}`, "Content-Type": "application/json" }, body: "{}" }))
+}
 export async function recuperarFlujosAsistente(projectId: string, credencial: string, requestIds?: string[]): Promise<VistaFlujoAsistente[]> {
   const consulta = requestIds ? `?${new URLSearchParams({ requestIds: requestIds.join(",") })}` : ""
   return leer(await fetch(`${rutaFlujo(projectId)}${consulta}`, { headers: { Authorization: `Bearer ${credencial}` } }))

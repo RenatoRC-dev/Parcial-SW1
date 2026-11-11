@@ -1,11 +1,12 @@
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
-import { randomUUID } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import type { Server } from "node:http"
 import request from "supertest"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
+import JSZip from "jszip"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js"
 import { crearServidorMcp } from "./ServidorMcp.js"
@@ -19,6 +20,8 @@ import { exportarModeloXmi } from "../../interoperabilidad/casos_uso/cu07_export
 import { fixtureCliente } from "../../generacion_backend/casos_uso/cu09_generar_backend_spring_boot/fixtureCliente.js"
 import { fixtureInteroperabilidad } from "../../interoperabilidad/compartido/crunch_uml/fixtureInteroperabilidad.js"
 
+import { importarModeloXmi } from "../../interoperabilidad/casos_uso/cu06_importar_modelo_xmi/importarModeloXmi.js"
+vi.mock("../../interoperabilidad/casos_uso/cu06_importar_modelo_xmi/importarModeloXmi.js", () => ({ importarModeloXmi: vi.fn() }))
 vi.mock("../../interoperabilidad/casos_uso/cu07_exportar_modelo_xmi/exportarModeloXmi.js", () => ({ exportarModeloXmi: vi.fn() }))
 const modelo = { ...fixtureCliente, clases: fixtureCliente.clases.map((c) => ({ ...c, posicion: { x: 0, y: 0 } })) }
 const inspection = () => esquemaInspeccionEA.parse({ packageGuid: `{${randomUUID()}}`, classes: modelo.clases.map((c) => ({ id: c.id, name: c.nombre, abstract: c.abstracta ? "1" : "0", stereotype: "", methods: 0, attributes: c.atributos.map((a) => ({ name: a.nombre, type: a.tipo ?? "", visibility: "Public" })) })), relationships: [] })
@@ -32,10 +35,10 @@ describe("MCP oficial y conector EA autorizado", () => {
   const invocar = (nombre: string, argumentos: unknown, cred = credential) => request(app).post(`${ruta()}/herramientas/invocar`).set("Authorization", `Bearer ${cred}`).send({ nombre, argumentos })
   const crearContexto = async (contenido = "Valida el UML") => (await request(app).post(`${ruta()}/herramientas/contextos`).set(bearer()).send(turno(contenido)).expect(201)).body.contextId as string
   const deviceId = randomUUID(), targetId = "a".repeat(64)
-  const parear = async () => (await request(app).post(`${ruta()}/conector-ea/autorizar`).set(bearer()).send({ deviceId, targetId, consent: true }).expect(201)).body.token as string
+  const parear = async () => { const token = (await request(app).post(`${ruta()}/conector-ea/autorizar`).set(bearer()).send({ deviceId, targetId, consent: true }).expect(201)).body.token as string; await siguiente(token).expect(200); return token }
   const siguiente = (token: string, cred = credential) => request(app).post(`${ruta()}/conector-ea/siguiente`).set("Authorization", `Bearer ${cred}`).set("X-NexoCASE-Connector", token).send({})
   beforeEach(async () => {
-    vi.clearAllMocks(); vi.mocked(exportarModeloXmi).mockResolvedValue(Buffer.from("<xmi:XMI/>"))
+    vi.clearAllMocks(); vi.mocked(importarModeloXmi).mockResolvedValue({ modelo, advertencias: [] }); vi.mocked(exportarModeloXmi).mockResolvedValue(Buffer.from("<xmi:XMI/>"))
     dir = await mkdtemp(join(tmpdir(), "mcp-ea-")); repo = new RepositorioMensajesMemoria()
     app = crearAplicacionGeneracionBackend({ accesoProyectos: { proyectos: new RepositorioProyectosArchivos(dir), participantes: new RepositorioParticipantesMemoria(), protector: new ProtegerAccesoProyecto("mcp-ea-test"), mensajes: repo, eventos: new RepositorioEventosMemoria() }, proveedorAsistenteContextual: { responder: vi.fn() }, proveedorIA: { interpretarCambiosUML: vi.fn() } })
     const p = await request(app).post("/api/proyectos").send({ nombre: "MCP EA test", nombreParticipante: "Ana" }).expect(201)
@@ -44,7 +47,7 @@ describe("MCP oficial y conector EA autorizado", () => {
   })
   afterEach(async () => { vi.useRealTimers(); vi.restoreAllMocks(); for (const close of cleanup.splice(0).reverse()) await close(); await rm(dir, { recursive: true, force: true }) })
 
-  it("cliente MCP real negocia, descubre siete tools e invoca validación por backend autenticado", async () => {
+  it("cliente MCP real negocia, descubre ocho tools e invoca validación por backend autenticado", async () => {
     const server = crearServidorMcp(async (nombre, args) => {
       const result = await invocar(nombre, args)
       if (result.status !== 200) throw Object.assign(new Error("rejected"), { status: result.status })
@@ -54,7 +57,7 @@ describe("MCP oficial y conector EA autorizado", () => {
     const [a, b] = InMemoryTransport.createLinkedPair(); await server.connect(b); await client.connect(a)
     cleanup.push(() => server.close(), () => client.close())
     const list = await client.listTools()
-    expect(list.tools.map((t) => t.name).sort()).toEqual(["uml_read_model", "uml_validate", "uml_request_change", "xmi_export", "xmi_import", "spring_generate", "ea_import_model"].sort())
+    expect(list.tools.map((t) => t.name).sort()).toEqual(["uml_read_model", "uml_validate", "uml_request_change", "xmi_export", "xmi_import", "spring_generate", "ea_import_model", "ea_export_model"].sort())
     const contextId = await crearContexto()
     const r = await client.callTool({ name: "uml_validate", arguments: { contextId, expectedRevision: 7 } })
     expect(r.isError).not.toBe(true); expect(r.structuredContent).toMatchObject({ projectId, revision: 7, kind: "uml_validate", outcome: { validacion: { valido: true } } })
@@ -71,7 +74,7 @@ describe("MCP oficial y conector EA autorizado", () => {
     const transport = new StdioClientTransport({ command: process.execPath, args: [resolve("node_modules/tsx/dist/cli.mjs"), resolve("src/paquetes/asistencia_contextual/herramientas/iniciarMcp.ts")], env: { ...Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => typeof e[1] === "string")), NEXOCASE_BACKEND_URL: `http://127.0.0.1:${address.port}`, NEXOCASE_PROJECT_ID: projectId, NEXOCASE_CREDENTIAL: credential }, stderr: "pipe" })
     const client = new Client({ name: "stdio-proof", version: "1.0.0" }); cleanup.push(() => client.close())
     await client.connect(transport)
-    expect((await client.listTools()).tools).toHaveLength(7)
+    expect((await client.listTools()).tools).toHaveLength(8)
     const result = await client.callTool({ name: "uml_read_model", arguments: { contextId: await crearContexto(), expectedRevision: 7 } })
     expect(result.isError).not.toBe(true); expect(result.structuredContent).toMatchObject({ projectId, outcome: { modelo: { id: modelo.id } } })
   }, 20000)
@@ -117,7 +120,7 @@ describe("MCP oficial y conector EA autorizado", () => {
 
   it("EA no disponible da guía y no llama al exportador", async () => {
     const r = await request(app).post(`${ruta()}/asistente-colaborativo/interactuar`).set(bearer()).send(turno()).expect(503)
-    expect(r.body.error).toContain("desktop/ea/README.md"); expect(exportarModeloXmi).not.toHaveBeenCalled()
+    expect(r.body.error).toContain("desktop/ea/CONNECTOR.md"); expect(exportarModeloXmi).not.toHaveBeenCalled()
   })
 
   it("trabajo EA se entrega una vez, verifica contenido COM y preserva Guardar explícito", async () => {
@@ -156,4 +159,89 @@ describe("MCP oficial y conector EA autorizado", () => {
     const newer = await parear(); vi.spyOn(Date, "now").mockReturnValue(Date.now() + 9 * 60 * 60_000)
     await siguiente(newer).expect(403); vi.restoreAllMocks()
   })
+  it("pairing single-use, authenticated ZIP, real heartbeat and participant-only revocation", async () => {
+    await request(app).get(`${ruta()}/conector-ea/estado`).expect(401)
+    expect((await request(app).get(`${ruta()}/conector-ea/estado`).set(bearer())).body.estado).toBe("not_configured")
+    const download = await request(app).get(`${ruta()}/conector-ea/paquete`).set(bearer()).buffer(true).parse((response, done) => {
+      const chunks: Buffer[] = []; response.on("data", (chunk: Buffer) => chunks.push(chunk)); response.on("end", () => done(null, Buffer.concat(chunks)))
+    }).expect(200)
+    expect(download.headers["content-disposition"]).toContain("NexoCASE-Connector.zip")
+    const zip = await JSZip.loadAsync(download.body)
+    expect(Object.keys(zip.files).sort()).toEqual(["Automation.ps1", "Connect.ps1", "README.md", "Setup.cmd", "Setup.ps1"].sort())
+    expect(await zip.file("Setup.cmd")!.async("string")).not.toMatch(/ExecutionPolicy|RunAs/i)
+    const code = (await request(app).post(`${ruta()}/conector-ea/emparejamiento`).set(bearer()).send({}).expect(201)).body
+    const body = { codigo: code.codigo, deviceId, targetId, consent: true }
+    const pair = (await request(app).post("/api/conector-ea/canjear").send(body).expect(201)).body
+    expect(pair.projectId).toBe(projectId)
+    await request(app).post("/api/conector-ea/canjear").send(body).expect(403)
+    const status = () => request(app).get(`${ruta()}/conector-ea/estado`).set(bearer())
+    expect((await status()).body.estado).toBe("disconnected")
+    await request(app).post("/api/conector-ea/siguiente").set("X-NexoCASE-Connector", pair.token).send({}).expect(200)
+    expect((await status()).body.estado).toBe("connected")
+    await request(app).post(`${ruta()}/conector-ea/revocar`).set("Authorization", `Bearer ${other}`).send({}).expect(204)
+    expect((await status()).body.estado).toBe("connected")
+    vi.spyOn(Date, "now").mockReturnValue(Date.now() + 31_000)
+    expect((await status()).body.estado).toBe("disconnected"); vi.restoreAllMocks()
+    await request(app).post(`${ruta()}/conector-ea/revocar`).set(bearer()).send({}).expect(204)
+    await request(app).post("/api/conector-ea/siguiente").set("X-NexoCASE-Connector", pair.token).send({}).expect(403)
+  })
+
+  it("EA reverse: COM export -> CU06 preview, no save, duplicate safe, stale/foreign confirmation rejected", async () => {
+    const token = await parear(), t = turno("Import the selected Enterprise Architect model into NexoCASE.")
+    const r = await request(app).post(`${ruta()}/asistente-colaborativo/interactuar`).set(bearer()).send(t).expect(200)
+    expect(r.body.flujo).toMatchObject({ operacion: "importar_desde_ea", estado: "queued" })
+    const job = (await siguiente(token).expect(200)).body.job
+    expect(job.direction).toBe("ea_to_nexo"); expect(job.xmi).toBeUndefined()
+    const xml = Buffer.from('<xmi:XMI xmlns:xmi="http://schema.omg.org/spec/XMI/2.1"/>')
+    const receipt = { requestId: t.requestId, status: "exported", inspection: inspection(), xmi: xml.toString("base64"), sha256: createHash("sha256").update(xml).digest("hex") }
+    const send = (data: unknown) => request(app).post(`${ruta()}/conector-ea/recibo`).set(bearer()).set("X-NexoCASE-Connector", token).send(data)
+    await send({ ...receipt, sha256: "0".repeat(64) }).expect(400)
+    await send({ ...receipt, inspection: undefined }).expect(400)
+    await send({ ...receipt, xmi: "!unsafe" }).expect(400)
+    expect(importarModeloXmi).not.toHaveBeenCalled()
+    expect((await send(receipt).expect(200)).body.status).toBe("review")
+    await send(receipt).expect(200); expect(importarModeloXmi).toHaveBeenCalledOnce()
+    const f = (await repo.obtenerFlujo(projectId, t.requestId))!
+    expect(f.procedencia).toEqual([expect.objectContaining({ nombre: "cu06", estado: "completed" })])
+    const confirm = `${ruta()}/asistente-colaborativo/turnos/${t.requestId}/confirmar`
+    await request(app).post(confirm).set("Authorization", `Bearer ${other}`).send({ decision: "confirmar", modeloEjecucion: modelo, revisionEditor: 7 }).expect(403)
+    await request(app).post(confirm).set(bearer()).send({ decision: "confirmar", modeloEjecucion: modelo, revisionEditor: 8 }).expect(409)
+    const preview = await request(app).post(confirm).set(bearer()).send({ decision: "confirmar", modeloEjecucion: modelo, revisionEditor: 7 }).expect(200)
+    expect(preview.body.flujo.estado).toBe("issued"); expect(preview.body.modeloResultado).toEqual(modelo)
+    expect((await request(app).get(ruta()).set(bearer())).body.revisionModelo).toBe(0)
+    expect(exportarModeloXmi).not.toHaveBeenCalled()
+  })
+
+  it("disconnected request can retry same requestId after heartbeat; queued cancel prevents delivery", async () => {
+    const t = turno("Import the selected Enterprise Architect model into NexoCASE.")
+    await request(app).post(`${ruta()}/asistente-colaborativo/interactuar`).set(bearer()).send(t).expect(503)
+    const token = await parear()
+    await request(app).post(`${ruta()}/asistente-colaborativo/interactuar`).set(bearer()).send(t).expect(200)
+    const cancel = `${ruta()}/asistente-colaborativo/turnos/${t.requestId}/cancelar`
+    await request(app).post(cancel).set("Authorization", `Bearer ${other}`).send({}).expect(403)
+    expect((await request(app).post(cancel).set(bearer()).send({}).expect(200)).body.flujo.estado).toBe("cancelled")
+    expect((await siguiente(token)).body.job).toBeNull()
+    expect(importarModeloXmi).not.toHaveBeenCalled()
+  })
+
+  it("expired pairing codes cannot be redeemed; status reports expired authorization", async () => {
+    const code = (await request(app).post(`${ruta()}/conector-ea/emparejamiento`).set(bearer()).send({})).body.codigo
+    const token = await parear()
+    vi.spyOn(Date, "now").mockReturnValue(Date.now() + 9 * 60 * 60_000)
+    await request(app).post("/api/conector-ea/canjear").send({ codigo: code, deviceId, targetId, consent: true }).expect(403)
+    expect((await request(app).get(`${ruta()}/conector-ea/estado`).set(bearer())).body.estado).toBe("expired")
+    await siguiente(token).expect(403)
+  })
+
+  it.each(["<!DOCTYPE bad><XMI/>", "<XMI/>"])("reverse rejects unsafe XML or CU06 failure without issuing a replacement: %s", async (xml) => {
+    const token = await parear(), t = turno("Import from Enterprise Architect")
+    await request(app).post(`${ruta()}/asistente-colaborativo/interactuar`).set(bearer()).send(t).expect(200)
+    await siguiente(token)
+    vi.mocked(importarModeloXmi).mockRejectedValueOnce(new Error("CU06 unavailable"))
+    const data = Buffer.from(xml)
+    const r = await request(app).post(`${ruta()}/conector-ea/recibo`).set(bearer()).set("X-NexoCASE-Connector", token).send({ requestId:t.requestId,status:"exported",inspection:inspection(),xmi:data.toString("base64"),sha256:createHash("sha256").update(data).digest("hex") })
+    expect(r.status).toBe(xml.includes("DOCTYPE") ? 400 : 503)
+    expect((await repo.obtenerFlujo(projectId,t.requestId))?.modeloResultado).toBeUndefined()
+  })
+
 })

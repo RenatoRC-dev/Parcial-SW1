@@ -1523,3 +1523,11 @@ button:disabled {
   .project-create-controls { grid-template-columns: 1fr; }
   .project-list ul { grid-template-columns: 1fr; }
 }
+
+/* Compact authenticated EA setup; independent of conversation scrolling. */
+.assistant-ea-setup { padding: .5rem .75rem; border-bottom: 1px solid var(--color-border, #dbe4ef); font-size: .85rem; overflow-wrap: anywhere; max-height: 42vh; overflow-y: auto; }
+.assistant-ea-setup summary { cursor: pointer; font-weight: 600; }
+.assistant-ea-setup ol { padding-left: 1.25rem; }
+.assistant-ea-setup li { margin: .5rem 0; }
+.assistant-ea-setup input { max-width: 100%; min-width: 0; }
+.assistant-workflow-card .candidate-preview { max-height: 22rem; overflow: auto; overflow-wrap: anywhere; }

@@ -16,6 +16,8 @@ import { aplicarPlanIA } from "../../../asistencia_ia/casos_uso/cu04_modelar_con
 import { completarCambioIA } from "../../../asistencia_ia/casos_uso/cu04_modelar_con_ia/solicitarCambioIA"
 import type { CambioAplicadoIA } from "../../../asistencia_ia/casos_uso/cu04_modelar_con_ia/ComandoModeloUML"
 import { GrabadorInstruccionVoz } from "../../../asistencia_ia/casos_uso/cu04_modelar_con_ia/voz/GrabadorInstruccionVoz"
+import { ConfiguracionConectorEA } from "./ConfiguracionConectorEA"
+import { cancelarFlujoEA } from "./consultarAsistenteContextual"
 import { TarjetaFlujoAsistente } from "./TarjetaFlujoAsistente"
 
 interface PropiedadesPanelAsistenteContextual {
@@ -79,7 +81,7 @@ export function PanelAsistenteContextual({ projectId, credential, participantId,
   estadoModelo.current = { modelo, revision: revisionEditor }
   useEffect(() => { alCambiarEstadoCandidato?.(Object.values(flujos).some((f) => f.estado === "review" || f.estado === "issued")) }, [flujos, alCambiarEstadoCandidato])
   useEffect(() => {
-    const pendientes = Object.values(flujos).filter((f) => f.operacion === "automatizar_ea" && ["queued", "importing"].includes(f.estado)).map((f) => f.requestId)
+    const pendientes = Object.values(flujos).filter((f) => ["automatizar_ea", "importar_desde_ea"].includes(f.operacion) && ["queued", "importing"].includes(f.estado)).map((f) => f.requestId)
     if (!pendientes.length) return
     let cancelado = false, enVuelo = false
     const timer = setInterval(async () => {
@@ -239,13 +241,21 @@ export function PanelAsistenteContextual({ projectId, credential, participantId,
 
   return <aside className="contextual-assistant-panel" data-testid="panel-asistente-colaborativo">
     <h2>{t("contextual.titulo")}</h2>
+    <ConfiguracionConectorEA key={`${projectId}:${participantId}`} projectId={projectId} credential={credential} solicitar={!!error && /conector|connector|Enterprise Architect/i.test(error)} />
     <div ref={historial} className="contextual-conversation" role="log" aria-label={t("chat.historial")} aria-live="polite" aria-busy={cargando} tabIndex={0} onScroll={(evento) => { const nodo = evento.currentTarget; seguirFinal.current = nodo.scrollHeight - nodo.scrollTop - nodo.clientHeight < 100 }}>
       {cursorAnterior ? <button type="button" disabled={cargando} onClick={() => { seguirFinal.current = false; establecerCargando(true); void cargarHistoria(cursorAnterior) }}>{t("contextual.cargarAnteriores")}</button> : null}
       {mensajes.map((mensaje) => <article className={mensaje.tipoRemitente === "ai" ? "contextual-answer" : "contextual-message"} key={mensaje.id} data-message-id={mensaje.id}>
         <strong>{mensaje.tipoRemitente === "ai" ? t("contextual.ia") : mensaje.nombreVisibleSnapshot ?? t("contextual.sistema")}:</strong>
+        {mensaje.tipoRemitente === "ai" && mensaje.procedencia?.length ? <small className="ai-note" data-testid="procedencia-ia">{mensaje.procedencia.map((paso) => `${({ ollama: "Ollama · Qwen3", groq_cu04: "Groq · CU04", groq_cu05: "Groq · CU05", groq_cu12: "Groq · CU12", determinista: "NexoCASE", cu08: "CU08", cu06: "CU06 · XMI", cu07: "CU07 · XMI", spring: "Spring" })[paso.nombre] ?? "NexoCASE"}${paso.estado === "failed" ? " ⚠" : ""}`).join(" / ")}</small> : null}
         <div className="contextual-message-body">{mensaje.tipoRemitente === "ai" ? formatearMensaje(mensaje.contenido) : mensaje.contenido}</div>
         {mensaje.tipoRemitente === "human" && mensaje.requestId && adjuntosEnviados[mensaje.requestId] ? <VistaAdjunto archivo={adjuntosEnviados[mensaje.requestId]} /> : null}
-        {mensaje.tipoRemitente === "human" && mensaje.requestId && flujos[mensaje.requestId]?.sourceMessageId === mensaje.id && flujos[mensaje.requestId]?.participantId === participantId ? <TarjetaFlujoAsistente flujo={flujos[mensaje.requestId]} ocupado={consultando} alDecidir={(d) => void decidir(flujos[mensaje.requestId!], d)} alDescargar={() => {
+        {mensaje.tipoRemitente === "human" && mensaje.requestId && flujos[mensaje.requestId]?.sourceMessageId === mensaje.id && flujos[mensaje.requestId]?.participantId === participantId ? <TarjetaFlujoAsistente flujo={flujos[mensaje.requestId]} ocupado={consultando} alCancelar={() => {
+          if (enviando.current) return
+          enviando.current = true; establecerConsultando(true)
+          void cancelarFlujoEA(projectId, credential, mensaje.requestId!).then(({ flujo }) => {
+            if (identidadActual.current.projectId === projectId && identidadActual.current.participantId === participantId) establecerFlujos((actual) => ({ ...actual, [flujo.requestId]: flujo }))
+          }).catch((e: unknown) => establecerError(e instanceof Error ? e.message : t("contextual.errorInterno"))).finally(() => { enviando.current = false; establecerConsultando(false) })
+        }} alDecidir={(d) => void decidir(flujos[mensaje.requestId!], d)} alDescargar={() => {
           establecerConsultando(true); establecerError(null)
           void descargar(projectId, credential, flujos[mensaje.requestId!]).catch((e: unknown) => establecerError(e instanceof Error ? e.message : t("contextual.errorInterno"))).finally(() => establecerConsultando(false))
         }} /> : null}

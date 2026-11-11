@@ -1,3 +1,5 @@
+import { registrarPasoIA } from "../../../mensajeria_colaborativa/compartido/ProcedenciaIA.js"
+import { readFile } from "node:fs/promises"
 import type { Express, RequestHandler, Response } from "express"
 import type { ProtegerAccesoProyecto } from "../../../gestion_proyectos/acceso/ProtegerAccesoProyecto.js"
 import type { SolicitudConAccesoProyecto } from "../../../gestion_proyectos/api/ContextoAccesoProyecto.js"
@@ -45,7 +47,7 @@ export function registrarRutaAsistenteColaborativo(aplicacion: Express, dependen
   const construir = new ConstruirContextoAsistenteColaborativo(dependencias.proyectos, dependencias.mensajes, dependencias.eventos)
   const flujos = new EjecutarFlujosAsistente(dependencias.mensajes, gestionar, dependencias.publicador, dependencias.proveedorVision)
   const servicio = new OrquestarInteraccionIA(gestionar, dependencias.mensajes, construir, dependencias.proveedor, dependencias.proveedorCU04, dependencias.publicador, dependencias.planificadorLocal, flujos)
-  const conector = new ConectorEA(dependencias.mensajes, (a, f) => flujos.finalizar(a, f))
+  const conector = new ConectorEA(dependencias.mensajes, (a, f) => flujos.finalizar(a, f), (f, datos) => flujos.prepararImportacionXmi(f, datos))
   flujos.conectorEA = conector
   const registro = new RegistroHerramientas(flujos, (a, p) => {
     if (detectarComandoFlujo(p.contenido) || !["EXPLICIT_MODIFICATION", "CONTEXTUAL_MODIFICATION"].includes(clasificarIntencionInteraccion(p.contenido))) throw new ErrorFlujoAsistente(403, "CU04 requiere una instrucción humana explícita de modificación UML.")
@@ -53,14 +55,14 @@ export function registrarRutaAsistenteColaborativo(aplicacion: Express, dependen
   })
   servicio.ejecutarHerramienta = async (acceso, pregunta) => {
     const operacion = detectarComandoFlujo(pregunta.contenido)
-    const nombres: Partial<Record<string, NombreHerramienta>> = { exportar_xmi: "xmi_export", generar_spring: "spring_generate", automatizar_ea: "ea_import_model" }
+    const nombres: Partial<Record<string, NombreHerramienta>> = { exportar_xmi: "xmi_export", generar_spring: "spring_generate", automatizar_ea: "ea_import_model", importar_desde_ea: "ea_export_model" }
     if (operacion && nombres[operacion]) {
       const r = await registro.ejecutar(nombres[operacion]!, { acceso, pregunta, expires: Date.now() + 120_000 })
       return r.outcome as ResultadoOrquestacion
     }
     const texto = pregunta.contenido.toLowerCase().trim()
     if (!/^(valida\w*|validate|comprueba|verifica)\b/.test(texto) || /\b(no|not|si|if|pero|but)\b/.test(texto)) return null
-    const r = await registro.ejecutar("uml_validate", { acceso, pregunta, expires: Date.now() + 120_000 })
+    const r = await registrarPasoIA("cu08", () => registro.ejecutar("uml_validate", { acceso, pregunta, expires: Date.now() + 120_000 }))
     const humano = await gestionar.registrarMensajeHumanoIdempotente(acceso, pregunta.contenido, pregunta.requestId)
     if (humano.creado) dependencias.publicador.publicar(humano.mensaje)
     const ia = await gestionar.registrarMensajeIAIdempotente(acceso.projectId, (r.outcome as { resumen: string }).resumen.slice(0, 6500), pregunta.requestId, humano.mensaje.id)
@@ -84,8 +86,30 @@ export function registrarRutaAsistenteColaborativo(aplicacion: Express, dependen
   }))
   const rutaEA = "/api/proyectos/:id/conector-ea"
   const tokenEA = (req: Parameters<RequestHandler>[0]) => String(req.headers["x-nexocase-connector"] ?? "")
+  aplicacion.get(`${rutaEA}/estado`, requerir, controlar(async (req, res) => { res.set("Cache-Control", "no-store").json(await conector.estado((req as SolicitudConAccesoProyecto).accesoProyecto)) }))
+  aplicacion.get(`${rutaEA}/paquete`, requerir, controlar(async (_req, res) => {
+    let zip: Buffer
+    try { zip = await readFile(new URL("../../../../../recursos/ea/NexoCASE-Connector.zip", import.meta.url)) }
+    catch { throw new ErrorFlujoAsistente(503, "El paquete Windows no está disponible. El administrador debe ejecutar npm run package:ea en backend.") }
+    res.attachment("NexoCASE-Connector.zip").type("application/zip").send(zip)
+  }))
+  aplicacion.post(`${rutaEA}/emparejamiento`, requerir, controlar(async (req, res) => { res.set("Cache-Control", "no-store").status(201).json(conector.crearCodigo((req as SolicitudConAccesoProyecto).accesoProyecto)) }))
+  aplicacion.post("/api/conector-ea/canjear", controlar(async (req, res) => { res.set("Cache-Control", "no-store").status(201).json(conector.canjear(req.body)) }))
+  const accesoDispositivo = async (req: Parameters<RequestHandler>[0]) => {
+    const acceso = conector.accesoToken(tokenEA(req))
+    const participante = await dependencias.participantes.obtenerPorId(acceso.participantId)
+    if (!participante || participante.proyectoId !== acceso.projectId || !await dependencias.proyectos.obtenerPorId(acceso.projectId)) throw new ErrorFlujoAsistente(403, "El participante/proyecto del conector ya no está disponible.")
+    return acceso
+  }
+  aplicacion.post("/api/conector-ea/siguiente", controlar(async (req, res) => { res.json({ job: await conector.siguiente(await accesoDispositivo(req), tokenEA(req)) }) }))
+  aplicacion.post("/api/conector-ea/recibo", controlar(async (req, res) => { res.json(await conector.recibir(await accesoDispositivo(req), tokenEA(req), req.body)) }))
+  aplicacion.post("/api/conector-ea/revocar", controlar(async (req, res) => { conector.revocar(await accesoDispositivo(req), tokenEA(req)); res.sendStatus(204) }))
   aplicacion.post(`${rutaEA}/autorizar`, requerir, controlar(async (req, res) => { res.status(201).json(conector.parear((req as SolicitudConAccesoProyecto).accesoProyecto, req.body)) }))
-  aplicacion.post(`${rutaEA}/revocar`, requerir, controlar(async (req, res) => { conector.revocar((req as SolicitudConAccesoProyecto).accesoProyecto, tokenEA(req)); res.sendStatus(204) }))
+  aplicacion.post(`${rutaEA}/revocar`, requerir, controlar(async (req, res) => {
+    const acceso = (req as SolicitudConAccesoProyecto).accesoProyecto
+    if (tokenEA(req)) conector.revocar(acceso, tokenEA(req)); else conector.revocarParticipante(acceso)
+    res.sendStatus(204)
+  }))
   aplicacion.post(`${rutaEA}/siguiente`, requerir, controlar(async (req, res) => { res.json({ job: await conector.siguiente((req as SolicitudConAccesoProyecto).accesoProyecto, tokenEA(req)) }) }))
   aplicacion.post(`${rutaEA}/recibo`, requerir, controlar(async (req, res) => { res.json(await conector.recibir((req as SolicitudConAccesoProyecto).accesoProyecto, tokenEA(req), req.body)) }))
   aplicacion.get(`${ruta}/turnos`, requerir, controlar(async (req, res) => {
@@ -113,6 +137,7 @@ export function registrarRutaAsistenteColaborativo(aplicacion: Express, dependen
     if ((decision !== "confirmar" && decision !== "rechazar") || !validarSolicitudInterpretacion({ instruccion: "validar", modelo: modeloEjecucion, revision: revisionEditor })) throw new ErrorFlujoAsistente(400, "La confirmación requiere decisión, UML y revisión válidos.")
     res.json(await flujos.confirmar((req as SolicitudConAccesoProyecto).accesoProyecto, String(req.params.requestId), decision, modeloEjecucion, revisionEditor))
   }))
+  aplicacion.post(`${ruta}/turnos/:requestId/cancelar`, requerir, controlar(async (req, res) => { res.json(await flujos.cancelarEA((req as SolicitudConAccesoProyecto).accesoProyecto, String(req.params.requestId))) }))
   aplicacion.post(`${ruta}/turnos/:requestId/completar`, requerir, controlar(async (req, res) => {
     const { resultado, modeloEjecucion } = req.body ?? {}
     if (resultado !== "applied" && resultado !== "failed") throw new ErrorFlujoAsistente(400, "Resultado de aplicación inválido.")

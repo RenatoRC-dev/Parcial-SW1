@@ -1,3 +1,5 @@
+import { conProcedencia, registrarPasoIA } from "../../../mensajeria_colaborativa/compartido/ProcedenciaIA.js"
+import { referenciarAsesoria } from "./PropuestaAsesoriaLocal.js"
 import type { ContextoAccesoProyecto } from "../../../gestion_proyectos/api/ContextoAccesoProyecto.js"
 import { GestionarMensajesProyecto } from "../../../mensajeria_colaborativa/casos_uso/GestionarMensajesProyecto.js"
 import type { MensajeProyecto } from "../../../mensajeria_colaborativa/compartido/MensajeProyecto.js"
@@ -55,6 +57,10 @@ export class AsistirColaborativamente {
   ) {}
 
   async ejecutar(acceso: ContextoAccesoProyecto, pregunta: PreguntaAsistenteColaborativo, respuestaLocal?: string): Promise<{ mensajeHumano: MensajeProyecto; mensajeIA: MensajeProyecto }> {
+    return conProcedencia(pregunta.requestId, () => this.ejecutarConProcedencia(acceso, pregunta, respuestaLocal))
+  }
+
+  private async ejecutarConProcedencia(acceso: ContextoAccesoProyecto, pregunta: PreguntaAsistenteColaborativo, respuestaLocal?: string): Promise<{ mensajeHumano: MensajeProyecto; mensajeIA: MensajeProyecto }> {
     const clave = `${acceso.projectId}:${pregunta.requestId}:${acceso.participantId}:${pregunta.contenido.trim()}`
     const enCurso = this.solicitudesEnCurso.get(clave)
     if (enCurso) return enCurso
@@ -73,11 +79,21 @@ export class AsistirColaborativamente {
     }
 
     const solicitud = await this.construirContexto.construir(acceso, pregunta)
-    const respuesta = responderAyudaProductoDeterminista(solicitud)
-      ?? responderActividad(solicitud)
-      ?? (respuestaLocal ? respuestaDeterminista(respuestaLocal) : await asistirUsuario(solicitud, this.proveedor))
+    const recomendacionLocal = respuestaLocal === undefined ? null : referenciarAsesoria(pregunta.contenido, respuestaLocal, pregunta.modeloEjecucion, pregunta.revisionEditor)
+    // Already generated, grounded advice must not be replaced by a keyword help answer.
+    const determinista = recomendacionLocal ? null : responderAyudaProductoDeterminista(solicitud) ?? responderActividad(solicitud)
+    const respuesta: RespuestaAsistenteContextual = determinista
+      ? await registrarPasoIA("determinista", () => determinista)
+      : respuestaLocal !== undefined
+        ? { respuesta: respuestaLocal, accionSugerida: "NINGUNA", elementoRelacionadoId: null, nivel: "sugerencia", categoriaRecomendacion: "RECOMENDADO", origen: "ollama",
+          recomendacion: recomendacionLocal }
+        : await asistirUsuario(solicitud, { responder: (entrada) => registrarPasoIA("groq_cu12", () => this.proveedor.responder(entrada)) })
     const ids = respuesta.elementoRelacionadoId ? [respuesta.elementoRelacionadoId] : []
     const ia = await this.mensajes.registrarMensajeIAIdempotente(acceso.projectId, respuesta.respuesta, pregunta.requestId, humano.mensaje.id, ids, respuesta.recomendacion ?? null)
+    if (respuesta.origen === "ollama") console.info("[IA] advisory_reference", {
+      requestId: pregunta.requestId, sourceMessageId: ia.mensaje.id, replyToMessageId: humano.mensaje.id,
+      reason: ia.mensaje.recomendacion ? "GROUNDED_ADVICE_STORED" : "NO_GROUNDED_ADVICE",
+    })
     if (ia.creado) this.publicador.publicar(ia.mensaje)
     return { mensajeHumano: humano.mensaje, mensajeIA: ia.mensaje }
   }

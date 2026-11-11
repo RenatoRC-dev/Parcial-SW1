@@ -1,3 +1,4 @@
+import { conProcedencia, registrarPasoIA } from "../../../mensajeria_colaborativa/compartido/ProcedenciaIA.js"
 import { createHash, randomUUID } from "node:crypto"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -29,7 +30,11 @@ export const huellaModelo = (valor: unknown) => createHash("sha256").update(JSON
 export function detectarComandoFlujo(texto: string): OperacionFlujo | null {
   const t = texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/^[¿?\s]+/, "").replace(/^por favor[, ]+|^please\s+/, "").replace(/^(puedes|podrias|can you|could you)\s+/, "").replace(/^(quiero|necesito|quisiera) (que )?|^i (want|need) to /, "")
   if (/\b(no|not|don't|si|if|pero|but)\b/.test(t) || /^(como|how|que|what)\b/.test(t)) return null
-  if (/^(exporta\w*|export|lleva\w*|importa\w*)\b/.test(t) && /\b(enterprise architect|ea)\b/.test(t)) return "automatizar_ea"
+  if (/\b(enterprise architect|ea)\b/.test(t)) {
+    if (/^(importa\w*|import|trae\w*|bring|exporta\w*|export)\b/.test(t)
+      && (/\b(desde|from|de) (?:el |the )?(?:modelo (?:seleccionado )?de )?(enterprise architect|ea)\b/.test(t) || /\b(into|to|a) nexocase\b/.test(t))) return "importar_desde_ea"
+    if (/^(exporta\w*|export|lleva\w*|importa\w*)\b/.test(t)) return "automatizar_ea"
+  }
   if (/^(exporta\w*|export)\b/.test(t) && /\bxmi\b/.test(t)) return "exportar_xmi"
   if (/^(genera\w*|generate|crea|create)\b/.test(t) && /\b(spring|backend)\b/.test(t)) return "generar_spring"
   return null
@@ -41,6 +46,10 @@ export class EjecutarFlujosAsistente {
     private readonly publicador: PublicadorMensajesProyecto, private readonly vision: ProveedorVisionUML) {}
 
   async ejecutar(acceso: ContextoAccesoProyecto, pregunta: PreguntaAsistenteColaborativo, operacion: OperacionFlujo, adjunto?: AdjuntoTurno): Promise<RespuestaFlujoAsistente> {
+    return conProcedencia(pregunta.requestId, () => this.ejecutarUnaVez(acceso, pregunta, operacion, adjunto))
+  }
+
+  private async ejecutarUnaVez(acceso: ContextoAccesoProyecto, pregunta: PreguntaAsistenteColaborativo, operacion: OperacionFlujo, adjunto?: AdjuntoTurno): Promise<RespuestaFlujoAsistente> {
     if (!pregunta.modeloEjecucion || pregunta.revisionEditor === undefined) throw new ErrorFlujoAsistente(400, "Se requiere la vista actual y revisión del UML.")
     const contenido = `${pregunta.contenido}${adjunto ? `\n📎 ${adjunto.nombre}` : ""}`
     const humano = await this.mensajes.registrarMensajeHumanoIdempotente(acceso, contenido, pregunta.requestId)
@@ -52,6 +61,12 @@ export class EjecutarFlujosAsistente {
       if (existente.huella !== huella) throw new ErrorFlujoAsistente(409, "La solicitud ya fue usada con otro archivo, modelo o revisión.")
       return this.respuesta(acceso, existente)
     }
+    // Desconexión previa a la reserva: el mismo requestId puede recuperarse
+    // después de conectar, sin un trabajo fallido irreversible ni una escritura EA.
+    if (["automatizar_ea", "importar_desde_ea"].includes(operacion)) {
+      if (!this.conectorEA) throw new ErrorFlujoAsistente(503, "Configura Enterprise Architect en este asistente.")
+      this.conectorEA.disponible(acceso)
+    }
     const flujo: FlujoAsistentePersistido = { projectId: acceso.projectId, participantId: acceso.participantId, requestId: pregunta.requestId,
       sourceMessageId: humano.mensaje.id, completionRequestId: randomUUID(), huella, modeloBase: structuredClone(pregunta.modeloEjecucion),
       revision: pregunta.revisionEditor, operacion, estado: "processing", resumen: "Procesando el turno solicitado.", advertencias: [] }
@@ -61,9 +76,15 @@ export class EjecutarFlujosAsistente {
       return this.respuesta(acceso, reservado)
     }
     try {
-      if (operacion === "analizar_imagen") {
+      if (operacion === "importar_desde_ea") {
+        if (detectarComandoFlujo(pregunta.contenido) !== operacion) throw new ErrorFlujoAsistente(403, "Autoriza importar desde Enterprise Architect a NexoCASE.")
+        if (!this.conectorEA) throw new ErrorFlujoAsistente(503, "Configura Enterprise Architect en este asistente.")
+        flujo.ea = { ...this.conectorEA.preparar(acceso, Buffer.alloc(0)), direction: "ea_to_nexo" }
+        flujo.estado = "queued"
+        flujo.resumen = "Esperando al conector Windows para exportar el paquete EA aprobado localmente. CU06 prepara una vista previa; no se reemplaza el UML sin confirmacion."
+      } else if (operacion === "analizar_imagen") {
         if (adjunto?.tipo !== "imagen") throw new ErrorFlujoAsistente(400, "Adjunta una imagen PNG o JPEG.")
-        const resultado = await analizarImagenUML({ datos: adjunto.datos, mimeType: adjunto.mime as "image/png" | "image/jpeg", nombreArchivo: adjunto.nombre, instruccion: pregunta.contenido }, this.vision)
+        const resultado = await analizarImagenUML({ datos: adjunto.datos, mimeType: adjunto.mime as "image/png" | "image/jpeg", nombreArchivo: adjunto.nombre, instruccion: pregunta.contenido }, { analizarImagen: (imagen) => registrarPasoIA("groq_cu05", () => this.vision.analizarImagen(imagen)) })
         flujo.resumen = resultado.mensaje
         if (resultado.resultado === "candidato") {
           flujo.candidato = resultado.candidato
@@ -76,13 +97,7 @@ export class EjecutarFlujosAsistente {
         } else { flujo.estado = "ready" }
       } else if (operacion === "importar_xmi") {
         if (adjunto?.tipo !== "xmi") throw new ErrorFlujoAsistente(400, "Adjunta un archivo XMI/XML.")
-        const importado = await importarModeloXmi(adjunto.datos.toString("utf8"))
-        if (JSON.stringify(importado.modelo).length > 800_000 || !validarSolicitudInterpretacion({ instruccion: "validar", modelo: importado.modelo, revision: flujo.revision })) throw new ErrorFlujoAsistente(422, "El modelo importado excede el contrato admitido por el editor del chat.")
-        flujo.modeloResultado = importado.modelo
-        flujo.advertencias = importado.advertencias.map((a) => a.mensaje)
-        flujo.clases = importado.modelo.clases.map((c) => c.nombre)
-        flujo.estado = "review"
-        flujo.resumen = `Importación preparada: ${importado.modelo.clases.length} clases y ${importado.modelo.relaciones.length} relaciones. Confirmar REEMPLAZARÁ las ${flujo.modeloBase.clases.length} clases y ${flujo.modeloBase.relaciones.length} relaciones actuales de este proyecto (revisión ${flujo.revision}). No se guardará automáticamente.`
+        await this.prepararImportacionXmi(flujo, adjunto.datos)
       } else {
         let datos: Buffer
         if (operacion === "exportar_xmi" || operacion === "automatizar_ea") {
@@ -92,7 +107,7 @@ export class EjecutarFlujosAsistente {
             this.conectorEA.disponible(acceso)
             if (!validarModelo(flujo.modeloBase).valido) throw new ErrorFlujoAsistente(422, "CU08 rechazó el UML; corrige la validación antes de exportar a EA.")
           }
-          datos = await exportarModeloXmi(flujo.modeloBase)
+          datos = await registrarPasoIA("cu07", () => exportarModeloXmi(flujo.modeloBase))
           flujo.archivo = { nombre: "modelo.xmi", mime: "application/xml", base64: "" }
           flujo.advertencias = ["Perfil XMI compatible de NexoCASE; no garantiza interoperabilidad universal con Enterprise Architect ni sincroniza con él.",
             ...(flujo.modeloBase.clases.some((c) => (c.metodos?.length ?? 0) > 0) ? ["Las operaciones UML no forman parte del perfil XMI soportado."] : [])]
@@ -101,7 +116,7 @@ export class EjecutarFlujosAsistente {
           const aptitud = evaluarAptitudGeneracionSpring(flujo.modeloBase, validarModelo(flujo.modeloBase))
           if (!aptitud.apto) throw new ErrorFlujoAsistente(422, `No se puede generar Spring: ${aptitud.motivos.join(" ")}`)
           const temporal = await mkdtemp(join(tmpdir(), "nexocase-chat-spring-"))
-          try { await generarProyectoSpring(flujo.modeloBase, join(temporal, "proyecto")); datos = await empaquetarBackendGenerado(join(temporal, "proyecto")) }
+          try { datos = await registrarPasoIA("spring", async () => { await generarProyectoSpring(flujo.modeloBase, join(temporal, "proyecto")); return empaquetarBackendGenerado(join(temporal, "proyecto")) }) }
           finally { await rm(temporal, { recursive: true, force: true }) }
           flujo.archivo = { nombre: "backend-generado.zip", mime: "application/zip", base64: "" }
           flujo.advertencias = ["La generación se limita al perfil Spring/JPA soportado; no implementa reglas de negocio ni mapeos adicionales.", ...aptitud.advertencias.map((a) => a.relacion)]
@@ -113,7 +128,7 @@ export class EjecutarFlujosAsistente {
           flujo.ea = this.conectorEA!.preparar(acceso, datos)
           flujo.estado = "queued"
           flujo.resumen = "XMI real generado por CU07. En espera del conector Windows para importar en un paquete EA nuevo y verificar mediante COM; aún no se confirmó la importación."
-          flujo.advertencias = ["Los GUID se regeneran para aislar cada importación; no hay sincronización bidireccional ni sobrescritura.", "Los diagramas y su disposición visual no se importan (ImportDiagrams=0). La versión canónica del modelo no forma parte de la verificación EA. Métodos, abstracción y relaciones distintas de asociación son rechazados por el perfil CU07 actual.", ...(flujo.modeloBase.clases.some((c) => c.tipoClase === "asociativa") ? ["El marcador de clase asociativa es específico de NexoCASE; no se verifica su conservación en Enterprise Architect. Puede importarse como clase normal."] : [])]
+          flujo.advertencias = ["Los GUID se regeneran para aislar cada importación; no hay sincronización continua ni sobrescritura.", "Los diagramas y su disposición visual no se importan (ImportDiagrams=0). La versión canónica del modelo no forma parte de la verificación EA. Métodos, abstracción y relaciones distintas de asociación son rechazados por el perfil CU07 actual.", ...(flujo.modeloBase.clases.some((c) => c.tipoClase === "asociativa") ? ["El marcador de clase asociativa es específico de NexoCASE; no se verifica su conservación en Enterprise Architect. Puede importarse como clase normal."] : [])]
         }
       }
     } catch (error) {
@@ -133,6 +148,20 @@ export class EjecutarFlujosAsistente {
     if (flujo.participantId !== acceso.participantId) throw new ErrorFlujoAsistente(403, "Este turno pertenece a otro participante.")
     await this.conectorEA?.expirar(acceso, flujo)
     return flujo
+  }
+
+  async prepararImportacionXmi(flujo: FlujoAsistentePersistido, datos: Buffer): Promise<void> {
+    if (!datos.length || datos.length > 5 * 1024 * 1024) throw new ErrorFlujoAsistente(413, "XMI vacío o mayor a 5 MB.")
+    const importado = await registrarPasoIA("cu06", () => importarModeloXmi(datos.toString("utf8")))
+    if (JSON.stringify(importado.modelo).length > 800_000 || !validarSolicitudInterpretacion({ instruccion: "validar", modelo: importado.modelo, revision: flujo.revision })) throw new ErrorFlujoAsistente(422, "El modelo importado excede el contrato admitido por el editor del chat.")
+    const validacion = validarModelo(importado.modelo)
+    if (!validacion.valido) throw new ErrorFlujoAsistente(422, "CU08 rechazó el modelo importado; no se preparó un reemplazo.")
+    flujo.modeloResultado = importado.modelo
+    flujo.advertencias = importado.advertencias.map((a) => a.mensaje)
+    flujo.clases = importado.modelo.clases.map((c) => c.nombre)
+    flujo.resumenModelo = { clases: importado.modelo.clases.length, atributos: importado.modelo.clases.reduce((n, c) => n + c.atributos.length, 0), relaciones: importado.modelo.relaciones.length }
+    flujo.estado = "review"
+    flujo.resumen = `Importación preparada: ${flujo.resumenModelo.clases} clases, ${flujo.resumenModelo.atributos} atributos y ${flujo.resumenModelo.relaciones} relaciones. Confirmar REEMPLAZARÁ las ${flujo.modeloBase.clases.length} clases y ${flujo.modeloBase.relaciones.length} relaciones actuales de este proyecto (revisión ${flujo.revision}). No se guardará automáticamente.`
   }
 
   async confirmar(acceso: ContextoAccesoProyecto, requestId: string, decision: "confirmar" | "rechazar", modelo: PreguntaAsistenteColaborativo["modeloEjecucion"], revision: number): Promise<AplicacionFlujoAsistente> {
@@ -157,6 +186,16 @@ export class EjecutarFlujosAsistente {
     return { flujo: vistaFlujo(flujo), modeloResultado: flujo.modeloResultado }
   }
 
+  async cancelarEA(acceso: ContextoAccesoProyecto, requestId: string): Promise<RespuestaFlujoAsistente> {
+    const flujo = await this.obtener(acceso, requestId)
+    if (flujo.estado === "cancelled") return this.respuesta(acceso, flujo)
+    if (!["automatizar_ea", "importar_desde_ea"].includes(flujo.operacion) || flujo.estado !== "queued") throw new ErrorFlujoAsistente(409, "El trabajo ya fue recibido o finalizado. No se puede prometer cancelación de una operación COM en curso.")
+    flujo.estado = "cancelled"; flujo.resumen = "Trabajo EA cancelado antes de su entrega al conector. No se inició ninguna operación externa."
+    if (!await this.repo.actualizarFlujo(flujo, "queued")) throw new ErrorFlujoAsistente(409, "El trabajo ya cambió.")
+    await this.finalizar(acceso, flujo)
+    return this.respuesta(acceso, flujo)
+  }
+
   async completar(acceso: ContextoAccesoProyecto, requestId: string, resultado: "applied" | "failed", modelo?: PreguntaAsistenteColaborativo["modeloEjecucion"]): Promise<RespuestaFlujoAsistente> {
     const flujo = await this.obtener(acceso, requestId)
     if (flujo.estado === "issued") {
@@ -170,7 +209,8 @@ export class EjecutarFlujosAsistente {
   }
 
   async finalizar(acceso: ContextoAccesoProyecto, flujo: FlujoAsistentePersistido): Promise<void> {
-    const ia = await this.mensajes.registrarMensajeIAIdempotente(acceso.projectId, flujo.resumen, flujo.completionRequestId, flujo.sourceMessageId)
+    const original = await this.mensajes.obtenerPorRequestId(acceso.projectId, flujo.requestId, "ai")
+    const ia = await this.mensajes.registrarMensajeIAIdempotente(acceso.projectId, flujo.resumen, flujo.completionRequestId, flujo.sourceMessageId, [], null, flujo.procedencia ?? original?.procedencia)
     if (ia.creado) this.publicador.publicar(ia.mensaje)
   }
   async respuesta(acceso: ContextoAccesoProyecto, flujo: FlujoAsistentePersistido): Promise<RespuestaFlujoAsistente> {

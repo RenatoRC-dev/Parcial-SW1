@@ -57,6 +57,7 @@ describe("turnos atómicos y servicios del asistente", () => {
     expect(resultado.body.mensajeHumano.contenido).toContain("diagrama.png")
     expect(analizarImagen.mock.calls[0][0]).toMatchObject({ instruccion: turno.contenido, mimeType: "image/png" })
     expect(planificar.mock.calls[0][0].pregunta).toContain("Adjunto: imagen")
+    expect(resultado.body.mensajeIA.procedencia).toEqual([{ nombre: "ollama", estado: "completed" }, { nombre: "groq_cu05", estado: "completed" }])
     expect(JSON.stringify(planificar.mock.calls[0][0])).not.toContain("base64")
     expect(responder).not.toHaveBeenCalled(); expect(interpretarCambiosUML).not.toHaveBeenCalled()
     const autorizado = await confirmar(turno.requestId).expect(200)

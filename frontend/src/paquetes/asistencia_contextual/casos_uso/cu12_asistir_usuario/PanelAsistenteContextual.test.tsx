@@ -31,6 +31,19 @@ function dependencias(items: MensajeColaborativo[] = []) {
 }
 
 describe("PanelAsistenteContextual colaborativo", () => {
+  it.each([
+    ["ollama", "Ollama · Qwen3"], ["groq_cu04", "Groq · CU04"], ["groq_cu05", "Groq · CU05"],
+    ["determinista", "NexoCASE"], ["cu08", "CU08"], ["cu07", "CU07 · XMI"], ["spring", "Spring"],
+  ] as const)("muestra procedencia real %s sin inferir herramientas desde el texto", async (nombre, etiqueta) => {
+    const actual = { ...mensaje("1", "ai", "Seleccioné exportar XMI, todavía no se ha ejecutado."), procedencia: [{ nombre, estado: "completed" as const }] }
+    const antiguo = mensaje("2", "ai", "Respuesta histórica sin procedencia")
+    render(<PanelAsistenteContextual projectId="p" credential="cred" contexto={contexto} {...ejecucion} {...dependencias([actual, antiguo])} />)
+    expect(await screen.findByTestId("procedencia-ia")).toHaveTextContent(etiqueta)
+    expect(screen.getAllByTestId("procedencia-ia")).toHaveLength(1)
+    if (nombre === "ollama") expect(screen.getByTestId("procedencia-ia")).not.toHaveTextContent("CU07")
+    expect(screen.queryByRole("button", { name: "↓ modelo.xmi" })).not.toBeInTheDocument()
+  })
+
   it("ofrece descargar el artefacto XMI del turno propio sin mutar ni llamar otra IA", async () => {
     const deps = dependencias()
     const consultar = vi.fn(async () => ({ kind: "tool" as const, operacion: "exportar_xmi" as const, baseEditorRevision: 0,

@@ -75,8 +75,8 @@ describe("flujos recuperables del asistente único", () => {
     expect(aplicar).not.toHaveBeenCalled()
   })
 
-  it("EA muestra cola y consulta hasta confirmación real, reintentando un fallo transitorio sin aplicar UML", async () => {
-    const cola: VistaFlujoAsistente = { ...flujo, operacion: "automatizar_ea", estado: "queued", resumen: "Esperando conector; importación aún no confirmada", advertencias: [] }
+  it.each(["automatizar_ea", "importar_desde_ea"] as const)("EA %s muestra cola y consulta hasta confirmación real, reintentando un fallo transitorio sin aplicar UML", async (operacion) => {
+    const cola: VistaFlujoAsistente = { ...flujo, operacion, estado: "queued", resumen: "Esperando conector; importación aún no confirmada", advertencias: [] }
     const { props, aplicar, confirmar } = preparar(cola)
     vi.useFakeTimers()
     const vista = render(<PanelAsistenteContextual {...props} />)

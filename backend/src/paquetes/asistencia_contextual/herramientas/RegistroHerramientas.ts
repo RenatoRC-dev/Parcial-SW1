@@ -14,6 +14,7 @@ export const herramientas = {
   xmi_export: { description: "CU07 exports actual XMI as an authenticated conversation artifact.", schema: z.object(base).strict() },
   xmi_import: { description: "CU06 preview only; replacement requires separate requester confirmation in the editor.", schema: z.object({ ...base, xml: z.string().min(1).max(5 * 1024 * 1024) }).strict() },
   spring_generate: { description: "CU08/09 eligibility, existing Spring generator and CU10 ZIP artifact.", schema: z.object(base).strict() },
+  ea_export_model: { description: "Export the locally approved EA package through the paired Windows connector; CU06 previews replacement, requiring requester confirmation.", schema: z.object(base).strict() },
   ea_import_model: { description: "Export CU07 to the paired Windows connector's locally selected isolated EA destination. Success requires COM readback.", schema: z.object(base).strict() },
 } as const
 export type NombreHerramienta = keyof typeof herramientas
@@ -65,7 +66,7 @@ export class RegistroHerramientas {
       status = "returned"; message = "Resultado del orquestador CU04. La aplicación al UML corresponde exclusivamente al editor solicitante y su comprobación de revisión."
     }
     else {
-      const operacion = { xmi_export: "exportar_xmi", xmi_import: "importar_xmi", spring_generate: "generar_spring", ea_import_model: "automatizar_ea" } as const
+      const operacion = { xmi_export: "exportar_xmi", xmi_import: "importar_xmi", spring_generate: "generar_spring", ea_import_model: "automatizar_ea", ea_export_model: "importar_desde_ea" } as const
       if (nombre !== "xmi_import" && detectarComandoFlujo(pregunta.contenido) !== operacion[nombre]) throw new ErrorFlujoAsistente(403, "La herramienta no corresponde a la operación autorizada en el turno humano.")
       if (nombre === "xmi_import" && !xml) throw new ErrorFlujoAsistente(400, "Se requiere XMI para la vista previa.")
       const resultado = await this.flujos.ejecutar(acceso, pregunta, operacion[nombre], xml ? { tipo: "xmi", nombre: "modelo.xmi", mime: "application/xml", datos: Buffer.from(xml) } : undefined)

@@ -1,3 +1,4 @@
+import type { PasoIA } from "./ProcedenciaIA.js"
 import type { RespuestaInterpretacionUMLHttp } from "../../asistencia_ia/compartido/contrato/PlanCambiosUML.js"
 import type { ModeloUMLCanonicoIA } from "../../asistencia_ia/compartido/contrato/ComandoModeloUML.js"
 import type { ConsultaMensajes, MensajeProyecto, PaginaMensajes } from "./MensajeProyecto.js"
@@ -8,6 +9,8 @@ export type OrigenAccionIAModelado = "direct" | "collaborative"
 
 /** Metadato interno de idempotencia. Nunca forma parte del mensaje emitido al canal de aplicacion. */
 export interface AccionIAModeladoPersistida {
+  proposalMessageId?: string
+  procedencia?: PasoIA[]
   actionId: string
   projectId: string
   requestId: string

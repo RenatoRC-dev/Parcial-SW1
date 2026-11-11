@@ -1,3 +1,5 @@
+import { conProcedencia, procedenciaActual, registrarPasoIA } from "../../../mensajeria_colaborativa/compartido/ProcedenciaIA.js"
+import { consejoDeAdicionesCompatible, instruccionAsesoria, planAcotadoAlConsejo } from "./PropuestaAsesoriaLocal.js"
 import { randomUUID } from "node:crypto"
 import type { ContextoAccesoProyecto } from "../../../gestion_proyectos/api/ContextoAccesoProyecto.js"
 import { GestionarMensajesProyecto } from "../../../mensajeria_colaborativa/casos_uso/GestionarMensajesProyecto.js"
@@ -25,11 +27,13 @@ export type ResultadoOrquestacion =
   | { kind: "tool"; mensajeHumano: MensajeProyecto; mensajeIA: MensajeProyecto; operacion: "validar_uml" | "exportar_xmi"; baseEditorRevision: number; artifact?: { nombre: "modelo.xmi"; mime: "application/xml"; contenido: string } }
   | { kind: "advisory"; intent: IntencionInteraccionIA; mensajeHumano: MensajeProyecto; mensajeIA: MensajeProyecto }
   | { kind: "clarification"; intent: "CLARIFICATION_REQUIRED"; mensajeHumano: MensajeProyecto; mensajeIA: MensajeProyecto }
-  | { kind: "action"; intent: "EXPLICIT_MODIFICATION" | "CONTEXTUAL_MODIFICATION"; mensajeHumano: MensajeProyecto; actionId: string; sourceMessageId: string; normalizedInstruction: string; plan: AccionIAModeladoPersistida["plan"]; baseEditorRevision: number }
+  | { kind: "action"; intent: "EXPLICIT_MODIFICATION" | "CONTEXTUAL_MODIFICATION"; mensajeHumano: MensajeProyecto; actionId: string; sourceMessageId: string; normalizedInstruction: string; procedencia?: AccionIAModeladoPersistida["procedencia"]; plan: AccionIAModeladoPersistida["plan"]; baseEditorRevision: number }
   | { kind: "action_already_applied"; mensajeHumano: MensajeProyecto; actionId: string; mensajeIA: MensajeProyecto | null }
   | { kind: "action_already_finished"; mensajeHumano: MensajeProyecto; actionId: string; mensajeIA: MensajeProyecto | null }
 
 function normalizar(texto: string): string { return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/^[¿?¡!\s]+/, "") }
+
+const IMPERATIVO_REFERENCIAL = /^(?:(?:bien|si|de acuerdo)[,! ]+)?(?:(?:esos?|esas?|esto)[, ]+)?(?:(?:lo que (?:tu )?me (?:sugeriste|recomendaste|dijiste|indicaste))[, ]+(?:ahora )?)?(?:crea|haz|aplica|agrega|anade|ejecuta)(?:lo|los|la|las)(?: entonces| ahora)?[.!]?$/
 
 function normalizarAutorizacion(texto: string): string {
   // Reconocer el «sí» afirmativo antes de quitar tildes; «si ...» sigue siendo condicional.
@@ -41,6 +45,8 @@ function normalizarAutorizacion(texto: string): string {
 
 export function clasificarIntencionInteraccion(texto: string): IntencionInteraccionIA {
   const entrada = normalizarAutorizacion(texto)
+  if (/\b(no|nunca|jamas)\b/.test(entrada)) return "MODEL_QUERY"
+  if (IMPERATIVO_REFERENCIAL.test(entrada)) return "CONTEXTUAL_MODIFICATION"
   if (/\b(que pasaria|que ocurriria|si agregara|si eliminara|si cambiara)\b/.test(entrada)) return "MODEL_QUERY"
   if (/^(no|como|que|por que|cuando|seria|si)\b/.test(entrada)) {
     if (/^que hizo\b/.test(entrada)) return "ACTIVITY_QUERY"
@@ -51,7 +57,7 @@ export function clasificarIntencionInteraccion(texto: string): IntencionInteracc
   if (/^(aplica (la |el |una |mi )?(propuesta|recomendacion)|(?:hazme|disena|construye|modela|crea) (?:todo el modelo|el (?:modelo|diagrama) completo)[.!]?$)/.test(entrada)) return "CONTEXTUAL_MODIFICATION"
   if (/^crea (?:todas )?las (?:clases|tablas)(?: y relaciones)? recomendadas\b/.test(entrada)) return "CONTEXTUAL_MODIFICATION"
   if (/^(aplica (eso|esto)|las que (tu )?me (indicaste|dijiste|recomendaste))\b/.test(entrada)
-    || (/\b(crea|crear|hazme|haz|aplica)\b/.test(entrada) && /\b(que (tu )?(me )?(dijiste|indicaste|recomendaste)|anteriormente|hace rato me dijiste)\b/.test(entrada))) return "CONTEXTUAL_MODIFICATION"
+    || (/\b(crea|crear|hazme|haz|aplica)\b/.test(entrada) && /\b(que (tu )?(me )?(dijiste|indicaste|recomendaste|sugeriste)|anteriormente|hace rato me dijiste)\b/.test(entrada))) return "CONTEXTUAL_MODIFICATION"
   if (/^(hazlo|aplicalo|aplica lo que|corrigelo|arreglalo|borralo|eliminalo|quitalo|agregale|anadele)(\b|\s)/.test(entrada)) return "CONTEXTUAL_MODIFICATION"
   if (/^(crea|crear|hazme|disena|construye|modela|agrega|anade|elimina|borra|quita|renombra|modifica|cambia|relaciona|convierte|(?:puedes|podrias) (crear|disenar|construir|modelar|hacer|agregar|anadir|eliminar|borrar|quitar|renombrar|modificar|cambiar|relacionar))\b/.test(entrada)
     ) return "EXPLICIT_MODIFICATION"
@@ -73,16 +79,18 @@ type PropuestaGuardada = Awaited<ReturnType<RepositorioMensajes["buscarRecomenda
 function seleccionarPropuesta(texto: string, propuestas: PropuestaGuardada[], recientes: MensajeProyecto[], pregunta: PreguntaAsistenteColaborativo, participantId: string): PropuestaGuardada | null {
   // Solo palabras de tema, no las fórmulas que autorizan la ejecución.
   const omitir = new Set("aplica aplicar aplicalo corrigelo arreglalo borralo eliminalo quitalo agregale anadele crea crear disena construye modela hazlo hazme haz tu eso esto todo todos todas el la los las un una de del al para sobre y con sus que me mi indicaste dijiste recomendaste recomendadas anteriormente hace rato modelar sistema modelo diagrama completo clases tablas relaciones atributos propuesta recomendacion ultima ultimo anterior por favor".split(" "))
+  if (IMPERATIVO_REFERENCIAL.test(texto)) texto = "aplica eso"
   const temas = normalizar(texto).match(/[a-z0-9]+/g)?.filter((palabra) => palabra.length > 2 && !omitir.has(palabra))
     .map((palabra) => palabra.length > 5 && palabra.endsWith("es") ? palabra.slice(0, -2) : palabra.length > 4 && palabra.endsWith("s") ? palabra.slice(0, -1) : palabra) ?? []
-  const clave = ({ mensaje }: PropuestaGuardada) => JSON.stringify([mensaje.recomendacion!.normalizedInstruction.trim().replace(/\s+/g, " "), [...new Set(mensaje.recomendacion!.targetElementIds)].sort()])
+  const clave = ({ mensaje }: PropuestaGuardada) => JSON.stringify([mensaje.recomendacion!.fuente === "asesoria_local" ? mensaje.contenido.trim().replace(/\s+/g, " ") : mensaje.recomendacion!.normalizedInstruction.trim().replace(/\s+/g, " "), [...new Set(mensaje.recomendacion!.targetElementIds)].sort()])
   const unicas = propuestas.filter((propuesta, indice) => propuestas.findIndex((otra) => clave(otra) === clave(propuesta)) === indice)
   const candidatas = temas.length ? unicas.filter(({ mensaje, solicitud }) => {
-    const evidencia = normalizar(`${mensaje.recomendacion!.resumen} ${mensaje.recomendacion!.normalizedInstruction} ${solicitud.contenido}`)
+    const evidencia = normalizar(`${mensaje.recomendacion!.resumen} ${mensaje.recomendacion!.normalizedInstruction} ${mensaje.recomendacion!.fuente === "asesoria_local" ? mensaje.contenido : ""} ${solicitud.contenido}`)
     return temas.every((tema) => evidencia.includes(tema))
   }) : unicas
   if (candidatas.length === 1) return candidatas[0]
   if (!candidatas.length) return null
+  if (candidatas.some(({ mensaje }) => mensaje.recomendacion?.fuente === "asesoria_local") && !/\b(ultima|ultimo)\b/.test(normalizar(texto))) return null
   // Una continuación inmediata del propio hilo identifica su respuesta, aunque otros hablen entre medias.
   const ultimoHumano = recientes.find((mensaje) => mensaje.tipoRemitente === "human" && mensaje.participantId === participantId && mensaje.requestId !== pregunta.requestId)
   const correlacionadas = candidatas.filter((propuesta) => propuesta.solicitud.id === ultimoHumano?.id)
@@ -98,7 +106,7 @@ function resolverAccionContextual(
   pregunta: PreguntaAsistenteColaborativo,
   propuestas: PropuestaGuardada[],
   recientes: MensajeProyecto[],
-): { instruccion: string; targetIds: string[] } | { aclaracion: string } {
+): { instruccion: string; targetIds: string[]; propuesta?: MensajeProyecto } | { aclaracion: string } {
   const modelo = pregunta.modeloEjecucion
   if (!modelo) return { aclaracion: "Necesito la vista actual del modelo para aplicar el cambio con seguridad." }
   const texto = normalizarAutorizacion(pregunta.contenido)
@@ -119,7 +127,17 @@ function resolverAccionContextual(
     if (elimina.test(normalizar(recomendacion.normalizedInstruction)) && !/^(borralo|eliminalo|quitalo)/.test(texto) && !elimina.test(texto)) return { aclaracion: "La recomendación incluye eliminaciones. Confirma explícitamente qué deseas eliminar." }
     if (/^(borralo|eliminalo|quitalo)/.test(texto) && !elimina.test(normalizar(recomendacion.normalizedInstruction))) return { aclaracion: "La recomendación previa no es una eliminación. Indica qué elemento deseas eliminar." }
     if (recomendacion.targetElementIds.some((id) => !existeElemento(modelo, id))) return { aclaracion: "El elemento recomendado ya no existe en el modelo actual. Revisa nuevamente antes de aplicar el cambio." }
-    return { instruccion: recomendacion.normalizedInstruction, targetIds: recomendacion.targetElementIds }
+    if (recomendacion.fuente === "asesoria_local") {
+      if (recomendacion.revisionEditor !== pregunta.revisionEditor) return { aclaracion: "El UML ha cambiado desde ese consejo. Revisa la propuesta sobre la revisión actual antes de autorizarla." }
+      if (!consejoDeAdicionesCompatible(propuesta!.mensaje)) return { aclaracion: "El consejo contiene campos incompletos, tipos no admitidos por CU04 o cambios destructivos. Precisa las adiciones; no se ejecutará parcialmente ni se inventarán relaciones." }
+    }
+    const instruccion = recomendacion.fuente === "asesoria_local" ? instruccionAsesoria(propuesta!.mensaje) : recomendacion.normalizedInstruction
+    if (!instruccion) return { aclaracion: "El consejo es demasiado extenso para ejecutarlo íntegro. Precisa la propuesta sin perder sus nombres y tipos." }
+    return { instruccion, targetIds: recomendacion.targetElementIds, propuesta: propuesta!.mensaje }
+  }
+  const propios = new Set(recientes.filter((m) => m.projectId === acceso.projectId && m.tipoRemitente === "human" && m.participantId === acceso.participantId).map((m) => m.id))
+  if (!propuestas.length && recientes.some((m) => m.projectId === acceso.projectId && m.tipoRemitente === "ai" && !m.recomendacion && m.replyToMessageId && propios.has(m.replyToMessageId) && m.procedencia?.some((p) => p.nombre === "ollama" && p.estado === "completed"))) {
+    return { aclaracion: "El historial anterior de Ollama no conserva una propuesta con revisión verificable. Solicita un consejo actualizado sobre el UML actual y después autoriza su aplicación; no puedo inventar la revisión de aquel mensaje." }
   }
   return { aclaracion: /^(borralo|eliminalo|quitalo)/.test(texto)
     ? "No puedo determinar de forma inequivoca que elemento deseas eliminar. Indica su nombre o seleccion exacta."
@@ -143,6 +161,10 @@ export class OrquestarInteraccionIA {
   ) { this.asistente = new AsistirColaborativamente(gestionarMensajes, construirContexto, proveedorCU12, publicador) }
 
   async ejecutar(acceso: ContextoAccesoProyecto, pregunta: PreguntaAsistenteColaborativo, adjunto?: AdjuntoTurno): Promise<ResultadoOrquestacion> {
+    return conProcedencia(pregunta.requestId, () => this.ejecutarConProcedencia(acceso, pregunta, adjunto))
+  }
+
+  private async ejecutarConProcedencia(acceso: ContextoAccesoProyecto, pregunta: PreguntaAsistenteColaborativo, adjunto?: AdjuntoTurno): Promise<ResultadoOrquestacion> {
     if (!adjunto && this.ejecutarHerramienta) {
       const resultado = await this.ejecutarHerramienta(acceso, pregunta)
       if (resultado) return resultado
@@ -153,7 +175,7 @@ export class OrquestarInteraccionIA {
       const existente = await this.repositorioMensajes.obtenerFlujo(acceso.projectId, pregunta.requestId)
       if (!existente && this.planificadorLocal) {
         const solicitud = await this.construirContexto.construir(acceso, pregunta)
-        const plan = validarPlanLocal(await this.planificadorLocal.planificar({ ...solicitud, pregunta: `${pregunta.contenido}\nAdjunto: ${adjunto.tipo}, ${adjunto.nombre}. Interpreta este turno con el servicio especializado, no tienes contexto visual.` }))
+        const plan = validarPlanLocal(await registrarPasoIA("ollama", () => this.planificadorLocal!.planificar({ ...solicitud, pregunta: `${pregunta.contenido}\nAdjunto: ${adjunto.tipo}, ${adjunto.nombre}. Interpreta este turno con el servicio especializado, no tienes contexto visual.` })))
         if (plan.operacion !== operacion) throw new ErrorFlujoAsistente(400, "La intención no corresponde al archivo. Precisa analizar la imagen o importar el XMI; no se ejecutó otra operación.")
       }
       return this.flujos.ejecutar(acceso, pregunta, operacion, adjunto)
@@ -189,9 +211,10 @@ export class OrquestarInteraccionIA {
     // Reutilizar primero el resultado durable: ni el planner ni Groq se repiten.
     const respuestaPrevia = await this.gestionarMensajes.obtenerPorRequestId(acceso.projectId, pregunta.requestId, "ai")
     if (this.planificadorLocal && respuestaPrevia) return { kind: "advisory", intent, mensajeHumano: humano.mensaje, mensajeIA: respuestaPrevia }
-    if (this.planificadorLocal) {
+    if (this.planificadorLocal && intent !== "CONTEXTUAL_MODIFICATION") {
       // Se valida incluso el proveedor inyectado. El LLM no otorga autorización.
-      const plan = validarPlanLocal(await this.planificadorLocal.planificar(await this.construirContexto.construir(acceso, pregunta)))
+      const plan = validarPlanLocal(await registrarPasoIA("ollama", async () => this.planificadorLocal!.planificar(await this.construirContexto.construir(acceso, pregunta))))
+      console.info("[IA] routing", JSON.stringify({ requestId: pregunta.requestId, selectedOperation: plan.operacion, authorization: intent }))
       if ((plan.operacion === "exportar_xmi" || plan.operacion === "generar_spring") && this.flujos) {
         if (detectarComandoFlujo(pregunta.contenido) !== plan.operacion) return this.aclarar(acceso, pregunta, humano.mensaje, "Confirma explícitamente exportar XMI o generar el backend Spring.")
         return this.flujos.ejecutar(acceso, pregunta, plan.operacion)
@@ -212,11 +235,11 @@ export class OrquestarInteraccionIA {
         let artifact: { nombre: "modelo.xmi"; mime: "application/xml"; contenido: string } | undefined
         let contenido: string
         if (plan.operacion === "validar_uml") {
-          const validacion = validarModelo(modelo)
+          const validacion = await registrarPasoIA("cu08", () => validarModelo(modelo))
           const spring = evaluarAptitudGeneracionSpring(modelo, validacion)
           contenido = `Validación completada sobre la revisión local ${pregunta.revisionEditor}. UML ${validacion.valido ? "válido" : "inválido"}. Spring: ${spring.apto ? "apto" : "no apto"}.\n${validacion.diagnosticos.slice(0, 12).map((d) => d.mensaje).join("\n")}\n${spring.motivos.slice(0, 8).join("\n")}`
         } else {
-          try { artifact = { nombre: "modelo.xmi", mime: "application/xml", contenido: (await exportarModeloXmi(modelo)).toString("utf8") } }
+          try { artifact = { nombre: "modelo.xmi", mime: "application/xml", contenido: (await registrarPasoIA("cu07", () => exportarModeloXmi(modelo))).toString("utf8") } }
           catch { throw new ErrorAsistenteContextual("no_disponible", "El servicio XMI no pudo producir el archivo; no se ha exportado.") }
           contenido = `Archivo XMI generado sobre la revisión local ${pregunta.revisionEditor}. Disponible para descargar en esta respuesta; no se importó en Enterprise Architect.`
         }
@@ -244,6 +267,7 @@ export class OrquestarInteraccionIA {
     if (!pregunta.modeloEjecucion || pregunta.revisionEditor === undefined) return this.aclarar(acceso, pregunta, humano.mensaje, "Necesito una vista actual valida del modelo antes de preparar esa modificacion.")
     let instruccion = pregunta.contenido.trim()
     let targetIds: string[] = []
+    let propuesta: MensajeProyecto | undefined
     if (intent === "CONTEXTUAL_MODIFICATION") {
       const [propuestas, recientes] = await Promise.all([
         this.repositorioMensajes.buscarRecomendaciones(acceso.projectId, acceso.participantId, 32),
@@ -251,11 +275,13 @@ export class OrquestarInteraccionIA {
       ])
       const resuelta = resolverAccionContextual(acceso, pregunta, propuestas, recientes.items)
       if ("aclaracion" in resuelta) return this.aclarar(acceso, pregunta, humano.mensaje, resuelta.aclaracion)
-      instruccion = resuelta.instruccion; targetIds = resuelta.targetIds
+      instruccion = resuelta.instruccion; targetIds = resuelta.targetIds; propuesta = resuelta.propuesta
     }
-    const plan = await interpretarInstruccionModelado({ instruccion, modelo: pregunta.modeloEjecucion, revision: pregunta.revisionEditor }, this.proveedorCU04, pregunta.requestId)
+    const plan = await registrarPasoIA("groq_cu04", () => interpretarInstruccionModelado({ instruccion, modelo: pregunta.modeloEjecucion!, revision: pregunta.revisionEditor! }, this.proveedorCU04, pregunta.requestId))
     if (plan.resultado !== "aplicar") return this.aclarar(acceso, pregunta, humano.mensaje, plan.mensaje, targetIds)
+    if (propuesta?.recomendacion?.fuente === "asesoria_local" && !planAcotadoAlConsejo(propuesta, pregunta.modeloEjecucion, plan.comandos)) return this.aclarar(acceso, pregunta, humano.mensaje, "El plan excede las adiciones comprobables del consejo. Precisa las clases, atributos y tipos; no se aplicó ningún cambio.")
     const accion = await this.repositorioMensajes.reservarAccionIA({
+      ...(propuesta ? { proposalMessageId: propuesta.id } : {}), procedencia: procedenciaActual(),
       actionId: randomUUID(), projectId: acceso.projectId, requestId: pregunta.requestId, sourceMessageId: humano.mensaje.id,
       requestingParticipantId: acceso.participantId, origen: "collaborative", normalizedInstruction: instruccion,
       baseEditorRevision: pregunta.revisionEditor, modeloBase: structuredClone(pregunta.modeloEjecucion), plan,
@@ -266,10 +292,11 @@ export class OrquestarInteraccionIA {
 
   private salidaAccion(mensajeHumano: MensajeProyecto, accion: AccionIAModeladoPersistida, intent: IntencionInteraccionIA): ResultadoOrquestacion {
     return { kind: "action", intent: intent === "CONTEXTUAL_MODIFICATION" ? intent : "EXPLICIT_MODIFICATION", mensajeHumano, actionId: accion.actionId,
-      sourceMessageId: accion.sourceMessageId, normalizedInstruction: accion.normalizedInstruction, plan: accion.plan, baseEditorRevision: accion.baseEditorRevision }
+      sourceMessageId: accion.sourceMessageId, procedencia: accion.procedencia, normalizedInstruction: accion.normalizedInstruction, plan: accion.plan, baseEditorRevision: accion.baseEditorRevision }
   }
 
   private async aclarar(acceso: ContextoAccesoProyecto, pregunta: PreguntaAsistenteColaborativo, humano: MensajeProyecto, contenido: string, ids: string[] = []): Promise<ResultadoOrquestacion> {
+    await registrarPasoIA("determinista", () => undefined)
     const ia = await this.gestionarMensajes.registrarMensajeIAIdempotente(acceso.projectId, contenido, pregunta.requestId, humano.id, ids)
     if (ia.creado) this.publicador.publicar(ia.mensaje)
     return { kind: "clarification", intent: "CLARIFICATION_REQUIRED", mensajeHumano: humano, mensajeIA: ia.mensaje }

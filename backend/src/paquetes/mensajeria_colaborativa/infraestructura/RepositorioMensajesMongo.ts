@@ -20,7 +20,11 @@ function validar(documento: DocumentoMensaje): void {
     || !(documento.replyToMessageId === null || typeof documento.replyToMessageId === "string")
     || !Array.isArray(documento.elementosRelacionadosIds) || documento.elementosRelacionadosIds.some((id) => typeof id !== "string")
     || !Number.isInteger(documento.revisionModeloObservada) || documento.revisionModeloObservada < 0 || !esFecha(documento.creadoEn)
-    || !(recomendacion === undefined || recomendacion === null || (typeof recomendacion.resumen === "string" && recomendacion.resumen.length <= 500
+    || (documento.procedencia !== undefined && (!Array.isArray(documento.procedencia) || documento.procedencia.length > 12
+      || documento.procedencia.some((paso) => !paso || typeof paso !== "object" || !["ollama", "groq_cu04", "groq_cu05", "groq_cu12", "determinista", "cu08", "cu06", "cu07", "spring"].includes(paso.nombre) || !["completed", "failed"].includes(paso.estado))))
+    || !(recomendacion === undefined || recomendacion === null || ((recomendacion.fuente === undefined || recomendacion.fuente === "asesoria_local")
+      && (recomendacion.revisionEditor === undefined || (Number.isInteger(recomendacion.revisionEditor) && recomendacion.revisionEditor >= 0))
+      && typeof recomendacion.resumen === "string" && recomendacion.resumen.length <= 500
       && typeof recomendacion.normalizedInstruction === "string" && recomendacion.normalizedInstruction.length <= 2_000
       && Array.isArray(recomendacion.targetElementIds) && recomendacion.targetElementIds.length <= 8
       && recomendacion.targetElementIds.every((id) => typeof id === "string" && id.length <= 160)))) {
@@ -51,7 +55,7 @@ export class RepositorioMensajesMongo implements RepositorioMensajes {
       const flujo = documento?.flujoAsistente
       if (!flujo) return null
       if (flujo.projectId !== projectId || flujo.requestId !== requestId || flujo.participantId !== documento?.participantId || flujo.sourceMessageId !== documento?._id
-        || !["analizar_imagen", "importar_xmi", "exportar_xmi", "generar_spring", "automatizar_ea"].includes(flujo.operacion)
+        || !["analizar_imagen", "importar_xmi", "exportar_xmi", "generar_spring", "automatizar_ea", "importar_desde_ea"].includes(flujo.operacion)
         || !["processing", "review", "ready", "issued", "applied", "cancelled", "failed", "queued", "importing"].includes(flujo.estado)
         || !Number.isInteger(flujo.revision) || flujo.revision < 0 || typeof flujo.huella !== "string" || !/^[a-f0-9]{64}$/.test(flujo.huella)
         || typeof flujo.resumen !== "string" || !Array.isArray(flujo.advertencias)

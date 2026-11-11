@@ -77,7 +77,7 @@ export function registrarRutaInterpretacionIA(aplicacion: Express, dependencias:
         catch { traceabilityWarning = true; console.error("No se pudo registrar toda la trazabilidad secundaria de la accion IA.") }
       }
       const contenido = estado === "applied" ? accion.plan.mensaje : (typeof solicitud.body?.mensaje === "string" && solicitud.body.mensaje.trim() ? solicitud.body.mensaje.trim().slice(0, 500) : "No se pudo aplicar el cambio solicitado.")
-      const ia = await mensajes.registrarMensajeIAIdempotente(acceso.projectId, contenido, accion.requestId, accion.sourceMessageId)
+      const ia = await mensajes.registrarMensajeIAIdempotente(acceso.projectId, contenido, accion.requestId, accion.sourceMessageId, [], null, accion.procedencia)
       if (ia.creado) dependencias.publicador.publicar(ia.mensaje)
       respuesta.status(200).json({ kind: estado === "applied" ? "action_applied" : "action_failed", actionId, mensajeIA: ia.mensaje, traceabilityWarning })
     } catch (error) { responderErrorIA(error, respuesta) }

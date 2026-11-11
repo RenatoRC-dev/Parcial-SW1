@@ -1,3 +1,4 @@
+import { procedenciaActual, type PasoIA } from "../compartido/ProcedenciaIA.js"
 import { randomUUID } from "node:crypto"
 import type { ContextoAccesoProyecto } from "../../gestion_proyectos/api/ContextoAccesoProyecto.js"
 import { ErrorProyectoNoEncontrado, type RepositorioProyectos } from "../../gestion_proyectos/compartido/RepositorioProyectos.js"
@@ -19,7 +20,7 @@ export class GestionarMensajesProyecto {
   }
 
   async registrarMensajeIA(projectId: string, contenido: string, opciones: {
-    requestId?: string; replyToMessageId?: string; elementosRelacionadosIds?: string[]; recomendacion?: RecomendacionMensajeIA | null
+    requestId?: string; replyToMessageId?: string; elementosRelacionadosIds?: string[]; recomendacion?: RecomendacionMensajeIA | null; procedencia?: PasoIA[]
   } = {}): Promise<MensajeProyecto> {
     return this.registrar(projectId, "ai", null, "Asistente", contenido, opciones)
   }
@@ -55,12 +56,12 @@ export class GestionarMensajesProyecto {
     }
   }
 
-  async registrarMensajeIAIdempotente(projectId: string, contenido: string, requestId: string, replyToMessageId: string, elementosRelacionadosIds: string[] = [], recomendacion: RecomendacionMensajeIA | null = null): Promise<{ mensaje: MensajeProyecto; creado: boolean }> {
+  async registrarMensajeIAIdempotente(projectId: string, contenido: string, requestId: string, replyToMessageId: string, elementosRelacionadosIds: string[] = [], recomendacion: RecomendacionMensajeIA | null = null, procedencia: PasoIA[] = procedenciaActual()): Promise<{ mensaje: MensajeProyecto; creado: boolean }> {
     if (!PATRON_UUID.test(requestId)) throw new ErrorMensajeInvalido("El requestId no es válido.")
     const existente = await this.mensajes.obtenerPorRequestId(projectId, requestId, "ai")
     if (existente) return { mensaje: existente, creado: false }
     try {
-      return { mensaje: await this.registrarMensajeIA(projectId, contenido, { requestId, replyToMessageId, elementosRelacionadosIds, recomendacion }), creado: true }
+      return { mensaje: await this.registrarMensajeIA(projectId, contenido, { requestId, replyToMessageId, elementosRelacionadosIds, recomendacion, procedencia }), creado: true }
     } catch (error) {
       if (error instanceof ErrorRequestMensajeDuplicado) {
         const repetido = await this.mensajes.obtenerPorRequestId(projectId, requestId, "ai")
@@ -73,7 +74,7 @@ export class GestionarMensajesProyecto {
   private async registrar(
     projectId: string, tipoRemitente: "human" | "ai", participantId: string | null,
     nombreVisibleSnapshot: string | null, contenido: string,
-    opciones: { requestId?: string; replyToMessageId?: string; elementosRelacionadosIds?: string[]; recomendacion?: RecomendacionMensajeIA | null },
+    opciones: { requestId?: string; replyToMessageId?: string; elementosRelacionadosIds?: string[]; recomendacion?: RecomendacionMensajeIA | null; procedencia?: PasoIA[] },
   ): Promise<MensajeProyecto> {
     const limpio = contenido?.trim()
     if (!limpio || limpio.length > MAXIMO_CONTENIDO) throw new ErrorMensajeInvalido("El mensaje debe contener entre 1 y 8000 caracteres.")
@@ -84,7 +85,7 @@ export class GestionarMensajesProyecto {
     return this.mensajes.crear({
       id: randomUUID(), projectId, tipoRemitente, participantId, nombreVisibleSnapshot,
       contenido: limpio, requestId: opciones.requestId ?? null, replyToMessageId: opciones.replyToMessageId ?? null,
-      elementosRelacionadosIds: [...ids], ...(tipoRemitente === "ai" ? { recomendacion: opciones.recomendacion ?? null } : {}), revisionModeloObservada: proyecto.revisionModelo,
+      elementosRelacionadosIds: [...ids], ...(tipoRemitente === "ai" ? { recomendacion: opciones.recomendacion ?? null, ...(opciones.procedencia?.length ? { procedencia: opciones.procedencia } : {}) } : {}), revisionModeloObservada: proyecto.revisionModelo,
       creadoEn: new Date().toISOString(),
     })
   }

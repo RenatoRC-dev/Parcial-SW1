@@ -81,7 +81,7 @@ export interface RespuestaAsistenteContextual {
   nivel: NivelRespuestaContextual
   categoriaRecomendacion: CategoriaRecomendacionContextual
   recomendacion?: { resumen: string; targetElementIds: string[]; normalizedInstruction: string } | null
-  origen?: "determinista" | "groq"
+  origen?: "determinista" | "groq" | "ollama"
 }
 
 const acciones = new Set<string>(ACCIONES_ASISTENTE_CONTEXTUAL)
@@ -141,7 +141,7 @@ export function esRespuestaAsistenteContextual(valor: unknown): valor is Respues
     && niveles.has(valor.nivel)
     && typeof valor.categoriaRecomendacion === "string"
     && categorias.has(valor.categoriaRecomendacion)
-    && (valor.origen === undefined || valor.origen === "determinista" || valor.origen === "groq")
+    && (valor.origen === undefined || valor.origen === "determinista" || valor.origen === "groq" || valor.origen === "ollama")
     && (valor.recomendacion === undefined || valor.recomendacion === null || (esObjeto(valor.recomendacion)
       && typeof valor.recomendacion.resumen === "string" && valor.recomendacion.resumen.length <= 500
       && typeof valor.recomendacion.normalizedInstruction === "string" && valor.recomendacion.normalizedInstruction.length <= 2000
@@ -158,7 +158,7 @@ export function motivoRespuestaContextualInvalida(valor: unknown): string | null
   if (valor.elementoRelacionadoId !== null && typeof valor.elementoRelacionadoId !== "string") return "LOCAL_SCHEMA_ELEMENT_REFERENCE"
   if (typeof valor.nivel !== "string" || !niveles.has(valor.nivel)) return "LOCAL_SCHEMA_LEVEL"
   if (typeof valor.categoriaRecomendacion !== "string" || !categorias.has(valor.categoriaRecomendacion)) return "LOCAL_SCHEMA_CATEGORY"
-  if (valor.origen !== undefined && valor.origen !== "determinista" && valor.origen !== "groq") return "LOCAL_SCHEMA_ORIGIN"
+  if (valor.origen !== undefined && valor.origen !== "determinista" && valor.origen !== "groq" && valor.origen !== "ollama") return "LOCAL_SCHEMA_ORIGIN"
   if (!esRespuestaAsistenteContextual(valor)) return "LOCAL_SCHEMA_RECOMMENDATION"
   return null
 }
